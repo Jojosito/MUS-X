@@ -33,12 +33,20 @@ struct ADSR : Module {
 	float voltage = 0;
 	int stage = STAGE_R;
 
+	float attackCoeff = 0.f;
+	float decayCoeff = 0.f;
+	float releaseCoeff = 0.f;
+
+	float lastAttackParam = 0.f;
+	float lastDecayParam = 0.f;
+	float lastReleaseParam = 0.f;
+
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 0.99f, 1.f, 0.f, "Attack");
-		configParam(D_PARAM, 0.99f, 1.f, 0.f, "Decay");
-		configParam(S_PARAM, 0.f, 1.f, 1.f, "Sustain");
-		configParam(R_PARAM, 0.99f, 1.f, 0.f, "Release");
+		configParam(A_PARAM, 2.f, 15.f, 0.f, "Attack");
+		configParam(D_PARAM, 2.f, 15.f, 0.f, "Decay");
+		configParam(S_PARAM, 0.f, 10.f, 5.f, "Sustain");
+		configParam(R_PARAM, 2.f, 15.f, 0.f, "Release");
 		configParam(VELSCALE_PARAM, 0.f, 1.f, 0.f, "Velocity scaling");
 		configInput(GATE_INPUT, "Gate");
 		configInput(RETRIG_INPUT, "Retrigger");
@@ -47,31 +55,35 @@ struct ADSR : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
+		// coefficient calculation; only recalculate if params changed
+		if (params[A_PARAM].getValue() != lastAttackParam ||
+			params[D_PARAM].getValue() != lastDecayParam ||
+			params[R_PARAM].getValue() != lastReleaseParam)
+		{
+			lights[ENV_OUTPUT].setBrightness(1);
+			lastAttackParam = params[A_PARAM].getValue();
+			lastDecayParam = params[D_PARAM].getValue();
+			lastReleaseParam = params[R_PARAM].getValue();
+
+			attackCoeff = 1.f - exp(-lastAttackParam*44100/args.sampleRate);
+			decayCoeff = 1.f - exp(-lastDecayParam*44100/args.sampleRate);
+			releaseCoeff = 1.f - exp(-lastReleaseParam*44100/args.sampleRate);
+			lights[ENV_OUTPUT].setBrightness(0);
+		}
+
+		float sustainParam = params[S_PARAM].getValue();
+
 		float gate = inputs[GATE_INPUT].getVoltage() - inputs[RETRIG_INPUT].getVoltage();
 
-		// TODO scaling
-		float attackParam = params[A_PARAM].getValue();
-		float decayParam = params[D_PARAM].getValue();
-		float sustainParam = 10.f * params[S_PARAM].getValue();
-		float releaseParam = params[R_PARAM].getValue();
-
-		// TODO branchless
 		// check retrig / attack
-		if (gate > 1.f && stage == STAGE_R)
-		{
-			stage = STAGE_A;
-		}
+		stage = (gate > 1.f && stage == STAGE_R) ? STAGE_A : stage;
 		// check release
-		if (gate < 0.1f && stage != STAGE_R)
-		{
-			stage = STAGE_R;
-		}
-
+		stage = (gate < 0.1f && stage != STAGE_R) ? STAGE_R : stage;
 
 		switch (stage)
 		{
 			case STAGE_A:
-				voltage = attackParam*voltage + (1-attackParam)*gate*1.2f;
+				voltage = attackCoeff*voltage + (1.f-attackCoeff)*gate*1.2f;
 				if (voltage > 10.f)
 				{
 					voltage = 10.f;
@@ -79,14 +91,15 @@ struct ADSR : Module {
 				}
 				break;
 			case STAGE_D:
-				voltage = decayParam*voltage + (1-decayParam)*sustainParam;
+				voltage = decayCoeff*voltage + (1.f-decayCoeff)*sustainParam;
 				break;
 			case STAGE_R:
-				voltage = releaseParam*voltage;
+				voltage = releaseCoeff*voltage;
 		}
 
-		// TODO velocity
-		outputs[ENV_OUTPUT].setVoltage(voltage);
+		// velocity
+		float velScaling = 1.f - params[VELSCALE_PARAM].getValue() + 0.1f*inputs[VEL_INPUT].getVoltage() * params[VELSCALE_PARAM].getValue();
+		outputs[ENV_OUTPUT].setVoltage(velScaling * voltage);
 	}
 };
 
