@@ -68,11 +68,11 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2.8"
-     inkscape:cx="97.857143"
-     inkscape:cy="215.17857"
+     inkscape:zoom="7.9195959"
+     inkscape:cx="72.983521"
+     inkscape:cy="83.148181"
      inkscape:document-units="mm"
-     inkscape:current-layer="layer2"
+     inkscape:current-layer="layer1"
      showgrid="false"
      units="mm"
      inkscape:snap-bbox="true"
@@ -351,7 +351,8 @@ mod"
        height="15.049564"
        x="1.1117212"
        y="275.96753"
-       style="fill:#1a1a1a;fill-opacity:1;stroke-width:0.364143" />
+       style="fill:#1a1a1a;fill-opacity:1;stroke-width:0.364143"
+       ry="2.5874724" />
     <g
        aria-label="Env"
        id="text73213"
@@ -369,7 +370,8 @@ mod"
     <g
        aria-label="Envelope"
        id="text88103"
-       style="font-size:4.23333px;line-height:1.25;fill-opacity:0.9;stroke-width:0.264585">
+       style="font-size:4.23333px;line-height:1.25;fill-opacity:0.9;stroke-width:0.264585"
+       transform="translate(0,0.52916667)">
       <path
          d="m 4.63807,173.40377 h 2.1476707 v 0.60151 H 5.4338864 v 0.57464 h 1.2712392 v 0.60152 H 5.4338864 v 0.70693 h 1.3973295 v 0.60151 H 4.63807 Z"
          style="font-weight:bold;-inkscape-font-specification:'sans-serif Bold'"
@@ -481,12 +483,12 @@ mod"
          id="path59994" />
     </g>
     <path
-       style="fill:#000000;fill-opacity:0.9;stroke:#000000;stroke-width:0.265;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#000000;fill-opacity:0.9;stroke:#000000;stroke-width:0.265;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        d="m 22.862261,245.64037 -0.0045,-6.59965"
        id="path58833"
        sodipodi:nodetypes="cc" />
     <path
-       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Mend)"
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;marker-end:url(#Arrow2Mend)"
        d="m 22.861999,220.88581 v -4.25084 h -7.656796"
        id="path59223" />
   </g>
