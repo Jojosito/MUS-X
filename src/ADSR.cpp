@@ -136,6 +136,11 @@ struct ADSR : Module {
 
 	}
 
+	void onUnBypass(const UnBypassEvent& e) override {
+		// force recalculation and setting of output channels
+		lastAttackParam = -1.f;
+	}
+
 };
 
 
