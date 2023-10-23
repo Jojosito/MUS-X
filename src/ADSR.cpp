@@ -99,8 +99,9 @@ struct ADSR : Module {
 
 
 		for (int c = 0; c < channels; c += 4) {
-			this->sustain[c/4] = params[S_PARAM].getValue() +
-					inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) / 10.f * params[SUSMOD_PARAM].getValue();
+			this->sustain[c/4] = simd::clamp(params[S_PARAM].getValue() +
+					inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) * 0.1f * params[SUSMOD_PARAM].getValue(),
+					0.f, 1.f);
 
 			// Gate
 			float_4 oldGate = gate[c/4];
