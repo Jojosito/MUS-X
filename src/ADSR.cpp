@@ -141,6 +141,11 @@ struct ADSR : Module {
 		lastAttackParam = -1.f;
 	}
 
+	void onPortChange(const PortChangeEvent& e) override {
+		// force recalculation and setting of output channels
+		lastAttackParam = -1.f;
+	}
+
 };
 
 
