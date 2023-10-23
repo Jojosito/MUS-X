@@ -81,9 +81,9 @@ struct ADSR : Module {
 			lastDecayParam = params[D_PARAM].getValue();
 			lastReleaseParam = params[R_PARAM].getValue();
 
-			attackCoeff = 1.f - exp(-lastAttackParam*44100/args.sampleRate);
-			decayCoeff = 1.f - exp(-lastDecayParam*44100/args.sampleRate);
-			releaseCoeff = 1.f - exp(-lastReleaseParam*44100/args.sampleRate);
+			attackCoeff = pow(1.f - exp(-lastAttackParam), 44100/args.sampleRate);
+			decayCoeff = pow(1.f - exp(-lastDecayParam), 44100/args.sampleRate);
+			releaseCoeff = pow(1.f - exp(-lastReleaseParam), 44100/args.sampleRate);
 		}
 
 		channels = std::max(1, inputs[GATE_INPUT].getChannels());
@@ -126,6 +126,11 @@ struct ADSR : Module {
 			outputs[ENV_OUTPUT].setVoltage(velScaling[c] * voltage[c], c);
 		}
 
+	}
+
+	void onSampleRateChange(const SampleRateChangeEvent& e) override {
+		// force recalculation of coefficients
+		lastAttackParam += 0.1f;
 	}
 };
 
