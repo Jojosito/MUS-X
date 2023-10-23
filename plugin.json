@@ -1,0 +1,25 @@
+{
+  "slug": "MUS-X",
+  "name": "MUS-X",
+  "version": "2.0.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "MUS-X",
+  "author": "Dr. Johannes Rauch",
+  "authorEmail": "jojo@mus-x.de",
+  "authorUrl": "mus-x.de",
+  "pluginUrl": "mus-x.de",
+  "manualUrl": "",
+  "sourceUrl": "",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "ADSR",
+      "name": "ADSR",
+      "description": "ADSR envelope generator",
+      "tags": [
+        "Envelope generator"
+      ]
+    }
+  ]
+}
