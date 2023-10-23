@@ -33,16 +33,19 @@ struct ADSR : Module {
 		STAGE_R = 2
 	};
 
-	float voltage = 0;
-	int stage = STAGE_R;
+	int channels = 1;
 
-	dsp::TSchmittTrigger<float> triggerGate;
-	dsp::TSchmittTrigger<float> triggerRetrigger;
+	float voltage[16] = {0.f};
+	int stage[16] = {STAGE_R};
+	float velScaling[16] = {0.f};
+
+	dsp::TSchmittTrigger<float> triggerGate[16];
+	dsp::TSchmittTrigger<float> triggerRetrigger[16];
 
 	float attackCoeff = 0.f;
 	float decayCoeff = 0.f;
 	float releaseCoeff = 0.f;
-	float sustainLevel = 0.5f;
+	float sustainLevel[16] = {0.5f};
 
 	float lastAttackParam = 0.f;
 	float lastDecayParam = 0.f;
@@ -83,37 +86,46 @@ struct ADSR : Module {
 			releaseCoeff = 1.f - exp(-lastReleaseParam*44100/args.sampleRate);
 		}
 
-		// check release
-		stage = triggerGate.isHigh() ? stage : STAGE_R;
+		channels = std::max(1, inputs[GATE_INPUT].getChannels());
+		outputs[SGATE_OUTPUT].setChannels(channels);
+		outputs[ENV_OUTPUT].setChannels(channels);
 
-		// check retrig / attack
-		stage = triggerGate.process(inputs[GATE_INPUT].getVoltage(), 0.1f, 1.f) ? STAGE_A : stage;
-		stage = triggerRetrigger.process(inputs[RETRIG_INPUT].getVoltage(), 0.1f, 1.f) ? STAGE_A : stage;
+		for (int c = 0; c < channels; c += 1) {
+			// check retrig / attack
+			stage[c] = triggerGate[c].process(inputs[GATE_INPUT].getPolyVoltage(c), 0.1f, 1.f) ? STAGE_A : stage[c];
+			stage[c] = triggerRetrigger[c].process(inputs[RETRIG_INPUT].getPolyVoltage(c), 0.1f, 1.f) ? STAGE_A : stage[c];
 
-		switch (stage)
-		{
-			case STAGE_A:
-				voltage = attackCoeff*voltage + (1.f-attackCoeff)*12.f;
-				if (voltage > 10.f)
-				{
-					voltage = 10.f;
-					stage = STAGE_DS;
-				}
-				break;
-			case STAGE_DS:
-				sustainLevel = params[S_PARAM].getValue() + params[SUSMOD_PARAM].getValue() * inputs[SUSMOD_INPUT].getVoltage();
-				sustainLevel = clamp(sustainLevel, 0.f, 10.f);
-				voltage = decayCoeff*voltage + (1.f-decayCoeff)*sustainLevel;
-				break;
-			case STAGE_R:
-				voltage = releaseCoeff*voltage;
+			// check release
+			stage[c] = triggerGate[c].isHigh() ? stage[c] : STAGE_R;
+
+			switch (stage[c])
+			{
+				case STAGE_A:
+					voltage[c] = attackCoeff*voltage[c] + (1.f-attackCoeff)*12.f;
+					if (voltage[c] > 10.f)
+					{
+						voltage[c] = 10.f;
+						stage[c] = STAGE_DS;
+					}
+					break;
+				case STAGE_DS:
+					sustainLevel[c] = params[S_PARAM].getValue() +
+						params[SUSMOD_PARAM].getValue() * inputs[SUSMOD_INPUT].getPolyVoltage(c);
+					sustainLevel[c] = clamp(sustainLevel[c], 0.f, 10.f);
+					voltage[c] = decayCoeff*voltage[c] + (1.f-decayCoeff)*sustainLevel[c];
+					break;
+				case STAGE_R:
+					voltage[c] = releaseCoeff*voltage[c];
+			}
+
+			// velocity
+			velScaling[c] = 1.f - params[VELSCALE_PARAM].getValue() +
+					0.1f*inputs[VEL_INPUT].getPolyVoltage(c) * params[VELSCALE_PARAM].getValue();
+
+			outputs[SGATE_OUTPUT].setVoltage((stage[c] == STAGE_DS) ? 10.f : 0.f, c);
+			outputs[ENV_OUTPUT].setVoltage(velScaling[c] * voltage[c], c);
 		}
 
-		// velocity
-		float velScaling = 1.f - params[VELSCALE_PARAM].getValue() + 0.1f*inputs[VEL_INPUT].getVoltage() * params[VELSCALE_PARAM].getValue();
-
-		outputs[SGATE_OUTPUT].setVoltage((stage == STAGE_DS) ? 10.f : 0.f);
-		outputs[ENV_OUTPUT].setVoltage(velScaling * voltage);
 	}
 };
 

@@ -18,7 +18,7 @@
       "name": "ADSR",
       "description": "ADSR envelope generator",
       "tags": [
-        "Envelope generator"
+        "Envelope generator", "Polyphonic"
       ]
     }
   ]
