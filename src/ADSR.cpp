@@ -1,9 +1,3 @@
-/**
- * This file uses code from https://github.com/VCVRack/Fundamental/blob/v2/src/ADSR.cpp
- * copyright © 2016-2023 VCV
- * copyright © 2023 MUS-X
- */
-
 #include "plugin.hpp"
 
 using simd::float_4;
