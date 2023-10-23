@@ -7,9 +7,9 @@
   "author": "Dr. Johannes Rauch",
   "authorEmail": "jojo@mus-x.de",
   "authorUrl": "mus-x.de",
-  "pluginUrl": "mus-x.de",
-  "manualUrl": "",
-  "sourceUrl": "",
+  "pluginUrl": "https://github.com/Jojosito/MUS-X",
+  "manualUrl": "https://github.com/Jojosito/MUS-X",
+  "sourceUrl": "https://github.com/Jojosito/MUS-X",
   "donateUrl": "",
   "changelogUrl": "",
   "modules": [
