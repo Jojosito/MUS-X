@@ -1,5 +1,12 @@
+/**
+ * This file uses code from https://github.com/VCVRack/Fundamental/blob/v2/src/ADSR.cpp
+ * copyright © 2016-2023 VCV
+ * copyright © 2023 MUS-X
+ */
+
 #include "plugin.hpp"
 
+using simd::float_4;
 
 struct ADSR : Module {
 	enum ParamId {
@@ -33,105 +40,108 @@ struct ADSR : Module {
 		STAGE_R = 2
 	};
 
+
+	static constexpr float MIN_TIME = 5e-4f;
+	static constexpr float MAX_TIME = 20.f;
+	static constexpr float LAMBDA_BASE = MAX_TIME / MIN_TIME;
+	static constexpr float ATT_TARGET = 1.2f;
+
 	int channels = 1;
+	float_4 gate[4] = {};
+	float_4 attacking[4] = {};
+	float_4 env[4] = {};
+	dsp::TSchmittTrigger<float_4> trigger[4];
+	float_4 attackLambda[4] = {};
+	float_4 decayLambda[4] = {};
+	float_4 releaseLambda[4] = {};
+	float_4 sustain[4] = {};
 
-	float voltage[16] = {0.f};
-	int stage[16] = {STAGE_R};
-	float velScaling[16] = {0.f};
-
-	dsp::TSchmittTrigger<float> triggerGate[16];
-	dsp::TSchmittTrigger<float> triggerRetrigger[16];
-
-	float attackCoeff = 0.f;
-	float decayCoeff = 0.f;
-	float releaseCoeff = 0.f;
-	float sustainLevel[16] = {0.5f};
-
-	float lastAttackParam = 0.f;
-	float lastDecayParam = 0.f;
-	float lastReleaseParam = 0.f;
+	float lastAttackParam = -1.f;
+	float lastDecayParam = -1.f;
+	float lastReleaseParam = -1.f;
 
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 2.f, 15.f, 0.f, "Attack time");
-		configParam(D_PARAM, 2.f, 15.f, 0.f, "Decay time");
-		configParam(S_PARAM, 0.f, 10.f, 5.f, "Sustain level");
-		configParam(R_PARAM, 2.f, 15.f, 0.f, "Release time");
+		configParam(A_PARAM, 0.f, 1.f, 0.5f, "Attack", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(D_PARAM, 0.f, 1.f, 0.5f, "Decay", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(S_PARAM, 0.f, 1.f, 0.5f, "Sustain", "%", 0, 100);
+		configParam(R_PARAM, 0.f, 1.f, 0.5f, "Release", " ms", LAMBDA_BASE, MIN_TIME * 1000);
 
 		configParam(VELSCALE_PARAM, 0.f, 1.f, 0.f, "Velocity CV");
 		configParam(SUSMOD_PARAM, -1.f, 1.f, 0.f, "Sustain CV");
 
-		configInput(VEL_INPUT, "Velocity CV input");
-		configInput(SUSMOD_INPUT, "Sustain CV input");
+		configInput(VEL_INPUT, "Velocity CV");
+		configInput(SUSMOD_INPUT, "Sustain CV");
 
-		configInput(GATE_INPUT, "Gate input");
-		configInput(RETRIG_INPUT, "Retrigger input");
+		configInput(GATE_INPUT, "Gate");
+		configInput(RETRIG_INPUT, "Retrigger");
 
-		configOutput(SGATE_OUTPUT, "Decay/Sustain stage output");
-		configOutput(ENV_OUTPUT, "Envelope output");
+		configOutput(SGATE_OUTPUT, "Decay/Sustain stage");
+		configOutput(ENV_OUTPUT, "Envelope");
 	}
 
 	void process(const ProcessArgs& args) override {
+
 		// coefficient calculation; only recalculate if params have changed
-		if (params[A_PARAM].getValue() != lastAttackParam ||
+		if (channels != std::max(1, inputs[GATE_INPUT].getChannels()) ||
+			params[A_PARAM].getValue() != lastAttackParam ||
 			params[D_PARAM].getValue() != lastDecayParam ||
 			params[R_PARAM].getValue() != lastReleaseParam)
 		{
+			channels = std::max(1, inputs[GATE_INPUT].getChannels());
+			outputs[SGATE_OUTPUT].setChannels(channels);
+			outputs[ENV_OUTPUT].setChannels(channels);
+
 			lastAttackParam = params[A_PARAM].getValue();
 			lastDecayParam = params[D_PARAM].getValue();
 			lastReleaseParam = params[R_PARAM].getValue();
 
-			attackCoeff = pow(1.f - exp(-lastAttackParam), 44100/args.sampleRate);
-			decayCoeff = pow(1.f - exp(-lastDecayParam), 44100/args.sampleRate);
-			releaseCoeff = pow(1.f - exp(-lastReleaseParam), 44100/args.sampleRate);
+			for (int c = 0; c < channels; c += 4) {
+				attackLambda[c/4] = simd::pow(LAMBDA_BASE, -lastAttackParam) / MIN_TIME;
+				decayLambda[c/4] = simd::pow(LAMBDA_BASE, -lastDecayParam) / MIN_TIME;
+				releaseLambda[c/4] = simd::pow(LAMBDA_BASE, -lastReleaseParam) / MIN_TIME;
+			}
 		}
 
-		channels = std::max(1, inputs[GATE_INPUT].getChannels());
-		outputs[SGATE_OUTPUT].setChannels(channels);
-		outputs[ENV_OUTPUT].setChannels(channels);
 
-		for (int c = 0; c < channels; c += 1) {
-			// check retrig / attack
-			stage[c] = triggerGate[c].process(inputs[GATE_INPUT].getPolyVoltage(c), 0.1f, 1.f) ? STAGE_A : stage[c];
-			stage[c] = triggerRetrigger[c].process(inputs[RETRIG_INPUT].getPolyVoltage(c), 0.1f, 1.f) ? STAGE_A : stage[c];
+		for (int c = 0; c < channels; c += 4) {
+			this->sustain[c/4] = params[S_PARAM].getValue() +
+					inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) / 10.f * params[SUSMOD_PARAM].getValue();
 
-			// check release
-			stage[c] = triggerGate[c].isHigh() ? stage[c] : STAGE_R;
+			// Gate
+			float_4 oldGate = gate[c/4];
+			gate[c/4] = inputs[GATE_INPUT].getVoltageSimd<float_4>(c) >= 1.f;
+			attacking[c/4] |= (gate[c/4] & ~oldGate);
 
-			switch (stage[c])
-			{
-				case STAGE_A:
-					voltage[c] = attackCoeff*voltage[c] + (1.f-attackCoeff)*12.f;
-					if (voltage[c] > 10.f)
-					{
-						voltage[c] = 10.f;
-						stage[c] = STAGE_DS;
-					}
-					break;
-				case STAGE_DS:
-					sustainLevel[c] = params[S_PARAM].getValue() +
-						params[SUSMOD_PARAM].getValue() * inputs[SUSMOD_INPUT].getPolyVoltage(c);
-					sustainLevel[c] = clamp(sustainLevel[c], 0.f, 10.f);
-					voltage[c] = decayCoeff*voltage[c] + (1.f-decayCoeff)*sustainLevel[c];
-					break;
-				case STAGE_R:
-					voltage[c] = releaseCoeff*voltage[c];
-			}
+			// Retrigger
+			float_4 triggered = trigger[c/4].process(inputs[RETRIG_INPUT].getPolyVoltageSimd<float_4>(c));
+			attacking[c/4] |= triggered;
+
+			// Turn off attacking state if gate is LOW
+			attacking[c/4] &= gate[c/4];
+
+			// Get target and lambda for exponential decay
+			float_4 target = simd::ifelse(attacking[c/4], ATT_TARGET, simd::ifelse(gate[c/4], sustain[c/4], 0.f));
+			float_4 lambda = simd::ifelse(attacking[c/4], attackLambda[c/4], simd::ifelse(gate[c/4], decayLambda[c/4], releaseLambda[c/4]));
+
+			// Adjust env
+			env[c/4] += (target - env[c/4]) * lambda * args.sampleTime;
+
+			// Turn off attacking state if envelope is HIGH
+			attacking[c/4] &= (env[c/4] < 1.f);
 
 			// velocity
-			velScaling[c] = 1.f - params[VELSCALE_PARAM].getValue() +
-					0.1f*inputs[VEL_INPUT].getPolyVoltage(c) * params[VELSCALE_PARAM].getValue();
+			float_4 velScaling = 1.f - params[VELSCALE_PARAM].getValue() +
+					0.1f*inputs[VEL_INPUT].getPolyVoltageSimd<float_4>(c) * params[VELSCALE_PARAM].getValue();
 
-			outputs[SGATE_OUTPUT].setVoltage((stage[c] == STAGE_DS) ? 10.f : 0.f, c);
-			outputs[ENV_OUTPUT].setVoltage(velScaling[c] * voltage[c], c);
+			// Set output
+			outputs[ENV_OUTPUT].setVoltageSimd(10.f * velScaling * env[c/4], c);
+
+			outputs[SGATE_OUTPUT].setVoltageSimd(simd::ifelse((gate[c/4] & ~attacking[c/4]), 10.f, 0.f), c);
 		}
 
 	}
 
-	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		// force recalculation of coefficients
-		lastAttackParam += 0.1f;
-	}
 };
 
 
