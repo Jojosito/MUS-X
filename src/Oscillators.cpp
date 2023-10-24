@@ -44,6 +44,7 @@ struct Oscillators : Module {
 
 	int channels = 1;
 
+	// integers overflow, so phase resets automatically
 	int32_4 phasor1[4] = {0};
 	int32_4 phasor2[4] = {0};
 	float_4 mix[4][oversamplingRate] = {0};
@@ -106,6 +107,7 @@ struct Oscillators : Module {
 				osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 
 				crossmod[c/4] 	= simd::clamp(params[CROSSMOD_PARAM].getValue()  + 0.1f *inputs[CROSSMOD_INPUT].getVoltageSimd<float_4>(c),  0.f, 1.f);
+				crossmod[c/4]   = crossmod[c/4] * crossmod[c/4] * 0.01f; // scale
 				ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			}
 		}
@@ -113,7 +115,7 @@ struct Oscillators : Module {
 		for (int c = 0; c < channels; c += 4) {
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate;
-			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave
+			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave = saw + inverted saw with phaseshift
 
 			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate;
@@ -126,10 +128,15 @@ struct Oscillators : Module {
 				phasor1[c/4] += phase1Inc;
 				float_4 wave1 = (phasor1[c/4] + phase1Offset + phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4];
 
-				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2Inc);
+				int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
+				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithCrossmod);
 				float_4 wave2 = (phasor2[c/4] + phase2Offset + phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4];
 
-				mix[c/4][i] = (osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2) / INT32_MAX;
+				// normalize to -1..1
+				wave1 /= INT32_MAX;
+				wave2 /= INT32_MAX;
+
+				mix[c/4][i] = 5.f * (osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2);
 			}
 
 			// downsampling
