@@ -30,6 +30,15 @@
         "Tuner",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Oscillators",
+      "name": "Oscillators",
+      "description": "Oscillator pair with sync, crossmod and ringmod.",
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
     }
   ]
 }
