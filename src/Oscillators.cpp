@@ -48,32 +48,45 @@ struct Oscillators : Module {
 	int32_4 phasor2[4] = {0};
 	float_4 mix[4][oversamplingRate] = {0};
 
+	dsp::ClockDivider CvDivider;
 	dsp::ClockDivider lightDivider;
 
+	// CV modulated parameters
+	float_4 osc1Shape[4] = {0};
+	float_4 osc1PW[4] = {0};
+	float_4 osc1Vol[4] = {0};
+
+	float_4 osc2Shape[4] = {0};
+	float_4 osc2PW[4] = {0};
+	float_4 osc2Vol[4] = {0};
+
+	float_4 crossmod[4] = {0};
+	float_4 ringmod[4] = {0};
 
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(OSC1SHAPE_PARAM, 0.f, 1.f, 0.f, "Oscillator 1 shape");
-		configParam(OSC1PW_PARAM, 0.f, 1.f, 0.5f, "Oscillator 1 pulse width", " %", 0.f, 100.f);
-		configParam(OSC1VOL_PARAM, 0.f, 1.f, 0.5f, "Oscillator 1 volume", " %", 0.f, 100.f);
-		configParam(OSC2SHAPE_PARAM, 0.f, 1.f, 0.f, "Oscillator 2 shape");
-		configParam(OSC2PW_PARAM, 0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
-		configParam(OSC2VOL_PARAM, 0.f, 1.f, 0.5f, "Oscillator 2 volume", " %", 0.f, 100.f);
-		configParam(SYNC_PARAM, 0.f, 1.f, 0.f, "Sync Osc 2 to Osc 1");
-		configParam(CROSSMOD_PARAM, 0.f, 1.f, 0.f, "Osc 1 to Osc2 crossmod");
-		configParam(RINGMOD_PARAM, 0.f, 1.f, 0.f, "Ringmod volume", " %", 0.f, 100.f);
-		configInput(OSC1SHAPE_INPUT, "Oscillator 1 shape CV");
-		configInput(OSC1PW_INPUT, "Oscillator 1 pulse width CV");
-		configInput(OSC1VOL_INPUT, "Oscillator 1 volume CV");
-		configInput(OSC2SHAPE_INPUT, "Oscillator 2 shape CV");
-		configInput(OSC2PW_INPUT, "Oscillator 2 pulse width CV");
-		configInput(OSC2VOL_INPUT, "Oscillator 2 volume CV");
-		configInput(CROSSMOD_INPUT, "Crossmod CV");
-		configInput(RINGMOD_INPUT, "Ringmod volume CV");
-		configInput(OSC1VOCT_INPUT, "Oscillator 1 V/Oct");
-		configInput(OSC2VOCT_INPUT, "Oscillator 2 V/Oct");
-		configOutput(OUT_OUTPUT, "Mix");
+		configParam(OSC1SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 1 shape");
+		configParam(OSC1PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 1 pulse width", " %", 0.f, 100.f);
+		configParam(OSC1VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 1 volume", 		" %", 0.f, 100.f);
+		configParam(OSC2SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 2 shape");
+		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
+		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
+		configParam(SYNC_PARAM, 		0.f, 1.f, 0.f, 	"Sync Osc 2 to Osc 1");
+		configParam(CROSSMOD_PARAM, 	0.f, 1.f, 0.f, 	"Osc 1 to Osc2 crossmod");
+		configParam(RINGMOD_PARAM, 		0.f, 1.f, 0.f, 	"Ringmod volume", 			" %", 0.f, 100.f);
+		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
+		configInput(OSC1PW_INPUT, 		"Oscillator 1 pulse width CV");
+		configInput(OSC1VOL_INPUT, 		"Oscillator 1 volume CV");
+		configInput(OSC2SHAPE_INPUT, 	"Oscillator 2 shape CV");
+		configInput(OSC2PW_INPUT, 		"Oscillator 2 pulse width CV");
+		configInput(OSC2VOL_INPUT, 		"Oscillator 2 volume CV");
+		configInput(CROSSMOD_INPUT, 	"Crossmod CV");
+		configInput(RINGMOD_INPUT, 		"Ringmod volume CV");
+		configInput(OSC1VOCT_INPUT, 	"Oscillator 1 V/Oct");
+		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
+		configOutput(OUT_OUTPUT, 		"Mix");
 
+		CvDivider.setDivision(4);
 		lightDivider.setDivision(128);
 	}
 
@@ -81,22 +94,42 @@ struct Oscillators : Module {
 		channels = std::max(1, inputs[OSC1VOCT_INPUT].getChannels());
 		outputs[OUT_OUTPUT].setChannels(channels);
 
+		// CV
+		if (CvDivider.process()) {
+			for (int c = 0; c < channels; c += 4) {
+				osc1Shape[c/4] 	= simd::clamp(params[OSC1SHAPE_PARAM].getValue() + 0.1f *inputs[OSC1SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
+				osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.1f *inputs[OSC1PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
+				osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
+
+				osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.1f *inputs[OSC2SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
+				osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.1f *inputs[OSC2PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
+				osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
+
+				crossmod[c/4] 	= simd::clamp(params[CROSSMOD_PARAM].getValue()  + 0.1f *inputs[CROSSMOD_INPUT].getVoltageSimd<float_4>(c),  0.f, 1.f);
+				ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
+			}
+		}
+
 		for (int c = 0; c < channels; c += 4) {
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate;
+			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave
 
 			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate;
+			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
 			for (int i = 0; i < oversamplingRate; ++i)
 			{
-				//float_4 doSync =
+				float_4 doSync = params[SYNC_PARAM].getValue() & (phasor1[c/4] + phase1Inc < phasor1[c/4]);
 
 				phasor1[c/4] += phase1Inc;
+				float_4 wave1 = (phasor1[c/4] + phase1Offset + phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4];
 
-				phasor2[c/4] += phase2Inc;
+				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2Inc);
+				float_4 wave2 = (phasor2[c/4] + phase2Offset + phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4];
 
-				mix[c/4][i] = (-params[OSC1VOL_PARAM].getValue() * phasor1[c/4] - params[OSC2VOL_PARAM].getValue() * phasor2[c/4]) / INT32_MAX;
+				mix[c/4][i] = (osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2) / INT32_MAX;
 			}
 
 			// downsampling
