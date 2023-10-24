@@ -18,7 +18,17 @@
       "name": "ADSR",
       "description": "ADSR envelope generator",
       "tags": [
-        "Envelope generator", "Polyphonic"
+        "Envelope generator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Tuner",
+      "name": "Tuner",
+      "description": "Add 2 V/Oct signals and tune by octaves, semitones and cents.",
+      "tags": [
+        "Tuner",
+        "Polyphonic"
       ]
     }
   ]
