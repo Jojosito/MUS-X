@@ -25,9 +25,18 @@
     {
       "slug": "Tuner",
       "name": "Tuner",
-      "description": "Add 2 V/Oct signals and tune by octaves, semitones and cents.",
+      "description": "Tune a V/Oct signal by octaves, semitones and cents.",
       "tags": [
         "Tuner",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Oscillators",
+      "name": "Oscillators",
+      "description": "Massively oversampled analog oscillator pair with sync, crossmod and ringmod.",
+      "tags": [
+        "Oscillator",
         "Polyphonic"
       ]
     }
