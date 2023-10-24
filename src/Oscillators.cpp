@@ -38,10 +38,16 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
+	static const int oversamplingRate = 16;
+	static const int oversamplingQuality = 16;
+	dsp::Decimator<oversamplingRate, oversamplingQuality, float_4> decimator[4];
+
 	int channels = 1;
+
 	int32_4 phasor1[4] = {0};
 	int32_4 phasor2[4] = {0};
-	dsp::Decimator<16, 16> decimator;
+	float_4 mix[4][oversamplingRate] = {0};
+
 
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -74,13 +80,19 @@ struct Oscillators : Module {
 
 		for (int c = 0; c < channels; c += 4) {
 			float_4 freq = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
-			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq;
+			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq / oversamplingRate;
 
-			phasor1[c/4] += phase1Inc;
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				phasor1[c/4] += phase1Inc;
 
-			float_4 mix = -phasor1[c/4] / INT32_MAX;
+				mix[c/4][i] = -phasor1[c/4] / INT32_MAX;
+			}
 
-			outputs[OUT_OUTPUT].setVoltageSimd(mix, c);
+			// downsampling
+			float_4 decimatedMix = decimator[c/4].process(mix[c/4]);
+
+			outputs[OUT_OUTPUT].setVoltageSimd(decimatedMix, c);
 		}
 	}
 };
@@ -120,6 +132,32 @@ struct OscillatorsWidget : ModuleWidget {
 
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(53.491, 112.438)), module, Oscillators::OUT_OUTPUT));
 	}
+
+	/*
+	void appendContextMenu(Menu* menu) override {
+		Oscillators* module = getModule<Oscillators>();
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x"},
+			[=]() {
+				return (int) std::log2(module->oversamplingRate);
+			},
+			[=](int mode) {
+				module->oversamplingRate = std::pow(2.f, (float) mode);
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("Oversampling quality", {"1x", "2x", "4x", "8x", "16x"},
+			[=]() {
+				return (int) std::log2(module->oversamplingQuality);
+			},
+			[=](int mode) {
+				module->oversamplingQuality = std::pow(2.f, (float) mode);
+			}
+		));
+	}
+	*/
 };
 
 
