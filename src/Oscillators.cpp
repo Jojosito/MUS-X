@@ -38,16 +38,20 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
-	static const int oversamplingRate = 16;
+	int oversamplingRate = 16;
+	static const int maxOversamplingRate = 64;
 	static const int oversamplingQuality = 16;
-	dsp::Decimator<oversamplingRate, oversamplingQuality, float_4> decimator[4];
+	dsp::Decimator<4, oversamplingQuality, float_4> decimator4[4];
+	dsp::Decimator<16, oversamplingQuality, float_4> decimator16[4];
+	dsp::Decimator<64, oversamplingQuality, float_4> decimator64[4];
 
 	int channels = 1;
 
 	// integers overflow, so phase resets automatically
 	int32_4 phasor1[4] = {0};
 	int32_4 phasor2[4] = {0};
-	float_4 mix[4][oversamplingRate] = {0};
+
+	float_4 mix[4][maxOversamplingRate] = {0};
 
 	dsp::ClockDivider CvDivider;
 	dsp::ClockDivider lightDivider;
@@ -89,6 +93,21 @@ struct Oscillators : Module {
 
 		CvDivider.setDivision(4);
 		lightDivider.setDivision(128);
+	}
+
+	void setOversamplingRate(int arg)
+	{
+		oversamplingRate = arg;
+
+		// reset phasors and mix
+		for (int c = 0; c < 16; c += 4) {
+			phasor1[c/4] = 0.f;
+			phasor2[c/4] = 0.f;
+			for (int i = 0; i < maxOversamplingRate; ++i)
+			{
+				mix[c/4][i] = 0.f;
+			}
+		}
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -140,7 +159,22 @@ struct Oscillators : Module {
 			}
 
 			// downsampling
-			float_4 decimatedMix = decimator[c/4].process(mix[c/4]);
+			float_4 decimatedMix;
+			switch (oversamplingRate)
+			{
+				case 1:
+					decimatedMix = mix[c/4][0];
+					break;
+				case 4:
+					decimatedMix = decimator4[c/4].process(mix[c/4]);
+					break;
+				case 16:
+					decimatedMix = decimator16[c/4].process(mix[c/4]);
+					break;
+				case 64:
+					decimatedMix = decimator64[c/4].process(mix[c/4]);
+					break;
+			}
 
 			outputs[OUT_OUTPUT].setVoltageSimd(decimatedMix, c);
 		}
@@ -187,32 +221,48 @@ struct OscillatorsWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(53.491, 112.438)), module, Oscillators::OUT_OUTPUT));
 	}
 
-	/*
 	void appendContextMenu(Menu* menu) override {
 		Oscillators* module = getModule<Oscillators>();
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x"},
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "4x", "16x", "64x"},
 			[=]() {
-				return (int) std::log2(module->oversamplingRate);
+				switch (module->oversamplingRate)
+				{
+					case 1:
+						return 0;
+					case 4:
+						return 1;
+					case 16:
+						return 2;
+					case 64:
+						return 3;
+					default:
+						return 0;
+				}
 			},
 			[=](int mode) {
-				module->oversamplingRate = std::pow(2.f, (float) mode);
-			}
-		));
-
-		menu->addChild(createIndexSubmenuItem("Oversampling quality", {"1x", "2x", "4x", "8x", "16x"},
-			[=]() {
-				return (int) std::log2(module->oversamplingQuality);
-			},
-			[=](int mode) {
-				module->oversamplingQuality = std::pow(2.f, (float) mode);
+				switch (mode)
+				{
+					case 0:
+						module->setOversamplingRate(1);
+						break;
+					case 1:
+						module->setOversamplingRate(4);
+						break;
+					case 2:
+						module->setOversamplingRate(16);
+						break;
+					case 3:
+						module->setOversamplingRate(64);
+						break;
+				}
 			}
 		));
 	}
-	*/
 };
 
 
 Model* modelOscillators = createModel<Oscillators, OscillatorsWidget>("Oscillators");
+
