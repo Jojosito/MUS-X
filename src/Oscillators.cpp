@@ -1,5 +1,7 @@
 #include "plugin.hpp"
 
+using simd::float_4;
+using simd::int32_4;
 
 struct Oscillators : Module {
 	enum ParamId {
@@ -36,6 +38,11 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
+	int channels = 1;
+	int32_4 phasor1[4] = {0};
+	int32_4 phasor2[4] = {0};
+	dsp::Decimator<16, 16> decimator;
+
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(OSC1SHAPE_PARAM, 0.f, 1.f, 0.f, "Oscillator 1 shape");
@@ -62,6 +69,19 @@ struct Oscillators : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
+		channels = std::max(1, inputs[OSC1VOCT_INPUT].getChannels());
+		outputs[OUT_OUTPUT].setChannels(channels);
+
+		for (int c = 0; c < channels; c += 4) {
+			float_4 freq = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
+			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq;
+
+			phasor1[c/4] += phase1Inc;
+
+			float_4 mix = -phasor1[c/4] / INT32_MAX;
+
+			outputs[OUT_OUTPUT].setVoltageSimd(mix, c);
+		}
 	}
 };
 
