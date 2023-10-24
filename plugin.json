@@ -34,7 +34,7 @@
     {
       "slug": "Oscillators",
       "name": "Oscillators",
-      "description": "Massively oversampled oscillator pair with sync, crossmod and ringmod.",
+      "description": "Massively oversampled analog oscillator pair with sync, crossmod and ringmod.",
       "tags": [
         "Oscillator",
         "Polyphonic"

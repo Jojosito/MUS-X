@@ -7,7 +7,7 @@ ADSR envelope generator with exponential decay/release, built in velocity scalin
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
 ### Oscillators
-A pair of oscillators.
+A pair of analog-style oscillators.
 'Shape' blends from sawtooth to pulse wave.
 'PW' adjusts the pulse wave from 0% to 100% duty cycle.
 'Vol' adjusts the oscillator volume.
@@ -16,8 +16,8 @@ A pair of oscillators.
 'RM' adjusts the volume of the ring modulator (multiplication of oscillator 1 and 2).
 
 Every parameter (except sync) is CV controllable.
-There are two 'V/Oct' inputs, one for each oscillator. You can use the Tune module to add the common tune controls.
-'Out' outputs the mix of oscillator 2, oscillator 1 and the ring modulator.
+There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' module to add tuning controls.
+'Out' outputs the mix of oscillator 1, oscillator 2 and the ring modulator.
 
 The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled.
 This is especially useful if you want to emulate analog crossmod without aliasing.
