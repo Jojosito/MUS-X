@@ -218,7 +218,7 @@
     <path
        id="rect420"
        style="display:inline;opacity:1;vector-effect:none;fill:#e6e6e6;fill-rule:evenodd;stroke-width:0.918781"
-       d="M 0.01590307,168.49998 H 61.035591 v 128.5 H 0.01590307 Z" />
+       d="M 0.01590294,168.49999 H 61.035591 v 128.5 H 0.01590294 Z" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:10.5833px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -645,23 +645,6 @@ mod"
          id="path119986" />
     </g>
     <g
-       aria-label="Sync"
-       id="text97132"
-       style="font-size:4.23333px;line-height:1.25;fill:#1a1a1a;stroke-width:0.264583">
-      <path
-         d="m 20.015729,269.96033 v 0.40721 q -0.237711,-0.11369 -0.448551,-0.1695 -0.210839,-0.0558 -0.40721,-0.0558 -0.341064,0 -0.527099,0.13229 -0.183968,0.1323 -0.183968,0.37621 0,0.20464 0.121957,0.31006 0.124023,0.10335 0.467154,0.16743 l 0.252181,0.0517 q 0.467154,0.0889 0.688329,0.3142 0.223242,0.22324 0.223242,0.59944 0,0.44855 -0.30179,0.68006 -0.299723,0.23151 -0.880565,0.23151 -0.219108,0 -0.467155,-0.0496 -0.24598,-0.0496 -0.510563,-0.14677 v -0.42994 q 0.254248,0.14262 0.498161,0.21497 0.243912,0.0724 0.479557,0.0724 0.3576,0 0.551903,-0.14056 0.194304,-0.14056 0.194304,-0.40101 0,-0.22738 -0.14056,-0.35553 -0.138493,-0.12816 -0.456819,-0.19224 l -0.254248,-0.0496 q -0.467155,-0.093 -0.675927,-0.29146 -0.208773,-0.19843 -0.208773,-0.5519 0,-0.40928 0.287321,-0.64492 0.289388,-0.23564 0.795816,-0.23564 0.217041,0 0.44235,0.0393 0.225309,0.0393 0.460953,0.11782 z"
-         id="path119989" />
-      <path
-         d="m 21.799598,273.16013 q -0.16123,0.41341 -0.314192,0.53951 -0.152962,0.12609 -0.409277,0.12609 h -0.303857 v -0.31833 h 0.223242 q 0.157096,0 0.243912,-0.0744 0.08682,-0.0744 0.192236,-0.3514 l 0.06821,-0.17364 -0.936376,-2.27789 h 0.403076 l 0.723469,1.81074 0.72347,-1.81074 h 0.403076 z"
-         id="path119991" />
-      <path
-         d="m 25.266051,271.54783 v 1.39733 h -0.380338 v -1.38493 q 0,-0.32866 -0.128158,-0.49196 -0.128157,-0.16329 -0.384472,-0.16329 -0.307991,0 -0.485758,0.19637 -0.177767,0.19637 -0.177767,0.53536 v 1.30845 h -0.382405 v -2.3151 h 0.382405 v 0.35967 q 0.136426,-0.20878 0.320394,-0.31213 0.186035,-0.10335 0.42788,-0.10335 0.398942,0 0.60358,0.24804 0.204639,0.24598 0.204639,0.72554 z"
-         id="path119993" />
-      <path
-         d="m 27.690707,270.71894 v 0.35553 q -0.161231,-0.0889 -0.324528,-0.13229 -0.16123,-0.0455 -0.326595,-0.0455 -0.370003,0 -0.574641,0.23564 -0.204639,0.23358 -0.204639,0.65733 0,0.42374 0.204639,0.65939 0.204638,0.23357 0.574641,0.23357 0.165365,0 0.326595,-0.0434 0.163297,-0.0455 0.324528,-0.13436 v 0.3514 q -0.159164,0.0744 -0.330729,0.11162 -0.169499,0.0372 -0.361735,0.0372 -0.522965,0 -0.830956,-0.32866 -0.307992,-0.32866 -0.307992,-0.88676 0,-0.56638 0.310059,-0.89091 0.312125,-0.32452 0.853694,-0.32452 0.175699,0 0.343131,0.0372 0.167431,0.0351 0.324528,0.10749 z"
-         id="path119995" />
-    </g>
-    <g
        aria-label="FM"
        id="text97136"
        style="font-size:4.23333px;line-height:1.25;fill:#1a1a1a;stroke-width:0.264583">
@@ -742,7 +725,7 @@ mod"
      inkscape:groupmode="layer"
      id="layer2"
      inkscape:label="components"
-     style="display:inline">
+     style="display:none">
     <circle
        style="display:inline;opacity:1;vector-effect:none;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.643563;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
        id="path4954"
@@ -870,13 +853,6 @@ mod"
        id="circle2438"
        style="display:inline;opacity:1;vector-effect:none;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.630364;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
        inkscape:label="Osc2Vol" />
-    <circle
-       r="2.0450828"
-       cy="96.375015"
-       cx="22.935595"
-       id="circle2440"
-       style="display:inline;opacity:1;vector-effect:none;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.51127;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
-       inkscape:label="Sync" />
     <circle
        r="2.5214543"
        cy="96.375015"
