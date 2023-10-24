@@ -38,12 +38,15 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
-	int oversamplingRate = 16;
 	static const int maxOversamplingRate = 64;
+	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
+
+	int oversamplingRate = 16;
 	static const int oversamplingQuality = 16;
 	dsp::Decimator<4, oversamplingQuality, float_4> decimator4[4];
 	dsp::Decimator<16, oversamplingQuality, float_4> decimator16[4];
 	dsp::Decimator<64, oversamplingQuality, float_4> decimator64[4];
+	dsp::Decimator<256, oversamplingQuality, float_4> decimator256[4];
 
 	int channels = 1;
 
@@ -132,11 +135,11 @@ struct Oscillators : Module {
 		}
 
 		for (int c = 0; c < channels; c += 4) {
-			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
+			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, maxFreq);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate;
 			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave = saw + inverted saw with phaseshift
 
-			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, 20000.f);
+			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, maxFreq);
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate;
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
@@ -174,6 +177,9 @@ struct Oscillators : Module {
 				case 64:
 					decimatedMix = decimator64[c/4].process(mix[c/4]);
 					break;
+				case 256:
+					decimatedMix = decimator256[c/4].process(mix[c/4]);
+					break;
 			}
 
 			outputs[OUT_OUTPUT].setVoltageSimd(decimatedMix, c);
@@ -183,6 +189,18 @@ struct Oscillators : Module {
 		if (lightDivider.process()) {
 			lights[SYNC_LIGHT].setBrightness(params[SYNC_PARAM].getValue());
 		}
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "oversamplingRate", json_real(oversamplingRate));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* oversamplingRateJ = json_object_get(rootJ, "oversamplingRate");
+		if (oversamplingRate)
+			oversamplingRate = json_number_value(oversamplingRateJ);
 	}
 };
 
@@ -226,7 +244,7 @@ struct OscillatorsWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "4x", "16x", "64x"},
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "4x", "16x", "64x"/*, "256x"*/},
 			[=]() {
 				switch (module->oversamplingRate)
 				{
@@ -238,6 +256,8 @@ struct OscillatorsWidget : ModuleWidget {
 						return 2;
 					case 64:
 						return 3;
+					case 256:
+						return 4;
 					default:
 						return 0;
 				}
@@ -256,6 +276,9 @@ struct OscillatorsWidget : ModuleWidget {
 						break;
 					case 3:
 						module->setOversamplingRate(64);
+						break;
+					case 4:
+						module->setOversamplingRate(256);
 						break;
 				}
 			}
