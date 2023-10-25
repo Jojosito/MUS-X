@@ -39,6 +39,15 @@
         "Oscillator",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Delay",
+      "name": "Delay",
+      "description": "BBD inspired ping-pong delay",
+      "tags": [
+        "Delay",
+        "Effect"
+      ]
     }
   ]
 }
