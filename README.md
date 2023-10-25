@@ -12,18 +12,20 @@ A pair of analog-style oscillators.
 'PW' adjusts the pulse wave from 0% to 100% duty cycle.
 'Vol' adjusts the oscillator volume.
 'Sync' hard syncs oscillator 2 to oscillator 1.
-'FM' adjusts the (exponential) frequency modulation (also known as crossmod) from oscillator 1 to oscillator 2.
+'FM' adjusts the (Linear-Through-Zero) frequency modulation (also known as crossmod) from oscillator 1 to oscillator 2.
+Since the oscillators have no DC-offset, oscillator 2 stays in tune when applying FM.
 'RM' adjusts the volume of the ring modulator (multiplication of oscillator 1 and 2).
 
 Every parameter (except sync) is CV controllable.
 There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' module to add tuning controls.
 'Out' outputs the mix of oscillator 1, oscillator 2 and the ring modulator.
 
-The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled.
-This is especially useful if you want to emulate analog crossmod without aliasing.
+The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled to reduce aliasing.
+This is especially useful if you want to emulate analog crossmod.
+With no oversampling, the oscillators alias a lot.
 Right click on the module to adjust the oversampling factor.
 
 ### Tune
 Tune a V/Oct signal by +-4 octaves, plus coarse (1 octave) and fine (1 semitone) tuning.
 The 'Fine' input is added and can be used for subtle modulations in the semitone range.
-The output is limited to +-10V, so a huge frequency range can be covered.
+The output is limited to +-12V, so a huge frequency range can be covered.

@@ -42,7 +42,7 @@ struct Tuner : Module {
 		for (int c = 0; c < channels; c += 4) {
 			float_4 v = inputs[VOCT_INPUT].getVoltageSimd<float_4>(c) + inputs[FINE_INPUT].getVoltageSimd<float_4>(c) / 60.f;
 			v += params[OCTAVE_PARAM].getValue() + params[SEMI_PARAM].getValue() + params[FINE_PARAM].getValue();
-			outputs[VOCT_OUTPUT].setVoltageSimd(simd::clamp(v, -10.f, 10.f), c);
+			outputs[VOCT_OUTPUT].setVoltageSimd(simd::clamp(v, -12.f, 12.f), c);
 		}
 	}
 };

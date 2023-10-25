@@ -39,6 +39,7 @@ struct Oscillators : Module {
 	};
 
 	static const int maxOversamplingRate = 64;
+	static const int minFreq = 0.01f; // min frequency of the oscillators in Hz
 	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
 
 	int oversamplingRate = 16;
@@ -135,11 +136,11 @@ struct Oscillators : Module {
 		}
 
 		for (int c = 0; c < channels; c += 4) {
-			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, maxFreq);
+			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate;
 			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave = saw + inverted saw with phaseshift
 
-			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), 0.1f, maxFreq);
+			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate;
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
@@ -148,11 +149,11 @@ struct Oscillators : Module {
 				float_4 doSync = params[SYNC_PARAM].getValue() & (phasor1[c/4] + phase1Inc < phasor1[c/4]);
 
 				phasor1[c/4] += phase1Inc;
-				float_4 wave1 = (phasor1[c/4] + phase1Offset + phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4];
+				float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4];
 
 				int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
 				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithCrossmod);
-				float_4 wave2 = (phasor2[c/4] + phase2Offset + phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4];
+				float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4];
 
 				// normalize to -1..1
 				wave1 /= INT32_MAX;
