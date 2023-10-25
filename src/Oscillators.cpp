@@ -38,16 +38,19 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
-	static const int maxOversamplingRate = 64;
+	static const int maxOversamplingRate = 128;
 	static const int minFreq = 0.01f; // min frequency of the oscillators in Hz
 	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
 
 	int oversamplingRate = 16;
 	static const int oversamplingQuality = 16;
+	dsp::Decimator<2, oversamplingQuality, float_4> decimator2[4];
 	dsp::Decimator<4, oversamplingQuality, float_4> decimator4[4];
+	dsp::Decimator<8, oversamplingQuality, float_4> decimator8[4];
 	dsp::Decimator<16, oversamplingQuality, float_4> decimator16[4];
+	dsp::Decimator<32, oversamplingQuality, float_4> decimator32[4];
 	dsp::Decimator<64, oversamplingQuality, float_4> decimator64[4];
-	dsp::Decimator<256, oversamplingQuality, float_4> decimator256[4];
+	dsp::Decimator<128, oversamplingQuality, float_4> decimator128[4];
 
 	int channels = 1;
 
@@ -57,7 +60,6 @@ struct Oscillators : Module {
 
 	float_4 mix[4][maxOversamplingRate] = {0};
 
-	dsp::ClockDivider CvDivider;
 	dsp::ClockDivider lightDivider;
 
 	// CV modulated parameters
@@ -95,7 +97,6 @@ struct Oscillators : Module {
 		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
 		configOutput(OUT_OUTPUT, 		"Mix");
 
-		CvDivider.setDivision(4);
 		lightDivider.setDivision(128);
 	}
 
@@ -118,24 +119,24 @@ struct Oscillators : Module {
 		channels = std::max(1, inputs[OSC1VOCT_INPUT].getChannels());
 		outputs[OUT_OUTPUT].setChannels(channels);
 
-		// CV
-		if (CvDivider.process()) {
-			for (int c = 0; c < channels; c += 4) {
-				osc1Shape[c/4] 	= simd::clamp(params[OSC1SHAPE_PARAM].getValue() + 0.1f *inputs[OSC1SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
-				osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.1f *inputs[OSC1PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
-				osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
-
-				osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.1f *inputs[OSC2SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
-				osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.1f *inputs[OSC2PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
-				osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
-
-				crossmod[c/4] 	= simd::clamp(params[CROSSMOD_PARAM].getValue()  + 0.1f *inputs[CROSSMOD_INPUT].getVoltageSimd<float_4>(c),  0.f, 1.f);
-				crossmod[c/4]   = crossmod[c/4] * crossmod[c/4] * 0.01f; // scale
-				ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
-			}
-		}
-
 		for (int c = 0; c < channels; c += 4) {
+			// parameters and CVs
+			osc1Shape[c/4] 	= simd::clamp(params[OSC1SHAPE_PARAM].getValue() + 0.1f *inputs[OSC1SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
+			osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.1f *inputs[OSC1PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
+			osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
+			osc1Vol[c/4] *= 5.f / INT32_MAX;
+
+			osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.1f *inputs[OSC2SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
+			osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.1f *inputs[OSC2PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
+			osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
+			osc2Vol[c/4] *= 5.f / INT32_MAX;
+
+			crossmod[c/4] 	= simd::clamp(params[CROSSMOD_PARAM].getValue()  + 0.1f *inputs[CROSSMOD_INPUT].getVoltageSimd<float_4>(c),  0.f, 1.f);
+			crossmod[c/4]   = crossmod[c/4] * crossmod[c/4] * 0.1f / oversamplingRate; // scale
+			ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
+			ringmod[c/4] *= 5.f / INT32_MAX / INT32_MAX;
+
+			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate;
 			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave = saw + inverted saw with phaseshift
@@ -144,6 +145,7 @@ struct Oscillators : Module {
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate;
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
+			// calculate the oversampled oscillators and mix
 			for (int i = 0; i < oversamplingRate; ++i)
 			{
 				float_4 doSync = params[SYNC_PARAM].getValue() & (phasor1[c/4] + phase1Inc < phasor1[c/4]);
@@ -155,11 +157,7 @@ struct Oscillators : Module {
 				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithCrossmod);
 				float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4];
 
-				// normalize to -1..1
-				wave1 /= INT32_MAX;
-				wave2 /= INT32_MAX;
-
-				mix[c/4][i] = 5.f * (osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2);
+				mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2;
 			}
 
 			// downsampling
@@ -169,17 +167,26 @@ struct Oscillators : Module {
 				case 1:
 					decimatedMix = mix[c/4][0];
 					break;
+				case 2:
+					decimatedMix = decimator2[c/4].process(mix[c/4]);
+					break;
 				case 4:
 					decimatedMix = decimator4[c/4].process(mix[c/4]);
+					break;
+				case 8:
+					decimatedMix = decimator8[c/4].process(mix[c/4]);
 					break;
 				case 16:
 					decimatedMix = decimator16[c/4].process(mix[c/4]);
 					break;
+				case 32:
+					decimatedMix = decimator32[c/4].process(mix[c/4]);
+					break;
 				case 64:
 					decimatedMix = decimator64[c/4].process(mix[c/4]);
 					break;
-				case 256:
-					decimatedMix = decimator256[c/4].process(mix[c/4]);
+				case 128:
+					decimatedMix = decimator128[c/4].process(mix[c/4]);
 					break;
 			}
 
@@ -245,20 +252,26 @@ struct OscillatorsWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "4x", "16x", "64x"/*, "256x"*/},
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"},
 			[=]() {
 				switch (module->oversamplingRate)
 				{
 					case 1:
 						return 0;
-					case 4:
+					case 2:
 						return 1;
-					case 16:
+					case 4:
 						return 2;
-					case 64:
+					case 8:
 						return 3;
-					case 256:
+					case 16:
 						return 4;
+					case 32:
+						return 5;
+					case 64:
+						return 6;
+					case 128:
+						return 7;
 					default:
 						return 0;
 				}
@@ -270,16 +283,25 @@ struct OscillatorsWidget : ModuleWidget {
 						module->setOversamplingRate(1);
 						break;
 					case 1:
-						module->setOversamplingRate(4);
+						module->setOversamplingRate(2);
 						break;
 					case 2:
-						module->setOversamplingRate(16);
+						module->setOversamplingRate(4);
 						break;
 					case 3:
-						module->setOversamplingRate(64);
+						module->setOversamplingRate(8);
 						break;
 					case 4:
-						module->setOversamplingRate(256);
+						module->setOversamplingRate(16);
+						break;
+					case 5:
+						module->setOversamplingRate(32);
+						break;
+					case 6:
+						module->setOversamplingRate(64);
+						break;
+					case 7:
+						module->setOversamplingRate(128);
 						break;
 				}
 			}
