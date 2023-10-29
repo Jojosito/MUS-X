@@ -22,17 +22,31 @@ struct Tuner : Module {
 		LIGHTS_LEN
 	};
 
+	bool snapOctaves = true;
+	bool snapSemitones = true;
+
 	Tuner() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(OCTAVE_PARAM, -4.f, 4.f, 0.f, "Octave");
-		getParamQuantity(OCTAVE_PARAM)->snapEnabled = true;
-		configParam(SEMI_PARAM, -1.f, 1.f, 0.f, "Coarse tune", " cents", 0.f, 1200.f);
+		configParam(SEMI_PARAM, -12.f, 12.f, 0.f, "Coarse tune", " cents", 0.f, 100.f);
 		configParam(FINE_PARAM, -1.f/12.f, 1.f/12.f, 0.f, "Fine tune", " cents", 0.f, 1200.f);
+
 		configInput(VOCT_INPUT, "V/Oct");
 		configInput(FINE_INPUT, "5V/Semi");
+
 		configOutput(VOCT_OUTPUT, "V/Oct");
 
+		setSnap();
 		configBypass(VOCT_INPUT, VOCT_OUTPUT);
+	}
+
+	void setSnap()
+	{
+		getParamQuantity(OCTAVE_PARAM)->snapEnabled = snapOctaves;
+		getParamQuantity(OCTAVE_PARAM)->smoothEnabled = !snapOctaves;
+
+		getParamQuantity(SEMI_PARAM)->snapEnabled = snapSemitones;
+		getParamQuantity(SEMI_PARAM)->smoothEnabled = !snapSemitones;
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -41,7 +55,7 @@ struct Tuner : Module {
 
 		for (int c = 0; c < channels; c += 4) {
 			float_4 v = inputs[VOCT_INPUT].getVoltageSimd<float_4>(c) + inputs[FINE_INPUT].getVoltageSimd<float_4>(c) / 60.f;
-			v += params[OCTAVE_PARAM].getValue() + params[SEMI_PARAM].getValue() + params[FINE_PARAM].getValue();
+			v += params[OCTAVE_PARAM].getValue() + params[SEMI_PARAM].getValue()/12.f + params[FINE_PARAM].getValue();
 			outputs[VOCT_OUTPUT].setVoltageSimd(simd::clamp(v, -12.f, 12.f), c);
 		}
 	}
@@ -66,6 +80,32 @@ struct TunerWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 96.375)), module, Tuner::FINE_INPUT));
 
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 112.438)), module, Tuner::VOCT_OUTPUT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Tuner* module = getModule<Tuner>();
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createIndexSubmenuItem("Snap octaves", {"no", "yes"},
+			[=]() {
+				return module->snapOctaves;
+			},
+			[=](int mode) {
+				module->snapOctaves = mode;
+				module->setSnap();
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("Snap semitones", {"no", "yes"},
+			[=]() {
+				return module->snapSemitones;
+			},
+			[=](int mode) {
+				module->snapSemitones = mode;
+				module->setSnap();
+			}
+		));
 	}
 };
 

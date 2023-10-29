@@ -1,7 +1,13 @@
 //#define DBG
 
 /** Downsamples by a factor 2.
-  * MAXINPUTLENGTH must be power of 2 and > 2*ORDER*/
+  * MAXINPUTLENGTH must be power of 2 and > 2*ORDER
+  *
+  * A half band FIR filter has coefficients e.g. [a, 0, b, 0.5, b, 0, a]
+  * i.e. every second coefficient is 0, except the middle one, which is 0.5.
+  * The other coefficients are symmetric.
+  * For this example, ORDER is 2, and setCoeffs takes [a, b] as an argument
+  * */
 template <int MAXINPUTLENGTH, int ORDER, typename T = float>
 struct HalfBandDecimator {
 	static_assert(MAXINPUTLENGTH>0 && ((MAXINPUTLENGTH & (MAXINPUTLENGTH-1)) == 0), "MAXINPUTLENGTH must be power of 2");
