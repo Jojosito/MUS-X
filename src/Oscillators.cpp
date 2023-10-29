@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "decimator.hpp"
 
 using simd::float_4;
 using simd::int32_4;
@@ -38,19 +39,13 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
-	static const int maxOversamplingRate = 128;
+	static const int maxOversamplingRate = 1024;
 	static const int minFreq = 0.01f; // min frequency of the oscillators in Hz
 	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
 
 	int oversamplingRate = 16;
-	static const int oversamplingQuality = 16;
-	dsp::Decimator<2, oversamplingQuality, float_4> decimator2[4];
-	dsp::Decimator<4, oversamplingQuality, float_4> decimator4[4];
-	dsp::Decimator<8, oversamplingQuality, float_4> decimator8[4];
-	dsp::Decimator<16, oversamplingQuality, float_4> decimator16[4];
-	dsp::Decimator<32, oversamplingQuality, float_4> decimator32[4];
-	dsp::Decimator<64, oversamplingQuality, float_4> decimator64[4];
-	dsp::Decimator<128, oversamplingQuality, float_4> decimator128[4];
+
+	HalfBandDecimatorCascade<float_4> decimator[4];
 
 	int channels = 1;
 
@@ -161,36 +156,7 @@ struct Oscillators : Module {
 			}
 
 			// downsampling
-			float_4 decimatedMix;
-			switch (oversamplingRate)
-			{
-				case 1:
-					decimatedMix = mix[c/4][0];
-					break;
-				case 2:
-					decimatedMix = decimator2[c/4].process(mix[c/4]);
-					break;
-				case 4:
-					decimatedMix = decimator4[c/4].process(mix[c/4]);
-					break;
-				case 8:
-					decimatedMix = decimator8[c/4].process(mix[c/4]);
-					break;
-				case 16:
-					decimatedMix = decimator16[c/4].process(mix[c/4]);
-					break;
-				case 32:
-					decimatedMix = decimator32[c/4].process(mix[c/4]);
-					break;
-				case 64:
-					decimatedMix = decimator64[c/4].process(mix[c/4]);
-					break;
-				case 128:
-					decimatedMix = decimator128[c/4].process(mix[c/4]);
-					break;
-			}
-
-			outputs[OUT_OUTPUT].setVoltageSimd(decimatedMix, c);
+			outputs[OUT_OUTPUT].setVoltageSimd(decimator[c/4].process(mix[c/4], oversamplingRate), c);
 		}
 
 		// Light
@@ -252,7 +218,7 @@ struct OscillatorsWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"},
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x", "256x", "512x", "1024x"},
 			[=]() {
 				switch (module->oversamplingRate)
 				{
@@ -272,6 +238,12 @@ struct OscillatorsWidget : ModuleWidget {
 						return 6;
 					case 128:
 						return 7;
+					case 256:
+						return 8;
+					case 512:
+						return 9;
+					case 1024:
+						return 10;
 					default:
 						return 0;
 				}
@@ -302,6 +274,15 @@ struct OscillatorsWidget : ModuleWidget {
 						break;
 					case 7:
 						module->setOversamplingRate(128);
+						break;
+					case 8:
+						module->setOversamplingRate(256);
+						break;
+					case 9:
+						module->setOversamplingRate(512);
+						break;
+					case 10:
+						module->setOversamplingRate(1024);
 						break;
 				}
 			}
