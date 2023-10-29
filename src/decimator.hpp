@@ -57,7 +57,7 @@ struct HalfBandDecimator {
 			out[o] = 0.5f * inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - (2*ORDER - 1)) & (2*MAXINPUTLENGTH-1)];
 			for (int k = 0; k < ORDER; k++) { // loop over kernel
 				out[o] += coeffs[k] *
-						(inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - 2*k) & (2*MAXINPUTLENGTH-1)]  +
+						(inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH                 - 2*k) & (2*MAXINPUTLENGTH-1)]  +
 						 inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - (4*ORDER - 2) + 2*k) & (2*MAXINPUTLENGTH-1)]);
 			}
 		}

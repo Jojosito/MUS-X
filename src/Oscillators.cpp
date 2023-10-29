@@ -136,11 +136,11 @@ struct Oscillators : Module {
 
 			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
-			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate;
+			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate * 2;
 			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave = saw + inverted saw with phaseshift
 
 			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
-			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate;
+			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate * 2;
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
 			// calculate the oversampled oscillators and mix
