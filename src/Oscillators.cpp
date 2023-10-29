@@ -103,10 +103,13 @@ struct Oscillators : Module {
 		for (int c = 0; c < 16; c += 4) {
 			phasor1[c/4] = 0.f;
 			phasor2[c/4] = 0.f;
+
 			for (int i = 0; i < maxOversamplingRate; ++i)
 			{
 				mix[c/4][i] = 0.f;
 			}
+
+			decimator[c/4].reset();
 		}
 	}
 
@@ -220,71 +223,10 @@ struct OscillatorsWidget : ModuleWidget {
 
 		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x", "256x", "512x", "1024x"},
 			[=]() {
-				switch (module->oversamplingRate)
-				{
-					case 1:
-						return 0;
-					case 2:
-						return 1;
-					case 4:
-						return 2;
-					case 8:
-						return 3;
-					case 16:
-						return 4;
-					case 32:
-						return 5;
-					case 64:
-						return 6;
-					case 128:
-						return 7;
-					case 256:
-						return 8;
-					case 512:
-						return 9;
-					case 1024:
-						return 10;
-					default:
-						return 0;
-				}
+				return log2(module->oversamplingRate);
 			},
 			[=](int mode) {
-				switch (mode)
-				{
-					case 0:
-						module->setOversamplingRate(1);
-						break;
-					case 1:
-						module->setOversamplingRate(2);
-						break;
-					case 2:
-						module->setOversamplingRate(4);
-						break;
-					case 3:
-						module->setOversamplingRate(8);
-						break;
-					case 4:
-						module->setOversamplingRate(16);
-						break;
-					case 5:
-						module->setOversamplingRate(32);
-						break;
-					case 6:
-						module->setOversamplingRate(64);
-						break;
-					case 7:
-						module->setOversamplingRate(128);
-						break;
-					case 8:
-						module->setOversamplingRate(256);
-						break;
-					case 9:
-						module->setOversamplingRate(512);
-						break;
-					case 10:
-						module->setOversamplingRate(1024);
-						break;
-				}
+				module->setOversamplingRate(std::pow(2, mode));
 			}
 		));
 	}
