@@ -1,9 +1,11 @@
+//#define DBG
+
 /** Downsamples by a factor 2.
   * MAXINPUTLENGTH must be power of 2 and > 2*ORDER*/
 template <int MAXINPUTLENGTH, int ORDER, typename T = float>
 struct HalfBandDecimator {
 	static_assert(MAXINPUTLENGTH>0 && ((MAXINPUTLENGTH & (MAXINPUTLENGTH-1)) == 0), "MAXINPUTLENGTH must be power of 2");
-	static_assert(MAXINPUTLENGTH > 4*ORDER, "MAXINPUTLENGTH to small for ORDER");
+	static_assert(MAXINPUTLENGTH > 4*ORDER, "MAXINPUTLENGTH too small for ORDER");
 
 	T inBuffer[2*MAXINPUTLENGTH] = {0};
 	float coeffs[ORDER] = {0};
@@ -19,31 +21,48 @@ struct HalfBandDecimator {
 		std::memset(inBuffer, 0, sizeof(inBuffer));
 	}
 
-	void setCoeffs(float* arg)
+	void setCoeffs(const float* arg)
 	{
 		std::memcpy(&coeffs[0], arg, ORDER * sizeof(float));
+
+#ifdef DBG
+		{
+			for (int i=0; i<ORDER; ++i)
+			{
+				assert(coeffs[i] != 0);
+				assert(coeffs[i] < 0.5f);
+				assert(coeffs[i] > -0.5f);
+			}
+		}
+#endif
+
 	}
 
 	/** `in` must be filled up to inputlength
       *  inputlength must be power of 2
 	  * `out` will be filled u p to inputlength/2 */
-	void process(T* in, T* out, int inputlength) {
+	void process(const T* in, T* out, const int inputlength) {
 		// Copy input to buffer
 		std::memcpy(&inBuffer[inIndex], in, inputlength * sizeof(T));
 
 		// Perform convolution
 		for (int o = 0; o < inputlength/2; o++) { // loop over output samples to be calculated
 
+			out[o] = 0.5f * inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - (2*ORDER - 1)) & (2*MAXINPUTLENGTH-1)];
 			for (int k = 0; k < ORDER; k++) { // loop over kernel
-				out[o] = coeffs[k] *
+				out[o] += coeffs[k] *
 						(inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - 2*k) & (2*MAXINPUTLENGTH-1)]  +
-						 inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - ((4*ORDER - 2) - 2*k)) & (2*MAXINPUTLENGTH-1)]);
+						 inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - (4*ORDER - 2) + 2*k) & (2*MAXINPUTLENGTH-1)]);
 			}
-			out[o] += 0.5f * inBuffer[(inIndex + 2*o + 2*MAXINPUTLENGTH - (2*ORDER - 1)) & (2*MAXINPUTLENGTH-1)];
 		}
 
 		// advance index
 		inIndex = (inIndex + inputlength) & (2*MAXINPUTLENGTH-1);
+
+#ifdef DBG
+		assert(inputlength>0 && ((inputlength & (inputlength-1)) == 0));
+		assert(inIndex + inputlength <= 2*MAXINPUTLENGTH);
+#endif
 	}
 };
 
@@ -67,7 +86,7 @@ struct HalfBandDecimatorCascade {
 	T outBuffer[1024];
 
 	HalfBandDecimatorCascade() {
-		// transition band: 0.4921875; stop band attenuation: -160 dB
+		// transition band: 0.49609375; stop band attenuation: -100 dB
 		float coeffs256[1] = {0.2500094126245982};
 		decimator1024.setCoeffs(coeffs256);
 		decimator512.setCoeffs(coeffs256);
@@ -91,6 +110,19 @@ struct HalfBandDecimatorCascade {
 		// transition band: 0.0625; stop band attenuation: -91 dB
 		float coeffs2[22] = {-3.78984774783134e-05, 7.863590263960349e-05, -0.00015644609673577748, 0.000280705554967871, -0.00046880653545378965, 0.0007418705114406702, -0.0011250733106933466, 0.0016480557249014232, -0.0023455500288496497, 0.003258444430478961, -0.004435660674522054, 0.005937492977997016, -0.007841575438896764, 0.010253701642225216, -0.013328034730955753, 0.01730676011216719, -0.0226037708095706, 0.030000600584212778, -0.04117865039985172, 0.06052862461039207, -0.10419628766252699, 0.3176696599347577};
 		decimator2.setCoeffs(coeffs2);
+	}
+
+	void reset() {
+		decimator1024.reset();
+		decimator512.reset();
+		decimator256.reset();
+		decimator128.reset();
+		decimator64.reset();
+		decimator32.reset();
+		decimator16.reset();
+		decimator8.reset();
+		decimator4.reset();
+		decimator2.reset();
 	}
 
 	T process(T* in, int inputlength) {

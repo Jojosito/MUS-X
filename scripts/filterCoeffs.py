@@ -79,6 +79,7 @@ while oversampling > 1:
 			plt.title('Frequency response ' + str(oversampling) + "x -> " + str(int(oversampling/2)))
 			plt.grid(which='both', linestyle='-', color='grey')
 			plt.xticks([24000, 48000, 96000, 192000, 348000, 696000, 1392000, 2784000, 5568000, 11136000], ["24k", "48k", "96k", "192k", "348k", "696k", "1392k", "2784k", "5568k", "11136k"])
+			#plt.xticks([24000, 48000], ["24k", "48k"])
 			plt.show()
 			
 		
