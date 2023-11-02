@@ -56,21 +56,21 @@ struct OnePole : Module {
 				float_4 voltage = params[HIGHPASS_PARAM].getValue() + 0.1f * inputs[HIGHPASS_INPUT].getPolyVoltageSimd<float_4>(c);
 				float_4 frequency = simd::pow(base, voltage) * minFreq;
 				frequency = simd::clamp(frequency, 1.f, args.sampleRate/2.1f);
-				highpass[c].setCutoffFreq(frequency / args.sampleRate);
+				highpass[c/4].setCutoffFreq(frequency / args.sampleRate);
 
 				voltage = params[LOWPASS_PARAM].getValue() + 0.1f * inputs[LOWPASS_INPUT].getPolyVoltageSimd<float_4>(c);
 				frequency = simd::pow(base, voltage) * minFreq;
 				frequency = simd::clamp(frequency, 0.f, args.sampleRate/2.f);
-				lowpass[c].setCutoffFreq(frequency / args.sampleRate);
+				lowpass[c/4].setCutoffFreq(frequency / args.sampleRate);
 			}
 		}
 
 		for (int c = 0; c < channels; c += 4) {
 
-			highpass[c].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c));
-			lowpass[c].process(highpass[c].highpass());
+			highpass[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c));
+			lowpass[c/4].process(highpass[c/4].highpass());
 
-			outputs[OUT_OUTPUT].setVoltageSimd(lowpass[c].lowpass(), c);
+			outputs[OUT_OUTPUT].setVoltageSimd(lowpass[c/4].lowpass(), c);
 		}
 
 	}

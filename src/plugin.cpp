@@ -10,6 +10,7 @@ void init(Plugin* p) {
 	// Add modules here
 	p->addModel(modelADSR);
 	p->addModel(modelDelay);
+	p->addModel(modelDrift);
 	p->addModel(modelOnePole);
 	p->addModel(modelOscillators);
 	p->addModel(modelTuner);
