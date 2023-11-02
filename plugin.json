@@ -16,7 +16,7 @@
     {
       "slug": "ADSR",
       "name": "ADSR",
-      "description": "ADSR envelope generator",
+      "description": "ADSR envelope generator.",
       "tags": [
         "Envelope generator",
         "Polyphonic"
@@ -43,7 +43,7 @@
     {
       "slug": "Delay",
       "name": "Delay",
-      "description": "BBD inspired ping-pong delay",
+      "description": "BBD inspired ping-pong delay.",
       "tags": [
         "Delay",
         "Effect"
