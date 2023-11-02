@@ -48,6 +48,15 @@
         "Delay",
         "Effect"
       ]
+    },
+    {
+      "slug": "OnePole",
+      "name": "OnePole",
+      "description": "Simple one-pole highpass and lowpass filters.",
+      "tags": [
+        "filter",
+        "polyphonic"
+      ]
     }
   ]
 }
