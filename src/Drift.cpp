@@ -23,7 +23,7 @@ struct Drift : Module {
 	};
 
 	const float minFreq = 0.01f; // min freq [Hz]
-	const float base = 2000.f/minFreq; // max freq/min freq
+	const float base = 1000.f/minFreq; // max freq/min freq
 	const int clockDivider = 16;
 
 	int channels = 1;
@@ -35,7 +35,9 @@ struct Drift : Module {
 	dsp::ClockDivider divider;
 
 	float lastRateParam = -1.f;
-	float driftScale = 0.f;
+	float driftScale = 1.f;
+
+	float prevRandomizeValue = 0.f;
 
 	Drift() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -43,6 +45,7 @@ struct Drift : Module {
 		configParam(RANDOMIZE_PARAM, 0.f, 1.f, 0.f, "Randomize constant offsets");
 		configParam(DRIFT_PARAM, 0.f, 1.f, 0.f, "Random drift");
 		configParam(RATE_PARAM, 0.f, 1.f, 0.f, "Drift rate", " Hz", base, minFreq);
+		getParamQuantity(RATE_PARAM)->smoothEnabled = false;
 		configInput(POLY_INPUT, "Polyphony channels");
 		configOutput(OUT_OUTPUT, "Signal");
 
@@ -54,10 +57,12 @@ struct Drift : Module {
 	void randomizeDiverge()
 	{
 		for (int c = 0; c < 4; c += 1) {
-			diverge[c][0] = rack::random::normal();
-			diverge[c][1] = rack::random::normal();
-			diverge[c][2] = rack::random::normal();
-			diverge[c][3] = rack::random::normal();
+			diverge[c][0] = rack::random::get<float>() - 0.5f;
+			diverge[c][1] = rack::random::get<float>() - 0.5f;
+			diverge[c][2] = rack::random::get<float>() - 0.5f;
+			diverge[c][3] = rack::random::get<float>() - 0.5f;
+
+			diverge[c] *= 10.f; // +-5V
 		}
 	}
 
@@ -67,10 +72,12 @@ struct Drift : Module {
 			channels = std::max(1, inputs[POLY_INPUT].getChannels());
 			outputs[OUT_OUTPUT].setChannels(channels);
 
-			if (params[RANDOMIZE_PARAM].getValue())
+			// randomize
+			if (params[RANDOMIZE_PARAM].getValue() && prevRandomizeValue == 0.f)
 			{
 				randomizeDiverge();
 			}
+			prevRandomizeValue = params[RANDOMIZE_PARAM].getValue();
 
 			// update filter frequency
 			if (params[RATE_PARAM].getValue() != lastRateParam)
@@ -78,22 +85,33 @@ struct Drift : Module {
 				for (int c = 0; c < 16; c += 4) {
 					float cutoffFreq = simd::pow(base, params[RATE_PARAM].getValue()) * minFreq / args.sampleRate * clockDivider;
 					lowpass[c/4].setCutoffFreq(cutoffFreq);
-					driftScale = 100.f / pow(100.f, params[RATE_PARAM].getValue());
+					lowpass[c/4].reset();
+
+					driftScale = 1.e30;
+
 					lastRateParam = params[RATE_PARAM].getValue();
 				}
 			}
 
 			for (int c = 0; c < channels; c += 4) {
-				float_4 rn = {
-						rack::random::get<float>() - 0.5f,
-						rack::random::get<float>() - 0.5f,
-						rack::random::get<float>() - 0.5f,
-						rack::random::get<float>() - 0.5f};
-				lowpass[c/4].process(rn);
+				float_4 rn = {rack::random::get<float>() - 0.5f,
+							  rack::random::get<float>() - 0.5f,
+							  rack::random::get<float>() - 0.5f,
+							  rack::random::get<float>() - 0.5f};
 
-				outputs[OUT_OUTPUT].setVoltageSimd(
-						params[CONST_PARAM].getValue() * diverge[c/4] +
-						params[DRIFT_PARAM].getValue() * driftScale * lowpass[c/4].lowpass(),
+				lowpass[c/4].process(rn);
+				float_4 drift = lowpass[c/4].lowpass();
+
+				// limit drift to +-5V
+				for (int i = 0; i < 4; ++i)
+				{
+					driftScale = simd::fmin(driftScale, 5.f / std::abs(drift[i]));
+				}
+
+				outputs[OUT_OUTPUT].setVoltageSimd(simd::clamp(
+						params[CONST_PARAM].getValue() * params[CONST_PARAM].getValue() * diverge[c/4] +
+						params[DRIFT_PARAM].getValue() * params[DRIFT_PARAM].getValue() * driftScale * drift,
+						-10.f, 10.f),
 						c);
 			}
 		}
