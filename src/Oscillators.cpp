@@ -73,12 +73,12 @@ struct Oscillators : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(OSC1SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 1 shape");
 		configParam(OSC1PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 1 pulse width", " %", 0.f, 100.f);
-		configParam(OSC1VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 1 volume", 		" %", 0.f, 100.f);
+		configParam(OSC1VOL_PARAM, 		0.f, 1.f, 0.f,  "Oscillator 1 volume", 		" %", 0.f, 100.f);
 		configParam(OSC2SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 2 shape");
 		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
 		configParam(SYNC_PARAM, 		0.f, 1.f, 0.f, 	"Sync Osc 2 to Osc 1");
-		configParam(CROSSMOD_PARAM, 	0.f, 1.f, 0.f, 	"Osc 1 to Osc 2 FM amount");
+		configParam(CROSSMOD_PARAM, 	0.f, 1.f, 0.f, 	"Osc 1 to Osc 2 FM amount", " %", 0.f, 100.f);
 		configParam(RINGMOD_PARAM, 		0.f, 1.f, 0.f, 	"Ring modulator volume", 	" %", 0.f, 100.f);
 		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
 		configInput(OSC1PW_INPUT, 		"Oscillator 1 pulse width CV");

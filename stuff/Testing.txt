@@ -1,0 +1,18 @@
+Testing TODOs
+
+- Tooltips with correct labels and sensible units and ranges
+
+- Check output with scope and analyzer
+
+- plug/unplug module
+- mono/poly/mixed inputs
+- test mono, 3, 7, 8, 12, 16 voices
+- test all knobs
+- test all CV inputs with -10..10V & noise, mono & poly
+
+- Different VCV sample rates
+- bypass, reset, randomize
+- save & load extra settings
+
+- dark theme
+

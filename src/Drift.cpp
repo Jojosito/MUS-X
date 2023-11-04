@@ -41,9 +41,9 @@ struct Drift : Module {
 
 	Drift() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(CONST_PARAM, 0.f, 1.f, 0.f, "Random constant offset");
+		configParam(CONST_PARAM, 0.f, 1.f, 0.f, "Random constant offset", " %", 0.f, 100.f);
 		configParam(RANDOMIZE_PARAM, 0.f, 1.f, 0.f, "Randomize constant offsets");
-		configParam(DRIFT_PARAM, 0.f, 1.f, 0.f, "Random drift");
+		configParam(DRIFT_PARAM, 0.f, 1.f, 0.f, "Random drift", " %", 0.f, 100.f);
 		configParam(RATE_PARAM, 0.f, 1.f, 0.f, "Drift rate", " Hz", base, minFreq);
 		getParamQuantity(RATE_PARAM)->smoothEnabled = false;
 		configInput(POLY_INPUT, "Polyphony channels");

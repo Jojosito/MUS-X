@@ -56,10 +56,10 @@ struct ADSR : Module {
 
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 0.f, 1.f, 0.5f, "Attack", " ms", LAMBDA_BASE, MIN_TIME * 1000);
-		configParam(D_PARAM, 0.f, 1.f, 0.5f, "Decay", " ms", LAMBDA_BASE, MIN_TIME * 1000);
-		configParam(S_PARAM, 0.f, 1.f, 0.5f, "Sustain", "%", 0, 100);
-		configParam(R_PARAM, 0.f, 1.f, 0.5f, "Release", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(A_PARAM, 0.f, 1.f, 0.1f, "Attack", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(D_PARAM, 0.f, 1.f, 0.1f, "Decay", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(S_PARAM, 0.f, 1.f, 1.f, "Sustain", "%", 0, 100);
+		configParam(R_PARAM, 0.f, 1.f, 0.1f, "Release", " ms", LAMBDA_BASE, MIN_TIME * 1000);
 
 		configParam(VELSCALE_PARAM, 0.f, 1.f, 0.f, "Velocity CV");
 		configParam(SUSMOD_PARAM, -1.f, 1.f, 0.f, "Sustain CV");
