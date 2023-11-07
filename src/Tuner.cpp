@@ -59,6 +59,27 @@ struct Tuner : Module {
 			outputs[VOCT_OUTPUT].setVoltageSimd(simd::clamp(v, -12.f, 12.f), c);
 		}
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "snapOctaves", json_boolean(snapOctaves));
+		json_object_set_new(rootJ, "snapSemitones", json_boolean(snapSemitones));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* snapOctavesJ = json_object_get(rootJ, "snapOctaves");
+		if (snapOctavesJ)
+		{
+			snapOctaves = json_boolean_value(snapOctavesJ);
+		}
+		json_t* snapSemitonesJ = json_object_get(rootJ, "snapSemitones");
+		if (snapSemitonesJ)
+		{
+			snapSemitones = json_boolean_value(snapSemitonesJ);
+		}
+		setSnap();
+	}
 };
 
 

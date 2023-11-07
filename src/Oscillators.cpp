@@ -196,14 +196,16 @@ struct Oscillators : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
-		json_object_set_new(rootJ, "oversamplingRate", json_real(oversamplingRate));
+		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
 		json_t* oversamplingRateJ = json_object_get(rootJ, "oversamplingRate");
-		if (oversamplingRate)
-			oversamplingRate = json_number_value(oversamplingRateJ);
+		if (oversamplingRateJ)
+		{
+			setOversamplingRate(json_integer_value(oversamplingRateJ));
+		}
 	}
 };
 
