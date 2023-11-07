@@ -24,6 +24,7 @@ struct Oscillators : Module {
 		OSC2SHAPE_INPUT,
 		OSC2PW_INPUT,
 		OSC2VOL_INPUT,
+		SYNC_INPUT,
 		CROSSMOD_INPUT,
 		RINGMOD_INPUT,
 		OSC1VOCT_INPUT,
@@ -83,6 +84,7 @@ struct Oscillators : Module {
 		configInput(OSC2SHAPE_INPUT, 	"Oscillator 2 shape CV");
 		configInput(OSC2PW_INPUT, 		"Oscillator 2 pulse width CV");
 		configInput(OSC2VOL_INPUT, 		"Oscillator 2 volume CV");
+		configInput(SYNC_INPUT, 		"Sync CV (mono)");
 		configInput(CROSSMOD_INPUT, 	"FM amount CV");
 		configInput(RINGMOD_INPUT, 		"Ring modulator volume CV");
 		configInput(OSC1VOCT_INPUT, 	"Oscillator 1 V/Oct");
@@ -129,6 +131,8 @@ struct Oscillators : Module {
 			ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			ringmod[c/4] *= 5.f / INT32_MAX / INT32_MAX;
 
+			int sync = std::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getVoltage() / 5.f, -1.f, 1.f));
+
 			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate * 2;
@@ -139,7 +143,7 @@ struct Oscillators : Module {
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
 			// calculate the oversampled oscillators and mix
-			switch (int(params[SYNC_PARAM].getValue()))
+			switch (sync)
 			{
 				case -1: // sync osc 2 to osc 1
 					for (int i = 0; i < oversamplingRate; ++i)
@@ -230,6 +234,7 @@ struct OscillatorsWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 80.313)), module, Oscillators::OSC2SHAPE_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(38.176, 80.313)), module, Oscillators::OSC2PW_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.491, 80.313)), module, Oscillators::OSC2VOL_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 96.375)), module, Oscillators::SYNC_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(38.176, 96.375)), module, Oscillators::CROSSMOD_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.491, 96.375)), module, Oscillators::RINGMOD_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
