@@ -13,7 +13,7 @@ struct Oscillators : Module {
 		OSC2PW_PARAM,
 		OSC2VOL_PARAM,
 		SYNC_PARAM,
-		CROSSMOD_PARAM,
+		FM_PARAM,
 		RINGMOD_PARAM,
 		PARAMS_LEN
 	};
@@ -25,7 +25,7 @@ struct Oscillators : Module {
 		OSC2PW_INPUT,
 		OSC2VOL_INPUT,
 		SYNC_INPUT,
-		CROSSMOD_INPUT,
+		FM_INPUT,
 		RINGMOD_INPUT,
 		OSC1VOCT_INPUT,
 		OSC2VOCT_INPUT,
@@ -64,7 +64,7 @@ struct Oscillators : Module {
 	float_4 osc2PW[4] = {0};
 	float_4 osc2Vol[4] = {0};
 
-	float_4 crossmod[4] = {0};
+	float_4 fm[4] = {0};
 	float_4 ringmod[4] = {0};
 
 	Oscillators() {
@@ -76,7 +76,7 @@ struct Oscillators : Module {
 		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
 		configSwitch(SYNC_PARAM, 		-1,  1,   0, 	"Sync", {"Sync osc 2 to osc 1", "off", "Sync osc 1 to osc 2"});
-		configParam(CROSSMOD_PARAM, 	0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
+		configParam(FM_PARAM, 	  		0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
 		configParam(RINGMOD_PARAM, 		0.f, 1.f, 0.f, 	"Ring modulator volume", 	" %", 0.f, 100.f);
 		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
 		configInput(OSC1PW_INPUT, 		"Oscillator 1 pulse width CV");
@@ -85,7 +85,7 @@ struct Oscillators : Module {
 		configInput(OSC2PW_INPUT, 		"Oscillator 2 pulse width CV");
 		configInput(OSC2VOL_INPUT, 		"Oscillator 2 volume CV");
 		configInput(SYNC_INPUT, 		"Sync CV (mono)");
-		configInput(CROSSMOD_INPUT, 	"FM amount CV");
+		configInput(FM_INPUT, 	"FM amount CV");
 		configInput(RINGMOD_INPUT, 		"Ring modulator volume CV");
 		configInput(OSC1VOCT_INPUT, 	"Oscillator 1 V/Oct");
 		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
@@ -126,8 +126,8 @@ struct Oscillators : Module {
 			osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			osc2Vol[c/4] *= 5.f / INT32_MAX;
 
-			crossmod[c/4] 	= simd::clamp(params[CROSSMOD_PARAM].getValue()  + 0.1f *inputs[CROSSMOD_INPUT].getVoltageSimd<float_4>(c),  0.f, 1.f);
-			crossmod[c/4]   = crossmod[c/4] * crossmod[c/4] * 0.1f / oversamplingRate; // scale
+			fm[c/4] 	= simd::clamp(params[FM_INPUT].getValue()  + 0.1f *inputs[FM_INPUT].getVoltageSimd<float_4>(c),  0.f, 1.f);
+			fm[c/4]   = fm[c/4] * fm[c/4] * 0.1f / oversamplingRate; // scale
 			ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			ringmod[c/4] *= 5.f / INT32_MAX / INT32_MAX;
 
@@ -153,8 +153,8 @@ struct Oscillators : Module {
 						phasor1[c/4] += phase1Inc;
 						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
-						int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
-						phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithCrossmod);
+						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
+						phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
 						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
@@ -168,8 +168,8 @@ struct Oscillators : Module {
 						phasor1[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor1[c/4] + phase1Inc);
 						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
-						int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
-						phasor2[c/4] += phase2IncWithCrossmod;
+						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
+						phasor2[c/4] += phase2IncWithFm;
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
 						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
@@ -181,8 +181,8 @@ struct Oscillators : Module {
 						phasor1[c/4] += phase1Inc;
 						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
-						int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
-						phasor2[c/4] += phase2IncWithCrossmod;
+						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
+						phasor2[c/4] += phase2IncWithFm;
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
 						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
@@ -218,29 +218,29 @@ struct OscillatorsWidget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.936, 16.062)), module, Oscillators::OSC1SHAPE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(38.176, 16.062)), module, Oscillators::OSC1PW_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(53.491, 16.062)), module, Oscillators::OSC1VOL_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.936, 32.125)), module, Oscillators::OSC2SHAPE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(38.176, 32.125)), module, Oscillators::OSC2PW_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(53.491, 32.125)), module, Oscillators::OSC2VOL_PARAM));
-		addParam(createParamCentered<BefacoSwitch>  (mm2px(Vec(22.936, 48.188)), module, Oscillators::SYNC_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(38.176, 48.188)), module, Oscillators::CROSSMOD_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(53.491, 48.188)), module, Oscillators::RINGMOD_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 18.179)), module, Oscillators::OSC1SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.48, 18.179)), module, Oscillators::OSC1PW_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.72, 18.179)), module, Oscillators::OSC1VOL_PARAM));
+		addParam(createParamCentered<BefacoSwitch>  (mm2px(Vec(15.26, 50.304)), module, Oscillators::SYNC_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.5, 50.304)), module, Oscillators::FM_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 50.304)), module, Oscillators::RINGMOD_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.26, 82.429)), module, Oscillators::OSC2SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.5, 82.429)), module, Oscillators::OSC2PW_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 82.429)), module, Oscillators::OSC2VOL_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 64.25)), module, Oscillators::OSC1SHAPE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(38.176, 64.25)), module, Oscillators::OSC1PW_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.491, 64.25)), module, Oscillators::OSC1VOL_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 80.313)), module, Oscillators::OSC2SHAPE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(38.176, 80.313)), module, Oscillators::OSC2PW_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.491, 80.313)), module, Oscillators::OSC2VOL_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 96.375)), module, Oscillators::SYNC_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(38.176, 96.375)), module, Oscillators::CROSSMOD_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.491, 96.375)), module, Oscillators::RINGMOD_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.936, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(38.176, 112.438)), module, Oscillators::OSC2VOCT_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 28.888)), module, Oscillators::OSC1SHAPE_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.48, 28.888)), module, Oscillators::OSC1PW_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 28.888)), module, Oscillators::OSC1VOL_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 61.012)), module, Oscillators::SYNC_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.48, 61.012)), module, Oscillators::FM_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 61.012)), module, Oscillators::RINGMOD_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 93.137)), module, Oscillators::OSC2SHAPE_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.48, 93.137)), module, Oscillators::OSC2PW_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 93.137)), module, Oscillators::OSC2VOL_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.26, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.5, 112.438)), module, Oscillators::OSC2VOCT_INPUT));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(53.491, 112.438)), module, Oscillators::OUT_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(45.816, 112.438)), module, Oscillators::OUT_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
