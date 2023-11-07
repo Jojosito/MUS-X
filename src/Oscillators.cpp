@@ -75,7 +75,7 @@ struct Oscillators : Module {
 		configParam(OSC2SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 2 shape");
 		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
-		configSwitch(SYNC_PARAM, 		-1,  1,   0, 	"Sync", {"Sync osc 2 to osc 1", "off", "Sync osc 1 to osc 2"});
+		configSwitch(SYNC_PARAM, 		 -1,   1,   0, 	"Sync", {"Sync osc 2 to osc 1", "off", "Sync osc 1 to osc 2"});
 		configParam(FM_PARAM, 	  		0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
 		configParam(RINGMOD_PARAM, 		0.f, 1.f, 0.f, 	"Ring modulator volume", 	" %", 0.f, 100.f);
 		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
@@ -85,7 +85,7 @@ struct Oscillators : Module {
 		configInput(OSC2PW_INPUT, 		"Oscillator 2 pulse width CV");
 		configInput(OSC2VOL_INPUT, 		"Oscillator 2 volume CV");
 		configInput(SYNC_INPUT, 		"Sync CV (mono)");
-		configInput(FM_INPUT, 	"FM amount CV");
+		configInput(FM_INPUT, 			"FM amount CV");
 		configInput(RINGMOD_INPUT, 		"Ring modulator volume CV");
 		configInput(OSC1VOCT_INPUT, 	"Oscillator 1 V/Oct");
 		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
