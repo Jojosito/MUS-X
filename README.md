@@ -6,22 +6,33 @@
 ADSR envelope generator with exponential decay/release, built in velocity scaling and sustain CV.
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
+### Drift
+Drift generates subtle constant offset and drift.
+The 'Poly' input determines the polyphony channels of the output.
+'Const' adjusts the amount of a random (per voice) constant offset.
+'RNG' generates a new set of random offsets.
+'Drift' adjusts the amount of a random (per voice) drift.
+'Drift Rate' adjusts the frequency of the random drift.
+
+### OnePole
+A simple CV controllable 1-pole highpass and lowpass filter.
+
 ### Oscillators
 A pair of analog-style oscillators.
 'Shape' blends from sawtooth to pulse wave.
 'PW' adjusts the pulse wave from 0% to 100% duty cycle.
 'Vol' adjusts the oscillator volume.
-'Sync' hard syncs oscillator 2 to oscillator 1.
+'Sync' hard syncs oscillator 2 to oscillator 1, or oscillator 1 to oscillator 2.
 'FM' adjusts the (Linear-Through-Zero) frequency modulation from oscillator 1 to oscillator 2.
 Since the oscillators have no DC-offset, oscillator 2 stays in tune when applying FM.
 'RM' adjusts the volume of the ring modulator (multiplication of oscillator 1 and 2).
 
-Every parameter (except sync) is CV controllable.
+Every parameter is CV controllable.
 There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' module to add tuning controls.
 'Out' outputs the mix of oscillator 1, oscillator 2 and the ring modulator.
 
 The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled to reduce aliasing.
-This is especially useful for FM sounds.
+This is especially useful for FM and sync sounds.
 With no oversampling, the oscillators alias a lot.
 Right click on the module to adjust the oversampling factor.
 
