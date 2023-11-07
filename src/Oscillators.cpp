@@ -35,7 +35,6 @@ struct Oscillators : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
-		SYNC_LIGHT,
 		LIGHTS_LEN
 	};
 
@@ -54,8 +53,6 @@ struct Oscillators : Module {
 	int32_4 phasor2[4] = {0};
 
 	float_4 mix[4][maxOversamplingRate] = {0};
-
-	dsp::ClockDivider lightDivider;
 
 	// CV modulated parameters
 	float_4 osc1Shape[4] = {0};
@@ -77,8 +74,8 @@ struct Oscillators : Module {
 		configParam(OSC2SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 2 shape");
 		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
-		configParam(SYNC_PARAM, 		0.f, 1.f, 0.f, 	"Sync Osc 2 to Osc 1");
-		configParam(CROSSMOD_PARAM, 	0.f, 1.f, 0.f, 	"Osc 1 to Osc 2 FM amount", " %", 0.f, 100.f);
+		configSwitch(SYNC_PARAM, 		-1,  1,   0, 	"Sync", {"Sync osc 2 to osc 1", "off", "Sync osc 1 to osc 2"});
+		configParam(CROSSMOD_PARAM, 	0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
 		configParam(RINGMOD_PARAM, 		0.f, 1.f, 0.f, 	"Ring modulator volume", 	" %", 0.f, 100.f);
 		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
 		configInput(OSC1PW_INPUT, 		"Oscillator 1 pulse width CV");
@@ -91,8 +88,6 @@ struct Oscillators : Module {
 		configInput(OSC1VOCT_INPUT, 	"Oscillator 1 V/Oct");
 		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
 		configOutput(OUT_OUTPUT, 		"Mix");
-
-		lightDivider.setDivision(128);
 	}
 
 	void setOversamplingRate(int arg)
@@ -144,47 +139,54 @@ struct Oscillators : Module {
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
 			// calculate the oversampled oscillators and mix
-			if (params[SYNC_PARAM].getValue())
+			switch (int(params[SYNC_PARAM].getValue()))
 			{
-				// sync is on
-				for (int i = 0; i < oversamplingRate; ++i)
-				{
-					float_4 doSync = params[SYNC_PARAM].getValue() & (phasor1[c/4] + phase1Inc < phasor1[c/4]);
+				case -1: // sync osc 2 to osc 1
+					for (int i = 0; i < oversamplingRate; ++i)
+					{
+						float_4 doSync = phasor1[c/4] + phase1Inc < phasor1[c/4];
 
-					phasor1[c/4] += phase1Inc;
-					float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
+						phasor1[c/4] += phase1Inc;
+						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
-					int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
-					phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithCrossmod);
-					float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
+						int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
+						phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithCrossmod);
+						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
-					mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
-				}
+						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+					}
+					break;
+				case 1: // sync osc 1 to osc 2
+					for (int i = 0; i < oversamplingRate; ++i)
+					{
+						float_4 doSync = phasor2[c/4] + phase2Inc < phasor2[c/4];
+
+						phasor1[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor1[c/4] + phase1Inc);
+						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
+
+						int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
+						phasor2[c/4] += phase2IncWithCrossmod;
+						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
+
+						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+					}
+					break;
+				default: // sync is off
+					for (int i = 0; i < oversamplingRate; ++i)
+					{
+						phasor1[c/4] += phase1Inc;
+						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
+
+						int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
+						phasor2[c/4] += phase2IncWithCrossmod;
+						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
+
+						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+					}
 			}
-			else
-			{
-				// sync is off -> code can be simplified
-				for (int i = 0; i < oversamplingRate; ++i)
-				{
-					phasor1[c/4] += phase1Inc;
-					float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
-
-					int32_4 phase2IncWithCrossmod = phase2Inc + int32_4(crossmod[c/4] * wave1);
-					phasor2[c/4] += phase2IncWithCrossmod;
-					float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
-
-					mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
-				}
-			}
-
 
 			// downsampling
 			outputs[OUT_OUTPUT].setVoltageSimd(decimator[c/4].process(mix[c/4], oversamplingRate), c);
-		}
-
-		// Light
-		if (lightDivider.process()) {
-			lights[SYNC_LIGHT].setBrightness(params[SYNC_PARAM].getValue());
 		}
 	}
 
@@ -218,7 +220,7 @@ struct OscillatorsWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.936, 32.125)), module, Oscillators::OSC2SHAPE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(38.176, 32.125)), module, Oscillators::OSC2PW_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(53.491, 32.125)), module, Oscillators::OSC2VOL_PARAM));
-		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(22.936, 48.188)), module, Oscillators::SYNC_PARAM, Oscillators::SYNC_LIGHT));
+		addParam(createParamCentered<BefacoSwitch>  (mm2px(Vec(22.936, 48.188)), module, Oscillators::SYNC_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(38.176, 48.188)), module, Oscillators::CROSSMOD_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(53.491, 48.188)), module, Oscillators::RINGMOD_PARAM));
 
