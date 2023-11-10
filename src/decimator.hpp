@@ -1,5 +1,3 @@
-//#define DBG
-
 /** Downsamples by a factor 2.
   * MAXINPUTLENGTH must be power of 2 and > 2*ORDER
   *
@@ -30,22 +28,18 @@ struct HalfBandDecimator {
 	void setCoeffs(const float* arg)
 	{
 		std::memcpy(&coeffs[0], arg, ORDER * sizeof(float));
+	}
 
-#ifdef DBG
-		{
-			for (int i=0; i<ORDER; ++i)
-			{
-				assert(coeffs[i] != 0);
-				assert(coeffs[i] < 0.5f);
-				assert(coeffs[i] > -0.5f);
-			}
-		}
-#endif
-
+	/**
+	 * write input with inputlength to this array, then call process(out, inputlength)
+	 */
+	T* getInputArray()
+	{
+		return &inBuffer[inIndex];
 	}
 
 	/** inputlength must be power of 2
-	  * `out` will be filled u p to inputlength/2 */
+	  * `out` will be filled up to inputlength/2 */
 	void process(T* out, const int inputlength) {
 		// Perform convolution
 		for (int o = 0; o < inputlength/2; o++) { // loop over output samples to be calculated
@@ -60,16 +54,6 @@ struct HalfBandDecimator {
 
 		// advance index
 		inIndex = (inIndex + inputlength) & (2*MAXINPUTLENGTH-1);
-
-#ifdef DBG
-		assert(inputlength>0 && ((inputlength & (inputlength-1)) == 0));
-		assert(inIndex + inputlength <= 2*MAXINPUTLENGTH);
-#endif
-	}
-
-	T* getInputArray()
-	{
-		return &inBuffer[inIndex];
 	}
 };
 
@@ -132,6 +116,9 @@ struct HalfBandDecimatorCascade {
 		decimator2.reset();
 	}
 
+	/**
+	 * write input with inputlength to this array, then call process(inputlength)
+	 */
 	T* getInputArray(int inputlength)
 	{
 		switch (inputlength)
