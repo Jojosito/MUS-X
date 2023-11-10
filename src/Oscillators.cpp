@@ -36,6 +36,7 @@ struct Oscillators : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
+		SYNC_LIGHT,
 		LIGHTS_LEN
 	};
 
@@ -67,7 +68,7 @@ struct Oscillators : Module {
 	float_4 fm[4] = {0};
 	float_4 ringmod[4] = {0};
 
-	float_4 doSync[4] = {0};
+	dsp::ClockDivider lightDivider;
 
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -77,7 +78,7 @@ struct Oscillators : Module {
 		configParam(OSC2SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 2 shape");
 		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
-		configSwitch(SYNC_PARAM, 		 -1,   1,   0, 	"Sync", {"Sync osc 2 to osc 1", "off", "Sync osc 1 to osc 2"});
+		configSwitch(SYNC_PARAM, 		  0,   1,   0, 	"Sync", {"Off", "Sync osc 2 to osc 1"});
 		configParam(FM_PARAM, 	  		0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
 		configParam(RINGMOD_PARAM, 		0.f, 1.f, 0.f, 	"Ring modulator volume", 	" %", 0.f, 100.f);
 		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
@@ -92,6 +93,8 @@ struct Oscillators : Module {
 		configInput(OSC1VOCT_INPUT, 	"Oscillator 1 V/Oct");
 		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
 		configOutput(OUT_OUTPUT, 		"Mix");
+
+		lightDivider.setDivision(128);
 	}
 
 	void setOversamplingRate(int arg)
@@ -102,7 +105,6 @@ struct Oscillators : Module {
 		for (int c = 0; c < 16; c += 4) {
 			phasor1[c/4] = 0.f;
 			phasor2[c/4] = 0.f;
-			doSync[c/4] = 0.f;
 
 			for (int i = 0; i < maxOversamplingRate; ++i)
 			{
@@ -134,7 +136,7 @@ struct Oscillators : Module {
 			ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			ringmod[c/4] *= 5.f / INT32_MAX / INT32_MAX;
 
-			int sync = std::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getVoltage() / 5.f, -1.f, 1.f));
+			int sync = std::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getVoltage() / 5.f, 0.f, 1.f));
 
 			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
@@ -149,38 +151,16 @@ struct Oscillators : Module {
 			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
 			switch (sync)
 			{
-				case -1: // sync osc 2 to osc 1
+				case 1: // sync osc 2 to osc 1
 					for (int i = 0; i < oversamplingRate; ++i)
 					{
-						doSync[c/4] = phasor1[c/4] + phase1Inc < phasor1[c/4];
+						float_4 doSync = phasor1[c/4] + phase1Inc < phasor1[c/4];
 
 						phasor1[c/4] += phase1Inc;
 						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
 						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
-						phasor2[c/4] = simd::ifelse(doSync[c/4], -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
-						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
-
-						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
-					}
-					break;
-				case 1: // sync osc 1 to osc 2
-					for (int i = 0; i < oversamplingRate; ++i)
-					{
-						// this is actually wrong, since phasor2 will be incremented with phase2IncWithFm,
-						// but this gives awesome distorted sounds,
-						// whereas the correct implementation gives much more clean but boring sounds
-						doSync[c/4] = phasor2[c/4] + phase2Inc < phasor2[c/4];
-
-						phasor1[c/4] = simd::ifelse(doSync[c/4], -INT32_MAX, phasor1[c/4] + phase1Inc);
-						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
-
-						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
-
-						// this is more correct but boring
-						//doSync[c/4] = (phase2IncWithFm > 0) & (phasor2[c/4] + phase2IncWithFm < phasor2[c/4]);
-
-						phasor2[c/4] += phase2IncWithFm;
+						phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
 						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
@@ -202,6 +182,11 @@ struct Oscillators : Module {
 
 			// downsampling
 			outputs[OUT_OUTPUT].setVoltageSimd(decimator[c/4].process(oversamplingRate), c);
+		}
+
+		// Light
+		if (lightDivider.process()) {
+			lights[SYNC_LIGHT].setBrightness(params[SYNC_PARAM].getValue());
 		}
 	}
 
@@ -234,7 +219,7 @@ struct OscillatorsWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 18.179)), module, Oscillators::OSC1SHAPE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.48, 18.179)), module, Oscillators::OSC1PW_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.72, 18.179)), module, Oscillators::OSC1VOL_PARAM));
-		addParam(createParamCentered<BefacoSwitch>  (mm2px(Vec(15.26, 50.304)), module, Oscillators::SYNC_PARAM));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(15.26, 50.304)), module, Oscillators::SYNC_PARAM, Oscillators::SYNC_LIGHT));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.5, 50.304)), module, Oscillators::FM_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 50.304)), module, Oscillators::RINGMOD_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.26, 82.429)), module, Oscillators::OSC2SHAPE_PARAM));
