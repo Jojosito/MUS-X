@@ -73,10 +73,10 @@ struct Oscillators : Module {
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(OSC1SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 1 shape");
-		configParam(OSC1PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 1 pulse width", " %", 0.f, 100.f);
+		configParam(OSC1PW_PARAM, 		-1.f, 1.f, 0.f, "Oscillator 1 pulse width", " %", 0.f, 50.f, 50.f);
 		configParam(OSC1VOL_PARAM, 		0.f, 1.f, 0.f,  "Oscillator 1 volume", 		" %", 0.f, 100.f);
 		configParam(OSC2SHAPE_PARAM, 	0.f, 1.f, 0.f, 	"Oscillator 2 shape");
-		configParam(OSC2PW_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 pulse width", " %", 0.f, 100.f);
+		configParam(OSC2PW_PARAM, 		-1.f, 1.f, 0.f, "Oscillator 2 pulse width", " %", 0.f, 50.f, 50.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
 		configSwitch(SYNC_PARAM, 		  0,   1,   0, 	"Sync", {"Off", "Sync osc 2 to osc 1"});
 		configParam(FM_PARAM, 	  		0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
@@ -122,12 +122,12 @@ struct Oscillators : Module {
 		for (int c = 0; c < channels; c += 4) {
 			// parameters and CVs
 			osc1Shape[c/4] 	= simd::clamp(params[OSC1SHAPE_PARAM].getValue() + 0.1f *inputs[OSC1SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
-			osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.1f *inputs[OSC1PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
+			osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.2f *inputs[OSC1PW_INPUT].getVoltageSimd<float_4>(c),    -1.f, 1.f);
 			osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			osc1Vol[c/4] *= 5.f / INT32_MAX;
 
 			osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.1f *inputs[OSC2SHAPE_INPUT].getVoltageSimd<float_4>(c), 0.f, 1.f);
-			osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.1f *inputs[OSC2PW_INPUT].getVoltageSimd<float_4>(c),    0.f, 1.f);
+			osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.2f *inputs[OSC2PW_INPUT].getVoltageSimd<float_4>(c),    -1.f, 1.f);
 			osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getVoltageSimd<float_4>(c),   0.f, 1.f);
 			osc2Vol[c/4] *= 5.f / INT32_MAX;
 
@@ -141,11 +141,11 @@ struct Oscillators : Module {
 			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate * 2;
-			int32_4 phase1Offset = osc1PW[c/4] * INT32_MAX; // for pulse wave = saw + inverted saw with phaseshift
+			int32_4 phase1Offset = simd::ifelse(osc1PW[c/4] < 0, (-1.f - osc1PW[c/4]) * INT32_MAX, (1.f - osc1PW[c/4]) * INT32_MAX); // for pulse wave = saw + inverted saw with phaseshift
 
 			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate * 2;
-			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
+			int32_4 phase2Offset = simd::ifelse(osc2PW[c/4] < 0, (-1.f - osc2PW[c/4]) * INT32_MAX, (1.f - osc2PW[c/4]) * INT32_MAX); // for pulse wave
 
 			// calculate the oversampled oscillators and mix
 			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
@@ -157,11 +157,11 @@ struct Oscillators : Module {
 						float_4 doSync = phasor1[c/4] + phase1Inc < phasor1[c/4];
 
 						phasor1[c/4] += phase1Inc;
-						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
+						float_4 wave1 = (phasor1[c/4] + phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
 						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
 						phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
-						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
+						float_4 wave2 = (phasor2[c/4] + phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
 						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 					}
@@ -170,11 +170,11 @@ struct Oscillators : Module {
 					for (int i = 0; i < oversamplingRate; ++i)
 					{
 						phasor1[c/4] += phase1Inc;
-						float_4 wave1 = (phasor1[c/4] - phase1Offset - phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
+						float_4 wave1 = (phasor1[c/4] + phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]; // +-INT32_MAX
 
 						int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
 						phasor2[c/4] += phase2IncWithFm;
-						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
+						float_4 wave2 = (phasor2[c/4] + phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
 						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 					}
