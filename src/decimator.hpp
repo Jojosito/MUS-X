@@ -44,13 +44,9 @@ struct HalfBandDecimator {
 
 	}
 
-	/** `in` must be filled up to inputlength
-      *  inputlength must be power of 2
+	/** inputlength must be power of 2
 	  * `out` will be filled u p to inputlength/2 */
-	void process(const T* in, T* out, const int inputlength) {
-		// Copy input to buffer
-		std::memcpy(&inBuffer[inIndex], in, inputlength * sizeof(T));
-
+	void process(T* out, const int inputlength) {
 		// Perform convolution
 		for (int o = 0; o < inputlength/2; o++) { // loop over output samples to be calculated
 
@@ -69,6 +65,11 @@ struct HalfBandDecimator {
 		assert(inputlength>0 && ((inputlength & (inputlength-1)) == 0));
 		assert(inIndex + inputlength <= 2*MAXINPUTLENGTH);
 #endif
+	}
+
+	T* getInputArray()
+	{
+		return &inBuffer[inIndex];
 	}
 };
 
@@ -89,7 +90,7 @@ struct HalfBandDecimatorCascade {
 
 	HalfBandDecimator<128, 22, T> decimator2; // decimate down to 1x
 
-	T outBuffer[1024];
+	T outBuffer[1];
 
 	HalfBandDecimatorCascade() {
 		// transition band: 0.49609375; stop band attenuation: -100 dB
@@ -131,40 +132,68 @@ struct HalfBandDecimatorCascade {
 		decimator2.reset();
 	}
 
-	T process(T* in, int inputlength) {
-		std::memcpy(&outBuffer[0], in, inputlength * sizeof(T));
-
+	T* getInputArray(int inputlength)
+	{
 		switch (inputlength)
 		{
 			case 1024:
-				decimator1024.process(outBuffer, outBuffer, 1024);
+				return decimator1024.getInputArray();
+			case 512:
+				return decimator512.getInputArray();
+			case 256:
+				return decimator256.getInputArray();
+			case 128:
+				return decimator128.getInputArray();
+			case 64:
+				return decimator64.getInputArray();
+			case 32:
+				return decimator32.getInputArray();
+			case 16:
+				return decimator16.getInputArray();
+			case 8:
+				return decimator8.getInputArray();
+			case 4:
+				return decimator4.getInputArray();
+			case 2:
+				return decimator2.getInputArray();
+			case 1:
+			default:
+				return &outBuffer[0];
+		}
+	}
+
+	T process(int inputlength) {
+		switch (inputlength)
+		{
+			case 1024:
+				decimator1024.process(decimator512.getInputArray(), 1024);
 				[[fallthrough]];
 			case 512:
-				decimator512.process(outBuffer, outBuffer, 512);
+				decimator512.process(decimator256.getInputArray(), 512);
 				[[fallthrough]];
 			case 256:
-				decimator256.process(outBuffer, outBuffer, 256);
+				decimator256.process(decimator128.getInputArray(), 256);
 				[[fallthrough]];
 			case 128:
-				decimator128.process(outBuffer, outBuffer, 128);
+				decimator128.process(decimator64.getInputArray(), 128);
 				[[fallthrough]];
 			case 64:
-				decimator64.process(outBuffer, outBuffer, 64);
+				decimator64.process(decimator32.getInputArray(), 64);
 				[[fallthrough]];
 			case 32:
-				decimator32.process(outBuffer, outBuffer, 32);
+				decimator32.process(decimator16.getInputArray(), 32);
 				[[fallthrough]];
 			case 16:
-				decimator16.process(outBuffer, outBuffer, 16);
+				decimator16.process(decimator8.getInputArray(), 16);
 				[[fallthrough]];
 			case 8:
-				decimator8.process(outBuffer, outBuffer, 8);
+				decimator8.process(decimator4.getInputArray(), 8);
 				[[fallthrough]];
 			case 4:
-				decimator4.process(outBuffer, outBuffer, 4);
+				decimator4.process(decimator2.getInputArray(), 4);
 				[[fallthrough]];
 			case 2:
-				decimator2.process(outBuffer, outBuffer, 2);
+				decimator2.process(outBuffer, 2);
 		}
 
 		return outBuffer[0];

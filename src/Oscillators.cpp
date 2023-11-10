@@ -146,6 +146,7 @@ struct Oscillators : Module {
 			int32_4 phase2Offset = osc2PW[c/4] * INT32_MAX; // for pulse wave
 
 			// calculate the oversampled oscillators and mix
+			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
 			switch (sync)
 			{
 				case -1: // sync osc 2 to osc 1
@@ -160,7 +161,7 @@ struct Oscillators : Module {
 						phasor2[c/4] = simd::ifelse(doSync[c/4], -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
-						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 					}
 					break;
 				case 1: // sync osc 1 to osc 2
@@ -182,7 +183,7 @@ struct Oscillators : Module {
 						phasor2[c/4] += phase2IncWithFm;
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
-						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 					}
 					break;
 				default: // sync is off
@@ -195,12 +196,12 @@ struct Oscillators : Module {
 						phasor2[c/4] += phase2IncWithFm;
 						float_4 wave2 = (phasor2[c/4] - phase2Offset - phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]; // +-INT32_MAX
 
-						mix[c/4][i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+						inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 					}
 			}
 
 			// downsampling
-			outputs[OUT_OUTPUT].setVoltageSimd(decimator[c/4].process(mix[c/4], oversamplingRate), c);
+			outputs[OUT_OUTPUT].setVoltageSimd(decimator[c/4].process(oversamplingRate), c);
 		}
 	}
 
