@@ -25,16 +25,19 @@ struct Delay : Module {
 		LIGHTS_LEN
 	};
 
-	static const int delayLineSize = 48000;
+	static const int delayLineSize = 4096;
 	float delayLine1[delayLineSize] = {0};
-	float delayLine2[delayLineSize] = {0};
-	int indexIn = 0;
-	int indexOut = 0;
-	float delayR = 0;
+	//float delayLine2[delayLineSize] = {0};
+	int index = 0;
+	float out = 0;
+
+	int oversamplingRate = 16;
+
+	double phasor = 0;
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms");
+		configParam(TIME_PARAM, 10.f, 500.f, 200.f, "Delay time", " ms");
 		configParam(FEEDBACK_PARAM, 0.f, 1.f, 0.f, "Feedback", " %");
 		configParam(HP_PARAM, 0.f, 1.f, 0.f, "High pass", " Hz");
 		configParam(LP_PARAM, 0.f, 1.f, 0.f, "Low pass", " Hz");
@@ -47,34 +50,52 @@ struct Delay : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
-		float inL = inputs[L_INPUT].getVoltage();
+		float inL = inputs[L_INPUT].getVoltageSum();
 		float inR = inL;
 		if (inputs[R_INPUT].isConnected())
 		{
-			inR = inputs[R_INPUT].getVoltage();
+			inR = inputs[R_INPUT].getVoltageSum();
 		}
 
-		float inMono = 0.5f * (inL + inR) + params[FEEDBACK_PARAM].getValue() * delayR;
-
-		delayLine1[indexIn] = inMono;
-		float delayL = delayLine1[indexOut];
-
-		delayLine2[indexIn] = delayL;
-		delayR = delayLine2[indexOut];
+		float inMono = 0.5f * (inL + inR);
 
 
-		++indexIn;
-		indexIn = (indexIn >= delayLineSize) ? 0 : indexIn;
+		float delayTime = params[TIME_PARAM].getValue(); // [ms]
+		float freq = 1.f/delayTime * 1000.f; // [Hz]
+		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
-		indexOut = indexIn - 0.9f * params[TIME_PARAM].getValue() * delayLineSize;
-		indexOut = (indexOut < 0) ? indexOut + delayLineSize : indexOut;
+		out = 0;
+		for (int i = 0; i < oversamplingRate; ++i)
+		{
+			float readout = delayLine1[index];
+			out += readout;
+
+			if (phasor + phaseInc > 1.f)
+			{
+				// fill bucket
+				delayLine1[index] = inMono + params[FEEDBACK_PARAM].getValue() * readout;
+
+				// advance delay line
+				++index;
+				index = (index >= delayLineSize) ? 0 : index;
+			}
+
+			phasor += phaseInc;
+			phasor = phasor > 1.f ? phasor - 2.f : phasor;
+		}
+
+		// simple average
+		out /= oversamplingRate;
+
+		outputs[R_OUTPUT].setVoltage(phaseInc);
+		//return;
 
 
 		outputs[L_OUTPUT].setVoltage(std::min(1.f, (2.f - 2.f * params[MIX_PARAM].getValue())) * inL +
-				std::min(1.f, 2.f * params[MIX_PARAM].getValue()) * delayL);
+				std::min(1.f, 2.f * params[MIX_PARAM].getValue()) * out);
 
 		outputs[R_OUTPUT].setVoltage(std::min(1.f, (2.f - 2.f * params[MIX_PARAM].getValue())) * inR +
-				std::min(1.f, 2.f * params[MIX_PARAM].getValue()) * delayR);
+				std::min(1.f, 2.f * params[MIX_PARAM].getValue()) * out);
 	}
 };
 
