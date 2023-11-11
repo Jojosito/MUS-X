@@ -29,16 +29,25 @@ struct Delay : Module {
 	float delayLine1[delayLineSize] = {0};
 	//float delayLine2[delayLineSize] = {0};
 	int index = 0;
+	float in = 0;
+	int inN = 0;
 	float out = 0;
 
 	int oversamplingRate = 16;
 
 	double phasor = 0;
 
+	// compressor
+	dsp::TRCFilter<float> compAmplitude;
+
+	// expander
+	dsp::TRCFilter<float> expAmplitude;
+
+
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(TIME_PARAM, 10.f, 500.f, 200.f, "Delay time", " ms");
-		configParam(FEEDBACK_PARAM, 0.f, 1.f, 0.f, "Feedback", " %");
+		configParam(FEEDBACK_PARAM, 0.f, 1.f, 0.f, "Feedback", " %", 0, 100);
 		configParam(HP_PARAM, 0.f, 1.f, 0.f, "High pass", " Hz");
 		configParam(LP_PARAM, 0.f, 1.f, 0.f, "Low pass", " Hz");
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 1.f, "Stereo width", " %");
@@ -47,6 +56,9 @@ struct Delay : Module {
 		configInput(R_INPUT, "Right");
 		configOutput(L_OUTPUT, "Left");
 		configOutput(R_OUTPUT, "Right");
+
+		compAmplitude.setCutoffFreq(1.f/48000.f); // TODO use actual sample rate
+		expAmplitude.setCutoffFreq(1.f/48000.f); // TODO use actual sample rate
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -64,16 +76,33 @@ struct Delay : Module {
 		float freq = 1.f/delayTime * 1000.f; // [Hz]
 		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
+		// compress
+		inMono = compress(inMono);
+
 		out = 0;
 		for (int i = 0; i < oversamplingRate; ++i)
 		{
+			// average over input
+			in += inMono;
+			++inN;
+
+			// readout
 			float readout = delayLine1[index];
+
+			// add noise & nonlin
+			readout += 0.01f * rack::random::normal() * freq;
+			readout = waveshape(readout);
+
 			out += readout;
 
 			if (phasor + phaseInc > 1.f)
 			{
 				// fill bucket
-				delayLine1[index] = inMono + params[FEEDBACK_PARAM].getValue() * readout;
+				delayLine1[index] = in/inN + params[FEEDBACK_PARAM].getValue() * readout;
+
+				// reset input averager
+				in = 0;
+				inN = 0;
 
 				// advance delay line
 				++index;
@@ -87,6 +116,9 @@ struct Delay : Module {
 		// simple average
 		out /= oversamplingRate;
 
+		// expand
+		out = expand(out);
+
 		outputs[R_OUTPUT].setVoltage(phaseInc);
 		//return;
 
@@ -96,6 +128,39 @@ struct Delay : Module {
 
 		outputs[R_OUTPUT].setVoltage(std::min(1.f, (2.f - 2.f * params[MIX_PARAM].getValue())) * inR +
 				std::min(1.f, 2.f * params[MIX_PARAM].getValue()) * out);
+	}
+
+	float compress(float in)
+	{
+		compAmplitude.process(std::abs(in));
+		float amp = compAmplitude.lowpass();
+		float gain = 1.f;
+		if (amp > 1.f)
+		{
+			gain -= 0.5f * (amp - 1.f);
+		}
+		return gain*in;
+	}
+
+	float expand(float in)
+	{
+		expAmplitude.process(std::abs(in));
+		float amp = expAmplitude.lowpass();
+		float gain = 1.f;
+		if (amp > 1.f)
+		{
+			gain += 0.5f * (amp - 1.f);
+		}
+		return gain*in;
+	}
+
+	float waveshape(float in)
+	{
+		// 1. * x - 0.5 * x *x * x
+		in *= 0.1;
+		in = std::fmax(std::fmin(in, 0.5443f), -0.5443f);
+		in -= 0.5f * in*in*in;
+		return 10.f*in;
 	}
 };
 
