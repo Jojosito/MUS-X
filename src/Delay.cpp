@@ -5,7 +5,7 @@ struct Delay : Module {
 	enum ParamId {
 		TIME_PARAM,
 		FEEDBACK_PARAM,
-		HP_PARAM,
+		NOISE_PARAM,
 		LP_PARAM,
 		STEREO_WIDTH_PARAM,
 		MIX_PARAM,
@@ -32,10 +32,17 @@ struct Delay : Module {
 	float in = 0;
 	int inN = 0;
 	float out = 0;
+	float lastOut = 0;
 
 	int oversamplingRate = 16;
 
 	double phasor = 0;
+
+	// input filter
+	dsp::TRCFilter<float> inFilter;
+
+	// output filter
+	dsp::TRCFilter<float> outFilter;
 
 	// compressor
 	dsp::TRCFilter<float> compAmplitude;
@@ -46,10 +53,10 @@ struct Delay : Module {
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(TIME_PARAM, 10.f, 500.f, 200.f, "Delay time", " ms");
-		configParam(FEEDBACK_PARAM, 0.f, 1.f, 0.f, "Feedback", " %", 0, 100);
-		configParam(HP_PARAM, 0.f, 1.f, 0.f, "High pass", " Hz");
-		configParam(LP_PARAM, 0.f, 1.f, 0.f, "Low pass", " Hz");
+		configParam(TIME_PARAM, 10.f, 1000.f, 200.f, "Delay time", " ms");
+		configParam(FEEDBACK_PARAM, 0.f, 2.0f, 0.f, "Feedback", " %", 0, 100);
+		configParam(NOISE_PARAM, 0.f, 1.f, 0.f, "Noise level");
+		configParam(LP_PARAM, 0.25f, 2.f, 1.f, "Low pass offset");
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 1.f, "Stereo width", " %");
 		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix");
 		configInput(L_INPUT, "Left / Mono");
@@ -57,8 +64,8 @@ struct Delay : Module {
 		configOutput(L_OUTPUT, "Left");
 		configOutput(R_OUTPUT, "Right");
 
-		compAmplitude.setCutoffFreq(1.f/48000.f); // TODO use actual sample rate
-		expAmplitude.setCutoffFreq(1.f/48000.f); // TODO use actual sample rate
+		compAmplitude.setCutoffFreq(3.f/48000.f); // TODO use actual sample rate
+		expAmplitude.setCutoffFreq(3.f/48000.f); // TODO use actual sample rate
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -76,8 +83,16 @@ struct Delay : Module {
 		float freq = 1.f/delayTime * 1000.f; // [Hz]
 		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
+		float filterFreq = params[LP_PARAM].getValue() * freq*delayLineSize / args.sampleRate;
+		inFilter.setCutoffFreq(filterFreq);
+		outFilter.setCutoffFreq(filterFreq);
+
+		// filter
+		inFilter.process(inMono);
+		inMono = inFilter.lowpass();
+
 		// compress
-		inMono = compress(inMono);
+		inMono = compress(inMono + params[FEEDBACK_PARAM].getValue() * lastOut);
 
 		out = 0;
 		for (int i = 0; i < oversamplingRate; ++i)
@@ -90,7 +105,7 @@ struct Delay : Module {
 			float readout = delayLine1[index];
 
 			// add noise & nonlin
-			readout += 0.01f * rack::random::normal() * freq;
+			readout += params[NOISE_PARAM].getValue() * 0.5f * rack::random::normal() * freq;
 			readout = waveshape(readout);
 
 			out += readout;
@@ -98,7 +113,7 @@ struct Delay : Module {
 			if (phasor + phaseInc > 1.f)
 			{
 				// fill bucket
-				delayLine1[index] = in/inN + params[FEEDBACK_PARAM].getValue() * readout;
+				delayLine1[index] = in/inN;
 
 				// reset input averager
 				in = 0;
@@ -119,9 +134,11 @@ struct Delay : Module {
 		// expand
 		out = expand(out);
 
-		outputs[R_OUTPUT].setVoltage(phaseInc);
-		//return;
+		// filter
+		outFilter.process(out);
+		out = outFilter.lowpass();
 
+		lastOut = out;
 
 		outputs[L_OUTPUT].setVoltage(std::min(1.f, (2.f - 2.f * params[MIX_PARAM].getValue())) * inL +
 				std::min(1.f, 2.f * params[MIX_PARAM].getValue()) * out);
@@ -137,7 +154,7 @@ struct Delay : Module {
 		float gain = 1.f;
 		if (amp > 1.f)
 		{
-			gain -= 0.5f * (amp - 1.f);
+			gain -= 0.25f * (amp - 1.f);
 		}
 		return gain*in;
 	}
@@ -149,7 +166,7 @@ struct Delay : Module {
 		float gain = 1.f;
 		if (amp > 1.f)
 		{
-			gain += 0.5f * (amp - 1.f);
+			gain += 0.25f * (amp - 1.f);
 		}
 		return gain*in;
 	}
@@ -177,7 +194,7 @@ struct DelayWidget : ModuleWidget {
 
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(15.24, 24.094)), module, Delay::TIME_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 48.188)), module, Delay::FEEDBACK_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::HP_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::NOISE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::LP_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 80.313)), module, Delay::STEREO_WIDTH_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 80.313)), module, Delay::MIX_PARAM));
