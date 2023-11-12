@@ -87,12 +87,12 @@ struct Delay : Module {
 		inFilter.setCutoffFreq(filterFreq);
 		outFilter.setCutoffFreq(filterFreq);
 
+		// compress
+		inMono = compress(inMono + params[FEEDBACK_PARAM].getValue() * lastOut);
+
 		// filter
 		inFilter.process(inMono);
 		inMono = inFilter.lowpass();
-
-		// compress
-		inMono = compress(inMono + params[FEEDBACK_PARAM].getValue() * lastOut);
 
 		out = 0;
 		for (int i = 0; i < oversamplingRate; ++i)
@@ -105,7 +105,7 @@ struct Delay : Module {
 			float readout = delayLine1[index];
 
 			// add noise & nonlin
-			readout += params[NOISE_PARAM].getValue() * 0.5f * rack::random::normal() * freq;
+			readout += params[NOISE_PARAM].getValue() * rack::random::normal() / freq;
 			readout = waveshape(readout);
 
 			out += readout;
@@ -131,12 +131,12 @@ struct Delay : Module {
 		// simple average
 		out /= oversamplingRate;
 
-		// expand
-		out = expand(out);
-
 		// filter
 		outFilter.process(out);
 		out = outFilter.lowpass();
+
+		// expand
+		out = expand(out);
 
 		lastOut = out;
 
