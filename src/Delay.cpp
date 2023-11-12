@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include <svf.hpp>
 
 
 struct Delay : Module {
@@ -35,16 +36,16 @@ struct Delay : Module {
 	float out = 0;
 	float lastOut = 0;
 
-	int oversamplingRate = 32; // TODO check how much oversampling is necessary for min delay time
+	int oversamplingRate = 16; // TODO check how much oversampling is necessary for min delay time
 
 	double phasor = 0;
 
 	// TODO combine filters with simd
 	// input filter
-	dsp::TRCFilter<float> inFilter; // TODO make at least 2 pole
+	SVF inFilter;
 
 	// output filter
-	dsp::TRCFilter<float> outFilter; // TODO make at least 2 pole
+	SVF outFilter;
 
 	// compressor
 	dsp::TRCFilter<float> compAmplitude;
@@ -52,22 +53,26 @@ struct Delay : Module {
 	// expander
 	dsp::TRCFilter<float> expAmplitude;
 
+	// DC block
+	dsp::TRCFilter<float> dcBlocker;
+
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(TIME_PARAM, 10.f, 1000.f, 200.f, "Delay time", " ms"); // TODO scaling
-		configParam(FEEDBACK_PARAM, 0.f, 2.0f, 0.f, "Feedback", " %", 0, 100);
-		configParam(NOISE_PARAM, 0.f, 10.f, 0.1f, "Noise level");
-		configParam(LP_PARAM, 0.25f, 2.f, 1.f, "Low pass offset");
-		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 1.f, "Stereo width", " %");
-		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix");
+		configParam(TIME_PARAM, 30.f, 500.f, 200.f, "Delay time", " ms");
+		configParam(FEEDBACK_PARAM, 0.f, 2.0f, 0.2f, "Feedback", " %", 0, 100);
+		configParam(NOISE_PARAM, 0.f, 10.f, 2.5f, "Noise level", " %", 0, 10);
+		configParam(LP_PARAM, 0.0625f, 2.f, 0.25f, "Low pass offset", " %", 0, 100);
+		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 0.05f, "Stereo width", " %", 0, 100); // TODO is resonance of the in/out filters right now
+		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix", " %", 0, 100);
 		configInput(L_INPUT, "Left / Mono");
 		configInput(R_INPUT, "Right");
 		configOutput(L_OUTPUT, "Left");
 		configOutput(R_OUTPUT, "Right");
 
-		compAmplitude.setCutoffFreq(3.f/48000.f); // TODO use actual sample rate
-		expAmplitude.setCutoffFreq(3.f/48000.f); // TODO use actual sample rate
+		compAmplitude.setCutoffFreq(5.f/48000.f); // TODO use actual sample rate
+		expAmplitude.setCutoffFreq(5.f/48000.f); // TODO use actual sample rate
+		dcBlocker.setCutoffFreq(20.f/48000.f); // TODO use actual sample rate
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -86,12 +91,24 @@ struct Delay : Module {
 		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
 		// calculate frequencies for anti-aliasing- and reconstruction-filter
-		float filterFreq = params[LP_PARAM].getValue() * freq*delayLineSize / args.sampleRate;
+		//float filterFreq = params[LP_PARAM].getValue() * freq * delayLineSize / args.sampleRate; // f_c / f_s
+		float filterFreq = params[LP_PARAM].getValue() * delayLineSize / args.sampleRate; // FIXED freq f_c / f_s
 		inFilter.setCutoffFreq(filterFreq);
-		outFilter.setCutoffFreq(filterFreq);
+		outFilter.setCutoffFreq(filterFreq * 0.84621);
+
+		// TEST set filter q
+		inFilter.setResonance(params[STEREO_WIDTH_PARAM].getValue());
+		outFilter.setResonance(params[STEREO_WIDTH_PARAM].getValue());
+
+		// feedback
+		inMono += params[FEEDBACK_PARAM].getValue() * lastOut;
+		//inMono += 2.f * params[FEEDBACK_PARAM].getValue() * (inMono + 0.5f * lastOut);
+
+		// saturate
+		inMono = tanh(inMono / 10.f) * 10.f;
 
 		// compressor
-		inMono = compress(inMono + params[FEEDBACK_PARAM].getValue() * lastOut);
+		inMono = compress(inMono);
 
 		// anti-aliasing filter
 		inFilter.process(inMono);
@@ -112,7 +129,7 @@ struct Delay : Module {
 			readout += params[NOISE_PARAM].getValue() * rack::random::normal() / freq;
 
 			// nonlinearity
-			readout = waveshape(readout);
+			readout = waveshape(readout/5.f)*5.f;
 
 			out += readout;
 
@@ -137,6 +154,11 @@ struct Delay : Module {
 		// simple average over output
 		out /= oversamplingRate;
 
+		// DC blocker
+		dcBlocker.process(out);
+		out = dcBlocker.highpass();
+
+
 		// reconstruction filter
 		outFilter.process(out);
 		out = outFilter.lowpass();
@@ -155,6 +177,12 @@ struct Delay : Module {
 
 	float compress(float in)
 	{
+		float gain = 1. / std::max(compAmplitude.lowpass(), 0.1f);
+		float out = gain * in;
+		compAmplitude.process(std::abs(out));
+		return out;
+
+		/*
 		compAmplitude.process(std::abs(in));
 		float amp = compAmplitude.lowpass();
 		float gain = 1.f;
@@ -163,10 +191,16 @@ struct Delay : Module {
 			gain = (0.5f + 0.5f * amp) / amp;
 		}
 		return 1.7f * gain*in;
+		*/
 	}
 
 	float expand(float in)
 	{
+		expAmplitude.process(std::abs(in));
+		float gain = std::min(expAmplitude.lowpass(), 10.f);
+		return gain * in;
+
+		/*
 		expAmplitude.process(std::abs(in));
 		float amp = expAmplitude.lowpass();
 		float gain = 1.f;
@@ -175,16 +209,43 @@ struct Delay : Module {
 			gain = amp / (0.5f + 0.5f * amp);
 		}
 		return gain*in / 1.7f;
+		*/
 	}
 
-	// clips at +-5.443V
+
 	float waveshape(float in)
 	{
+		static const float a = {1.f/8.f};
+		static const float b = {1.f/18.f};
+
+		if (in > 1.f)
+		{
+			return 1.f - a - b;
+		}
+		if (in > -1.f)
+		{
+			return in - a*in*in - b*in*in*in + a;
+		}
+		return -1.f - a - b;
+
+
+
+
+		// clips at +-5.443V
 		// 1. * x - 0.5 * x *x * x
 		in *= 0.1;
 		in = std::fmax(std::fmin(in, 0.5443f), -0.5443f);
 		in -= 0.5f * in*in*in;
 		return 10.f*in;
+	}
+
+	float tanh(float x)
+	{
+		return std::tanh(x);
+
+		// TODO Pade approximant of tanh
+		x = simd::clamp(x, -3.f, 3.f);
+		return x * (27 + x * x) / (27 + 9 * x * x);
 	}
 };
 
