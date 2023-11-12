@@ -26,6 +26,7 @@ struct Delay : Module {
 	};
 
 	static const int delayLineSize = 4096;
+	// TODO stereo delay with simd
 	float delayLine1[delayLineSize] = {0};
 	//float delayLine2[delayLineSize] = {0};
 	int index = 0;
@@ -34,15 +35,16 @@ struct Delay : Module {
 	float out = 0;
 	float lastOut = 0;
 
-	int oversamplingRate = 16;
+	int oversamplingRate = 32; // TODO check how much oversampling is necessary for min delay time
 
 	double phasor = 0;
 
+	// TODO combine filters with simd
 	// input filter
-	dsp::TRCFilter<float> inFilter;
+	dsp::TRCFilter<float> inFilter; // TODO make at least 2 pole
 
 	// output filter
-	dsp::TRCFilter<float> outFilter;
+	dsp::TRCFilter<float> outFilter; // TODO make at least 2 pole
 
 	// compressor
 	dsp::TRCFilter<float> compAmplitude;
@@ -53,9 +55,9 @@ struct Delay : Module {
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(TIME_PARAM, 10.f, 1000.f, 200.f, "Delay time", " ms");
+		configParam(TIME_PARAM, 10.f, 1000.f, 200.f, "Delay time", " ms"); // TODO scaling
 		configParam(FEEDBACK_PARAM, 0.f, 2.0f, 0.f, "Feedback", " %", 0, 100);
-		configParam(NOISE_PARAM, 0.f, 1.f, 0.f, "Noise level");
+		configParam(NOISE_PARAM, 0.f, 10.f, 0.f, "Noise level");
 		configParam(LP_PARAM, 0.25f, 2.f, 1.f, "Low pass offset");
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 1.f, "Stereo width", " %");
 		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix");
@@ -78,34 +80,38 @@ struct Delay : Module {
 
 		float inMono = 0.5f * (inL + inR);
 
-
+		// calculate frequency for BBD clock
 		float delayTime = params[TIME_PARAM].getValue(); // [ms]
 		float freq = 1.f/delayTime * 1000.f; // [Hz]
 		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
+		// calculate frequencies for anti-aliasing- and reconstruction-filter
 		float filterFreq = params[LP_PARAM].getValue() * freq*delayLineSize / args.sampleRate;
 		inFilter.setCutoffFreq(filterFreq);
 		outFilter.setCutoffFreq(filterFreq);
 
-		// compress
+		// compressor
 		inMono = compress(inMono + params[FEEDBACK_PARAM].getValue() * lastOut);
 
-		// filter
+		// anti-aliasing filter
 		inFilter.process(inMono);
 		inMono = inFilter.lowpass();
 
 		out = 0;
+		// oversampled BBD simulation
 		for (int i = 0; i < oversamplingRate; ++i)
 		{
-			// average over input
+			// simple average over input
 			in += inMono;
 			++inN;
 
 			// readout
 			float readout = delayLine1[index];
 
-			// add noise & nonlin
+			// add delay-time-dependent noise
 			readout += params[NOISE_PARAM].getValue() * rack::random::normal() / freq;
+
+			// nonlinearity
 			readout = waveshape(readout);
 
 			out += readout;
@@ -119,7 +125,7 @@ struct Delay : Module {
 				in = 0;
 				inN = 0;
 
-				// advance delay line
+				// advance BBD delay line
 				++index;
 				index = (index >= delayLineSize) ? 0 : index;
 			}
@@ -128,14 +134,14 @@ struct Delay : Module {
 			phasor = phasor > 1.f ? phasor - 2.f : phasor;
 		}
 
-		// simple average
+		// simple average over output
 		out /= oversamplingRate;
 
-		// filter
+		// reconstruction filter
 		outFilter.process(out);
 		out = outFilter.lowpass();
 
-		// expand
+		// expander
 		out = expand(out);
 
 		lastOut = out;
@@ -154,9 +160,9 @@ struct Delay : Module {
 		float gain = 1.f;
 		if (amp > 1.f)
 		{
-			gain -= 0.25f * (amp - 1.f);
+			gain = (0.5f + 0.5f * amp) / amp;
 		}
-		return gain*in;
+		return 1.7f * gain*in;
 	}
 
 	float expand(float in)
@@ -166,11 +172,12 @@ struct Delay : Module {
 		float gain = 1.f;
 		if (amp > 1.f)
 		{
-			gain += 0.25f * (amp - 1.f);
+			gain = amp / (0.5f + 0.5f * amp);
 		}
-		return gain*in;
+		return gain*in / 1.7f;
 	}
 
+	// clips at +-5.443V
 	float waveshape(float in)
 	{
 		// 1. * x - 0.5 * x *x * x
