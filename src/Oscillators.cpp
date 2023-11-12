@@ -1,5 +1,5 @@
 #include "plugin.hpp"
-#include "decimator.hpp"
+#include <decimator.hpp>
 
 using simd::float_4;
 using simd::int32_4;

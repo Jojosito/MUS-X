@@ -57,7 +57,7 @@ struct Delay : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(TIME_PARAM, 10.f, 1000.f, 200.f, "Delay time", " ms"); // TODO scaling
 		configParam(FEEDBACK_PARAM, 0.f, 2.0f, 0.f, "Feedback", " %", 0, 100);
-		configParam(NOISE_PARAM, 0.f, 10.f, 0.f, "Noise level");
+		configParam(NOISE_PARAM, 0.f, 10.f, 0.1f, "Noise level");
 		configParam(LP_PARAM, 0.25f, 2.f, 1.f, "Low pass offset");
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 1.f, "Stereo width", " %");
 		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix");
