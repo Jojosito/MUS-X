@@ -158,24 +158,20 @@ struct Delay : Module {
 
 		// inputs
 		float inL = inputs[L_INPUT].getVoltageSum();
-		float inR = inL;
-		if (inputs[R_INPUT].isConnected())
-		{
-			inR = inputs[R_INPUT].getVoltageSum();
-		}
+		float inR = inputs[R_INPUT].isConnected() ? inputs[R_INPUT].getVoltageSum() : inL;
 
 		float_4 inMono;
 		inMono[0] = 0.5f * (inL + inR) * params[INPUT_PARAM].getValue();
 
 		// feedback
-		// output of delay line 0 (l) is is input of delay line 1 (r)
 		if (params[INVERT_PARAM].getValue())
 		{
-			// chorus mode
+			// chorus mode: feedback from delay line 1
 			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
 		}
 		else
 		{
+			// output of delay line 0 (l) is is input of delay line 1 (r)
 			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[1];
 			inMono[1] = (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
 		}
@@ -209,6 +205,7 @@ struct Delay : Module {
 
 			out += readout;
 
+			// bbd
 			if (phasor + phaseInc > 1.f)
 			{
 				// fill bucket
@@ -233,7 +230,6 @@ struct Delay : Module {
 		// DC blocker
 		dcBlocker.process(out);
 		out = dcBlocker.highpass();
-
 
 		// reconstruction filter
 		outFilter.process(out);
