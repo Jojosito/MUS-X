@@ -42,6 +42,10 @@ struct Delay : Module {
 	static const int maxDelayLineSize = 16384;
 	int delayLineSize = 4096;
 	float_4 delayLine[maxDelayLineSize] = {0};
+
+	float prevTap = 0;
+	int tapCounter = 0;
+
 	int index = 0;
 	float_4 in = 0;
 	int inN = 0;
@@ -81,7 +85,7 @@ struct Delay : Module {
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
 
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
-		configParam(RESONANCE_PARAM, 0.f, 1.25f, 0.625f, "Low pass filter resonance", " %", 0, 80);
+		configParam(RESONANCE_PARAM, 0.f, 1.25f, 0.03125f, "Low pass filter resonance", " %", 0, 80);
 		configParam(NOISE_PARAM, 0.f, 10.f, 0.5f, "Noise level", " %", 0, 10);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
@@ -132,7 +136,19 @@ struct Delay : Module {
 			inFilter.setResonance(params[RESONANCE_PARAM].getValue());
 			outFilter.setResonance(params[RESONANCE_PARAM].getValue());
 
-			// TODO tap tempo
+			// tap tempo
+			++tapCounter;
+			if (!prevTap && params[TAP_PARAM].getValue())
+			{
+				float delayTime = tapCounter * knobDivider.getDivision() / args.sampleRate * 1000.f; // ms
+				float param = std::log(delayTime/minDelayTime) / std::log(maxDelayTime/minDelayTime);
+				if (param < 1.f)
+				{
+					params[TIME_PARAM].setValue(param);
+				}
+				tapCounter = 0;
+			}
+			prevTap = params[TAP_PARAM].getValue();
 		}
 
 		// calculate frequency for BBD clock
