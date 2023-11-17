@@ -24,18 +24,16 @@ struct TSVF {
 	`f` is the ratio between the cutoff frequency and sample rate, i.e. f = f_c / f_s
 	*/
 	void setCutoffFreq(T f) {
-		f = std::min(f, 0.125f);
-		c = 2.f * std::sin(M_PI * f);
+		f = simd::clamp(f, 0.001, 0.2f);
+		c = 2.f * simd::sin(M_PI * f);
 	}
 
 	/**
 	 * Set resonance between 0 and 1
 	 */
 	void setResonance(T r) {
-		r = std::min(r, 1.f);
-		r = std::max(r, 0.f);
-		q = 1.f - r;
-		//scale = q;
+		q = simd::clamp(1.f - r, 0.f, 1.f);
+		scale = q;
 	}
 
 	void process(T x) {
