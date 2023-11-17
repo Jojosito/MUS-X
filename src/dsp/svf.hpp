@@ -35,7 +35,7 @@ struct TSVF {
 		r = std::min(r, 1.f);
 		r = std::max(r, 0.f);
 		q = 1.f - r;
-		scale = q;
+		//scale = q;
 	}
 
 	void process(T x) {
