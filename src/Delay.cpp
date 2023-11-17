@@ -10,6 +10,7 @@ struct Delay : Module {
 		FEEDBACK_PARAM,
 		TAP_PARAM,
 		CUTOFF_PARAM,
+		RESONANCE_PARAM,
 		NOISE_PARAM,
 		BBD_SIZE_PARAM,
 		INPUT_PARAM,
@@ -35,8 +36,9 @@ struct Delay : Module {
 		LIGHTS_LEN
 	};
 
-	static constexpr float minDelayTime = 30.f; // ms
-	static constexpr float maxDelayTime = 5000.f; // ms
+	ParamQuantity* delayTimeQty;
+	float minDelayTime = 30.f; // ms
+	float maxDelayTime = 5000.f; // ms
 	static const int maxDelayLineSize = 16384;
 	int delayLineSize = 4096;
 	float_4 delayLine[maxDelayLineSize] = {0};
@@ -51,7 +53,7 @@ struct Delay : Module {
 	double phasor = 0;
 
 	static constexpr float minCutoff = 200.f; // Hz
-	static constexpr float maxCutoff = 20000.f; // Hz
+	static constexpr float maxCutoff = 10000.f; // Hz
 	// TODO combine filters with simd
 	// input filter
 	TLowpass<float_4> inFilter;
@@ -73,11 +75,13 @@ struct Delay : Module {
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
+		delayTimeQty = configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
 		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.5f, "Feedback", " %", 0, 100);
 
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
+
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
+		configParam(RESONANCE_PARAM, 0.f, 1.25f, 0.625f, "Low pass filter resonance", " %", 0, 80);
 		configParam(NOISE_PARAM, 0.f, 10.f, 0.5f, "Noise level", " %", 0, 10);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
@@ -97,7 +101,7 @@ struct Delay : Module {
 		configOutput(R_OUTPUT, "Right");
 
 		lightDivider.setDivision(128);
-		knobDivider.setDivision(8);
+		knobDivider.setDivision(16);
 
 		configBypass(L_INPUT, L_OUTPUT);
 		configBypass(R_INPUT, R_OUTPUT);
@@ -113,12 +117,20 @@ struct Delay : Module {
 		if (knobDivider.process())
 		{
 			delayLineSize = std::pow(2, params[BBD_SIZE_PARAM].getValue());
+			minDelayTime = 1.f * delayLineSize / 256;
+			maxDelayTime = 100.f * delayLineSize / 256;
+
+			delayTimeQty->ParamQuantity::displayBase = maxDelayTime/minDelayTime;
+			delayTimeQty->ParamQuantity::displayMultiplier = minDelayTime;
 
 			// calculate frequencies for anti-aliasing- and reconstruction-filter
 			float_4 cutoffFreq = std::pow(maxCutoff/minCutoff, params[CUTOFF_PARAM].getValue()) * minCutoff / args.sampleRate; // f_c / f_s
 
 			inFilter.setCutoffFreq(cutoffFreq);
 			outFilter.setCutoffFreq(cutoffFreq);
+
+			inFilter.setResonance(params[RESONANCE_PARAM].getValue());
+			outFilter.setResonance(params[RESONANCE_PARAM].getValue());
 
 			// TODO tap tempo
 		}
@@ -287,10 +299,13 @@ struct DelayWidget : ModuleWidget {
 
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(15.24, 24.094)), module, Delay::TIME_PARAM));
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(45.72, 24.094)), module, Delay::FEEDBACK_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(7.62, 64.25)), module, Delay::TAP_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::CUTOFF_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(28.36, 32.125)), module, Delay::TAP_PARAM));
+
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::CUTOFF_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::RESONANCE_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 64.25)), module, Delay::NOISE_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 64.25)), module, Delay::BBD_SIZE_PARAM));
+
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 88.344)), module, Delay::INPUT_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 88.344)), module, Delay::STEREO_WIDTH_PARAM));
 		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(38.1, 88.344)), module, Delay::INVERT_PARAM, Delay::INVERT_LIGHT));
