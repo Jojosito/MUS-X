@@ -8,8 +8,8 @@ struct Delay : Module {
 	enum ParamId {
 		TIME_PARAM,
 		FEEDBACK_PARAM,
+		TAP_PARAM,
 		CUTOFF_PARAM,
-		CUTOFF_SPREAD_PARAM,
 		NOISE_PARAM,
 		BBD_SIZE_PARAM,
 		INPUT_PARAM,
@@ -36,8 +36,8 @@ struct Delay : Module {
 	};
 
 	static constexpr float minDelayTime = 30.f; // ms
-	static constexpr float maxDelayTime = 10000.f; // ms
-	static const int maxDelayLineSize = 32768;
+	static constexpr float maxDelayTime = 5000.f; // ms
+	static const int maxDelayLineSize = 16384;
 	int delayLineSize = 4096;
 	float_4 delayLine[maxDelayLineSize] = {0};
 	int index = 0;
@@ -51,7 +51,7 @@ struct Delay : Module {
 	double phasor = 0;
 
 	static constexpr float minCutoff = 200.f; // Hz
-	static constexpr float maxCutoff = 15000.f; // Hz
+	static constexpr float maxCutoff = 20000.f; // Hz
 	// TODO combine filters with simd
 	// input filter
 	TLowpass<float_4> inFilter;
@@ -74,17 +74,17 @@ struct Delay : Module {
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
-		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.2f, "Feedback", " %", 0, 100);
+		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.5f, "Feedback", " %", 0, 100);
 
+		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
-		configParam(CUTOFF_SPREAD_PARAM, 0.f, 10.f, 0.1f, "Low pass filter frequency spread", " %", 0, 100);
-		configParam(NOISE_PARAM, 0.f, 10.f, 0.125f, "Noise level", " %", 0, 10);
-		configParam(BBD_SIZE_PARAM, 8, 15, 12, "BBD delay line size", " buckets", 2);
+		configParam(NOISE_PARAM, 0.f, 10.f, 0.5f, "Noise level", " %", 0, 10);
+		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
 		getParamQuantity(BBD_SIZE_PARAM)->smoothEnabled = false;
 
 		configParam(INPUT_PARAM, 0.f, 2.f, 1.f, "Delay input level", " %", 0, 100);
-		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 0.f, "Stereo width", " %", 0, 100);
+		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 0.5f, "Stereo width", " %", 0, 100);
 		configSwitch(INVERT_PARAM, 0, 1, 0, "R wet signal = - L wet signal (Chorus mode)");
 		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix", " %", 0, 100);
 
@@ -117,16 +117,10 @@ struct Delay : Module {
 			// calculate frequencies for anti-aliasing- and reconstruction-filter
 			float_4 cutoffFreq = std::pow(maxCutoff/minCutoff, params[CUTOFF_PARAM].getValue()) * minCutoff / args.sampleRate; // f_c / f_s
 
-			float_4 cutoffFreq1 = cutoffFreq;
-			cutoffFreq1[0] *= 1.f + params[CUTOFF_PARAM].getValue() * -0.047443870f;
-			cutoffFreq1[1] *= 1.f + params[CUTOFF_PARAM].getValue() *  0.096764840f;
+			inFilter.setCutoffFreq(cutoffFreq);
+			outFilter.setCutoffFreq(cutoffFreq);
 
-			float_4 cutoffFreq2 = cutoffFreq;
-			cutoffFreq2[0] *= 1.f + params[CUTOFF_PARAM].getValue() * -0.036641980f;
-			cutoffFreq2[1] *= 1.f + params[CUTOFF_PARAM].getValue() *  0.064609850f;
-
-			inFilter.setCutoffFreq(cutoffFreq1);
-			outFilter.setCutoffFreq(cutoffFreq2);
+			// TODO tap tempo
 		}
 
 		// calculate frequency for BBD clock
@@ -144,10 +138,19 @@ struct Delay : Module {
 
 		float_4 inMono;
 		inMono[0] = 0.5f * (inL + inR) * params[INPUT_PARAM].getValue();
-		inMono[1] = (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0]; // output of delay line is is input of delay line 2
 
 		// feedback
-		inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[1];
+		// output of delay line 0 (l) is is input of delay line 1 (r)
+		if (params[INVERT_PARAM].getValue())
+		{
+			// chorus mode
+			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
+		}
+		else
+		{
+			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[1];
+			inMono[1] = (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
+		}
 
 		// saturate
 		inMono = tanh(inMono / 10.f) * 10.f; // +-10V
@@ -284,8 +287,8 @@ struct DelayWidget : ModuleWidget {
 
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(15.24, 24.094)), module, Delay::TIME_PARAM));
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(45.72, 24.094)), module, Delay::FEEDBACK_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::CUTOFF_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::CUTOFF_SPREAD_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(7.62, 64.25)), module, Delay::TAP_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::CUTOFF_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 64.25)), module, Delay::NOISE_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 64.25)), module, Delay::BBD_SIZE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 88.344)), module, Delay::INPUT_PARAM));
