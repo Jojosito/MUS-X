@@ -74,7 +74,7 @@ struct Delay : Module {
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
-		configParam(FEEDBACK_PARAM, 0.f, 2.0f, 0.2f, "Feedback", " %", 0, 100);
+		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.2f, "Feedback", " %", 0, 100);
 
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
 		configParam(CUTOFF_SPREAD_PARAM, 0.f, 10.f, 0.1f, "Low pass filter frequency spread", " %", 0, 100);
@@ -144,7 +144,7 @@ struct Delay : Module {
 
 		float_4 inMono;
 		inMono[0] = 0.5f * (inL + inR) * params[INPUT_PARAM].getValue();
-		inMono[1] = lastOut[0]; // output of delay line is is input of delay line 2
+		inMono[1] = (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0]; // output of delay line is is input of delay line 2
 
 		// feedback
 		inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[1];
