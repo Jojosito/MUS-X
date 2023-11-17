@@ -6,6 +6,25 @@
 ADSR envelope generator with exponential decay/release, built in velocity scaling and sustain CV.
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
+### Delay
+A delay inspired by analog bucket-brigade delay pedals.
+
+'Time' adjusts the delay time. The range is determined by the 'BBD size' parameter.
+The delay time can also be tapped with the 'Tap' button.
+'Feedback' adjusts the delay feedback. WARNING: this goes well beyond 100% and can cause self oscillation. The output is limited to +-10V.
+Both 'Time' and 'Feedback' can be CV controlled.
+
+'Cutoff' adjusts the cutoff frequency of the anti-aliasing and reconstruction filters. It makes the delay brighter or darker. The aliasing of the BBD can be audible at higher cutoff frequencies.
+'Resonance' adjusts the resonance of the anti-aliasing and reconstruction filters. This alters the character of the delay, especially at high feedback amounts.
+'Noise' adjusts the noise of the BBD line. More noise will result in self oscillation at high feedback levels.
+'BBD size' adjusts the size of the BBD line. A smaller size can be used for very short delays, or a chorus effect. Many famous hardware units use 2048 or 4096 buckets.
+A larger BBD size can give longer delay times, and a brighter delay without aliasing.
+
+'Input' adjusts the input level to the delay. It does not affect the dry signal output.
+Turning up the 'Stereo' parameter gives a ping-pong delay. It has no effect when 'Inv R' is enabled.
+If 'Inv R' is enabled, the right wet signal will be the inverted left wet signal. You can use this with a small BBD size (e.g. 512), no feedback, and delay time modulation to create a chorus effect.
+'Mix' adjusts the dry-wet balance.
+
 ### Drift
 Drift generates subtle constant offset and drift.
 The 'Poly' input determines the polyphony channels of the output.

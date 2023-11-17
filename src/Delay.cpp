@@ -85,8 +85,8 @@ struct Delay : Module {
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
 
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
-		configParam(RESONANCE_PARAM, 0.f, 1.25f, 0.03125f, "Low pass filter resonance", " %", 0, 80);
-		configParam(NOISE_PARAM, 0.f, 10.f, 0.5f, "Noise level", " %", 0, 10);
+		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.03125f, "Low pass filter resonance", " %", 0, 160);
+		configParam(NOISE_PARAM, 0.f, 10.f, 0.25f, "Noise level", " %", 0, 10);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
 		getParamQuantity(BBD_SIZE_PARAM)->smoothEnabled = false;
@@ -237,6 +237,9 @@ struct Delay : Module {
 
 		// expander
 		out = expand(out);
+
+		// saturate
+		out = tanh(out / 10.f) * 10.f; // +-10V
 
 		lastOut = out;
 

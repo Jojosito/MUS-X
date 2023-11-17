@@ -43,7 +43,7 @@
     {
       "slug": "Delay",
       "name": "Delay",
-      "description": "BBD inspired ping-pong delay.",
+      "description": "Bucket-brigade ping-pong delay.",
       "tags": [
         "Delay",
         "Effect"

@@ -39,6 +39,7 @@ struct TLowpass {
 	void process(T x) {
 		// resonance
 		x -= q * tmp[3];
+		x = simd::clamp(x, -5.f, 5.f);
 
 		T out = a*x - b*tmp[0];
 		tmp[0] = out;
@@ -54,7 +55,7 @@ struct TLowpass {
 	}
 
 	T lowpass() {
-		return tmp[2] * (1.f + q);
+		return simd::clamp(tmp[2] * (1.f + q), -5.f, 5.f);
 	}
 };
 
