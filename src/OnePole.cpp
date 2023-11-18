@@ -28,6 +28,7 @@ struct OnePole : Module {
 
 	const float minFreq = 5.f; // min freq [Hz]
 	const float base = 22000.f/minFreq; // max freq/min freq
+	const float logBase = std::log(base);
 
 	int channels = 1;
 
@@ -58,12 +59,12 @@ struct OnePole : Module {
 
 			for (int c = 0; c < channels; c += 4) {
 				float_4 voltage = params[HIGHPASS_PARAM].getValue() + 0.1f * inputs[HIGHPASS_INPUT].getPolyVoltageSimd<float_4>(c);
-				float_4 frequency = simd::pow(base, voltage) * minFreq;
+				float_4 frequency = simd::exp(logBase * voltage) * minFreq;
 				frequency = simd::clamp(frequency, 1.f, args.sampleRate/2.1f);
 				highpass[c/4].setCutoffFreq(frequency / args.sampleRate);
 
 				voltage = params[LOWPASS_PARAM].getValue() + 0.1f * inputs[LOWPASS_INPUT].getPolyVoltageSimd<float_4>(c);
-				frequency = simd::pow(base, voltage) * minFreq;
+				frequency = simd::exp(logBase * voltage) * minFreq;
 				frequency = simd::clamp(frequency, 0.f, args.sampleRate/2.f);
 				lowpass[c/4].setCutoffFreq(frequency / args.sampleRate);
 			}
