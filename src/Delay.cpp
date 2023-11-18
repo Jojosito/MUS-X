@@ -1,5 +1,6 @@
 #include "plugin.hpp"
-#include "dsp/filters.hpp"
+#include "dsp/compander.hpp"
+#include "dsp/functions.hpp"
 
 namespace musx {
 
@@ -68,10 +69,7 @@ struct Delay : Module {
 	musx::TFourPole<float_4> outFilter;
 
 	// compressor
-	musx::TOnePole<float_4> compAmplitude;
-
-	// expander
-	musx::TOnePole<float_4> expAmplitude;
+	musx::TCompander<float_4> compander;
 
 	// DC block
 	musx::TOnePole<float_4> dcBlocker;
@@ -114,8 +112,8 @@ struct Delay : Module {
 	}
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		compAmplitude.setCutoffFreq(5.01f/e.sampleRate);
-		expAmplitude.setCutoffFreq(4.964f/e.sampleRate);
+		compander.setCompressorCutoffFreq(5.01f/e.sampleRate);
+		compander.setExpanderCutoffFreq(4.964f/e.sampleRate);
 		dcBlocker.setCutoffFreq(20.f/e.sampleRate);
 	}
 
@@ -179,10 +177,10 @@ struct Delay : Module {
 		}
 
 		// saturate
-		inMono = tanh(inMono / 10.f) * 10.f; // +-10V
+		inMono = musx::tanh(inMono / 10.f) * 10.f; // +-10V
 
 		// compressor
-		inMono = compress(inMono);
+		inMono = compander.compress(inMono);
 
 		// anti-aliasing filter
 		inFilter.process(inMono);
@@ -203,7 +201,7 @@ struct Delay : Module {
 			readout += params[NOISE_PARAM].getValue() * random::normal(); // TODO noise level is Rack sample rate dependent!!!
 
 			// nonlinearity
-			readout = waveshape(readout/5.f)*5.f;
+			readout = musx::waveshape(readout/5.f)*5.f;
 
 			out += readout;
 
@@ -238,10 +236,10 @@ struct Delay : Module {
 		out = outFilter.lowpass3();
 
 		// expander
-		out = expand(out);
+		out = compander.expand(out);
 
 		// saturate
-		out = tanh(out / 10.f) * 10.f; // +-10V
+		out = musx::tanh(out / 10.f) * 10.f; // +-10V
 
 		lastOut = out;
 
@@ -271,36 +269,6 @@ struct Delay : Module {
 		}
 	}
 
-	float_4 compress(float_4 in)
-	{
-		float_4 gain = 1. / simd::fmax(compAmplitude.lowpass(), 0.1f);
-		float_4 out = gain * in;
-		compAmplitude.process(simd::abs(out));
-		return out;
-	}
-
-	float_4 expand(float_4 in)
-	{
-		expAmplitude.process(simd::abs(in));
-		float_4 gain = simd::fmin(expAmplitude.lowpass(), 10.f);
-		return gain * in;
-	}
-
-
-	float_4 waveshape(float_4 in)
-	{
-		static const float a = {1.f/8.f};
-		static const float b = {1.f/18.f};
-
-		return in - a*in*in - b*in*in*in + a;
-	}
-
-	float_4 tanh(float_4 x)
-	{
-		// Pade approximant of tanh
-		x = simd::clamp(x, -3.f, 3.f);
-		return x * (27 + x * x) / (27 + 9 * x * x);
-	}
 };
 
 
