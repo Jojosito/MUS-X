@@ -152,7 +152,8 @@ struct Delay : Module {
 		}
 
 		// calculate frequency for BBD clock
-		float delayTime = std::pow(maxDelayTime/minDelayTime, params[TIME_PARAM].getValue() + 0.1f * inputs[TIME_CV_INPUT].getVoltageSum()) * minDelayTime; // [ms]
+		float delayTime = std::pow(maxDelayTime/minDelayTime,
+				simd::clamp(params[TIME_PARAM].getValue() + 0.1f * inputs[TIME_CV_INPUT].getVoltageSum(), 0.f, 1.f)) * minDelayTime; // [ms]
 		float freq = 1.f/delayTime * 1000.f; // [Hz]
 		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
