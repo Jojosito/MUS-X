@@ -40,11 +40,11 @@ struct Delay : Module {
 	};
 
 	ParamQuantity* delayTimeQty;
-	float minDelayTime = 30.f; // ms
-	float maxDelayTime = 5000.f; // ms
-	float logMaxOverMin = 0.f; // log(maxDelayTime/minDelayTime)
+	int delayLineSize = 4069;
+	float minDelayTime = 1.f * delayLineSize / 256; // ms
+	float maxDelayTime = 100.f * delayLineSize / 256; // ms
+	float logMaxOverMin = std::log(maxDelayTime/minDelayTime); // log(maxDelayTime/minDelayTime)
 	static const int maxDelayLineSize = 16384;
-	int delayLineSize = 2;
 	float_4 delayLine[maxDelayLineSize] = {0};
 
 	float prevTap = 0;
