@@ -42,8 +42,9 @@ struct Delay : Module {
 	ParamQuantity* delayTimeQty;
 	float minDelayTime = 30.f; // ms
 	float maxDelayTime = 5000.f; // ms
+	float logMaxOverMin = 0.f; // log(maxDelayTime/minDelayTime)
 	static const int maxDelayLineSize = 16384;
-	int delayLineSize = 4096;
+	int delayLineSize = 2;
 	float_4 delayLine[maxDelayLineSize] = {0};
 
 	float prevTap = 0;
@@ -120,9 +121,14 @@ struct Delay : Module {
 	void process(const ProcessArgs& args) override {
 		if (knobDivider.process())
 		{
-			delayLineSize = std::pow(2, params[BBD_SIZE_PARAM].getValue());
-			minDelayTime = 1.f * delayLineSize / 256;
-			maxDelayTime = 100.f * delayLineSize / 256;
+			int newDelayLineSize = std::pow(2, params[BBD_SIZE_PARAM].getValue());
+			if (newDelayLineSize != delayLineSize)
+			{
+				delayLineSize = newDelayLineSize;
+				minDelayTime = 1.f * delayLineSize / 256;
+				maxDelayTime = 100.f * delayLineSize / 256;
+				logMaxOverMin = std::log(maxDelayTime/minDelayTime);
+			}
 
 			delayTimeQty->ParamQuantity::displayBase = maxDelayTime/minDelayTime;
 			delayTimeQty->ParamQuantity::displayMultiplier = minDelayTime;
@@ -141,7 +147,7 @@ struct Delay : Module {
 			if (!prevTap && params[TAP_PARAM].getValue())
 			{
 				float delayTime = tapCounter * knobDivider.getDivision() / args.sampleRate * 1000.f; // ms
-				float param = std::log(delayTime/minDelayTime) / std::log(maxDelayTime/minDelayTime);
+				float param = std::log(delayTime/minDelayTime) / logMaxOverMin;
 				if (param < 1.f)
 				{
 					params[TIME_PARAM].setValue(param);
@@ -152,8 +158,8 @@ struct Delay : Module {
 		}
 
 		// calculate frequency for BBD clock
-		float delayTime = std::pow(maxDelayTime/minDelayTime,
-				simd::clamp(params[TIME_PARAM].getValue() + 0.1f * inputs[TIME_CV_INPUT].getVoltageSum(), 0.f, 1.f)) * minDelayTime; // [ms]
+		// pow(a, b) = exp(b * log(a))
+		float delayTime = std::exp(logMaxOverMin * simd::clamp(params[TIME_PARAM].getValue() + 0.1f * inputs[TIME_CV_INPUT].getVoltageSum(), 0.f, 1.f)) * minDelayTime; // [ms]
 		float freq = 1.f/delayTime * 1000.f; // [Hz]
 		double phaseInc = 1.f / args.sampleRate * freq / oversamplingRate * 2 * delayLineSize;
 
