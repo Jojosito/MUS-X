@@ -1,5 +1,7 @@
 #include <rack.hpp>
 
+namespace musx {
+
 template <typename T = float>
 struct TSVF {
 	T c = {0.f};
@@ -54,3 +56,5 @@ struct TSVF {
 };
 
 typedef TSVF<> SVF;
+
+}

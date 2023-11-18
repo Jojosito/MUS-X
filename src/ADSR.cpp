@@ -2,6 +2,8 @@
 
 using simd::float_4;
 
+namespace musx {
+
 struct ADSR : Module {
 	enum ParamId {
 		A_PARAM,
@@ -179,3 +181,5 @@ struct ADSRWidget : ModuleWidget {
 
 
 Model* modelADSR = createModel<ADSR, ADSRWidget>("ADSR");
+
+}

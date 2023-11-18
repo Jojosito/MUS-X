@@ -4,6 +4,8 @@
 using simd::float_4;
 using simd::int32_4;
 
+namespace musx {
+
 struct Oscillators : Module {
 	enum ParamId {
 		OSC1SHAPE_PARAM,
@@ -260,3 +262,4 @@ struct OscillatorsWidget : ModuleWidget {
 
 Model* modelOscillators = createModel<Oscillators, OscillatorsWidget>("Oscillators");
 
+}

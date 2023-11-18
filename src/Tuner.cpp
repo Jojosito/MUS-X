@@ -2,6 +2,8 @@
 
 using simd::float_4;
 
+namespace musx {
+
 struct Tuner : Module {
 	enum ParamId {
 		OCTAVE_PARAM,
@@ -132,3 +134,5 @@ struct TunerWidget : ModuleWidget {
 
 
 Model* modelTuner = createModel<Tuner, TunerWidget>("Tuner");
+
+}

@@ -1,5 +1,7 @@
 #include <rack.hpp>
 
+namespace musx {
+
 /**
  * 3rd order lowpass
  */
@@ -60,3 +62,5 @@ struct TLowpass {
 };
 
 typedef TLowpass<> Lowpass;
+
+}

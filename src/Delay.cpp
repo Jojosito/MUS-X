@@ -4,6 +4,8 @@
 
 using simd::float_4;
 
+namespace musx {
+
 struct Delay : Module {
 	enum ParamId {
 		TIME_PARAM,
@@ -338,3 +340,5 @@ struct DelayWidget : ModuleWidget {
 
 
 Model* modelDelay = createModel<Delay, DelayWidget>("Delay");
+
+}

@@ -1,3 +1,5 @@
+namespace musx {
+
 /** Downsamples by a factor 2.
   * MAXINPUTLENGTH must be power of 2 and > 2*ORDER
   *
@@ -186,3 +188,5 @@ struct HalfBandDecimatorCascade {
 		return outBuffer[0];
 	}
 };
+
+}

@@ -2,6 +2,8 @@
 
 using simd::float_4;
 
+namespace musx {
+
 struct OnePole : Module {
 	enum ParamId {
 		HIGHPASS_PARAM,
@@ -100,3 +102,5 @@ struct OnePoleWidget : ModuleWidget {
 
 
 Model* modelOnePole = createModel<OnePole, OnePoleWidget>("OnePole");
+
+}

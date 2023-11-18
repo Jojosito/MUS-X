@@ -2,6 +2,8 @@
 
 using simd::float_4;
 
+namespace musx {
+
 struct Drift : Module {
 	enum ParamId {
 		CONST_PARAM,
@@ -146,3 +148,5 @@ struct DriftWidget : ModuleWidget {
 
 
 Model* modelDrift = createModel<Drift, DriftWidget>("Drift");
+
+}
