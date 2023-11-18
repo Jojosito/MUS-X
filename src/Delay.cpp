@@ -1,10 +1,10 @@
 #include "plugin.hpp"
-#include <svf.hpp>
-#include <lowpass.hpp>
-
-using simd::float_4;
+#include "dsp/filters.hpp"
 
 namespace musx {
+
+using namespace rack;
+using simd::float_4;
 
 struct Delay : Module {
 	enum ParamId {
@@ -62,19 +62,19 @@ struct Delay : Module {
 	static constexpr float maxCutoff = 10000.f; // Hz
 	// TODO combine filters with simd
 	// input filter
-	TLowpass<float_4> inFilter;
+	musx::TFourPole<float_4> inFilter;
 
 	// output filter
-	TLowpass<float_4> outFilter;
+	musx::TFourPole<float_4> outFilter;
 
 	// compressor
-	dsp::TRCFilter<float_4> compAmplitude;
+	musx::TOnePole<float_4> compAmplitude;
 
 	// expander
-	dsp::TRCFilter<float_4> expAmplitude;
+	musx::TOnePole<float_4> expAmplitude;
 
 	// DC block
-	dsp::TRCFilter<float_4> dcBlocker;
+	musx::TOnePole<float_4> dcBlocker;
 
 	dsp::ClockDivider lightDivider;
 	dsp::ClockDivider knobDivider;
@@ -186,7 +186,7 @@ struct Delay : Module {
 
 		// anti-aliasing filter
 		inFilter.process(inMono);
-		inMono = inFilter.lowpass();
+		inMono = inFilter.lowpass3();
 
 		out = 0;
 		// oversampled BBD simulation
@@ -200,7 +200,7 @@ struct Delay : Module {
 			float_4 readout = delayLine[index];
 
 			// add noise
-			readout += params[NOISE_PARAM].getValue() * rack::random::normal(); // TODO noise level is Rack sample rate dependent!!!
+			readout += params[NOISE_PARAM].getValue() * random::normal(); // TODO noise level is Rack sample rate dependent!!!
 
 			// nonlinearity
 			readout = waveshape(readout/5.f)*5.f;
@@ -235,7 +235,7 @@ struct Delay : Module {
 
 		// reconstruction filter
 		outFilter.process(out);
-		out = outFilter.lowpass();
+		out = outFilter.lowpass3();
 
 		// expander
 		out = expand(out);

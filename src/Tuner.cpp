@@ -1,8 +1,9 @@
 #include "plugin.hpp"
 
-using simd::float_4;
-
 namespace musx {
+
+using namespace rack;
+using simd::float_4;
 
 struct Tuner : Module {
 	enum ParamId {

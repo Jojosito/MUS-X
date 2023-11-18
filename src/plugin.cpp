@@ -1,5 +1,7 @@
 #include "plugin.hpp"
 
+using namespace rack;
+using namespace musx;
 
 Plugin* pluginInstance;
 

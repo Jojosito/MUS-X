@@ -1,10 +1,11 @@
 #include "plugin.hpp"
 #include <decimator.hpp>
 
+namespace musx {
+
+using namespace rack;
 using simd::float_4;
 using simd::int32_4;
-
-namespace musx {
 
 struct Oscillators : Module {
 	enum ParamId {

@@ -1,8 +1,10 @@
 #include "plugin.hpp"
-
-using simd::float_4;
+#include "dsp/filters.hpp"
 
 namespace musx {
+
+using namespace rack;
+using simd::float_4;
 
 struct OnePole : Module {
 	enum ParamId {
@@ -29,8 +31,8 @@ struct OnePole : Module {
 
 	int channels = 1;
 
-	dsp::TRCFilter<float_4> highpass[4];
-	dsp::TRCFilter<float_4> lowpass[4];
+	musx::TOnePole<float_4> highpass[4];
+	musx::TOnePole<float_4> lowpass[4];
 
 	dsp::ClockDivider cvDivider;
 

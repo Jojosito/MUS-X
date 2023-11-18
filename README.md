@@ -17,7 +17,7 @@ Both 'Time' and 'Feedback' can be CV controlled.
 'Cutoff' adjusts the cutoff frequency of the anti-aliasing and reconstruction filters. It makes the delay brighter or darker. The aliasing of the BBD can be audible at higher cutoff frequencies.
 'Resonance' adjusts the resonance of the anti-aliasing and reconstruction filters. This alters the character of the delay, especially at high feedback amounts.
 'Noise' adjusts the noise of the BBD line. More noise will result in self oscillation at high feedback levels.
-'BBD size' adjusts the size of the BBD line. A smaller size can be used for very short delays, or a chorus effect. Many famous hardware units use 2048 or 4096 buckets.
+'BBD size' adjusts the number of stages of the BBD line. A smaller size can be used for very short delays, or a chorus effect. Many famous hardware units use 2048 or 4096 stages.
 A larger BBD size can give longer delay times, and a brighter delay without aliasing.
 
 'Input' adjusts the input level to the delay. It does not affect the dry signal output.

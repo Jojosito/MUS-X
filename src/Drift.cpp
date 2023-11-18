@@ -1,8 +1,10 @@
 #include "plugin.hpp"
-
-using simd::float_4;
+#include "dsp/filters.hpp"
 
 namespace musx {
+
+using namespace rack;
+using simd::float_4;
 
 struct Drift : Module {
 	enum ParamId {
@@ -32,7 +34,7 @@ struct Drift : Module {
 
 	float_4 diverge[4];
 
-	dsp::TRCFilter<float_4> lowpass[4];
+	musx::TOnePole<float_4> lowpass[4];
 
 	dsp::ClockDivider divider;
 
