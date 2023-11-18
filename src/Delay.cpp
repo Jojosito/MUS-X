@@ -86,12 +86,12 @@ struct Delay : Module {
 
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
 		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.03125f, "Low pass filter resonance", " %", 0, 160);
-		configParam(NOISE_PARAM, 0.f, 10.f, 0.25f, "Noise level", " %", 0, 10);
+		configParam(NOISE_PARAM, 0.f, 2.5f, 0.0625f, "Noise level", " %", 0, 40);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
 		getParamQuantity(BBD_SIZE_PARAM)->smoothEnabled = false;
 
-		configParam(INPUT_PARAM, 0.f, 2.f, 1.f, "Delay input level", " %", 0, 100);
+		configParam(INPUT_PARAM, 0.f, 4.f, 1.f, "Delay input level", " %", 0, 100);
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 0.5f, "Stereo width", " %", 0, 100);
 		configSwitch(INVERT_PARAM, 0, 1, 0, "R wet signal = - L wet signal (Chorus mode)");
 		configParam(MIX_PARAM, 0.f, 1.f, 0.5f, "Dry-wet mix", " %", 0, 100);
