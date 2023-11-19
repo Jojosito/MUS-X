@@ -58,7 +58,7 @@ struct Delay : Module {
 	float_4 out = 0;
 	float_4 lastOut = 0;
 
-	int oversamplingRate = 16; // TODO check how much oversampling is necessary for min delay time
+	int oversamplingRate = 8;
 
 	double phasor = 0;
 
@@ -123,6 +123,10 @@ struct Delay : Module {
 		compander.setExpanderCutoffFreq(4.964f/e.sampleRate);
 		dcBlocker.setCutoffFreq(20.f/e.sampleRate);
 		lightFilter.setCutoffFreq(5.f/e.sampleRate*lightDivider.getDivision());
+
+		int factor = std::round(std::log2(46050/e.sampleRate));
+		oversamplingRate = 8 * pow(2, factor);
+		oversamplingRate = std::fmax(1, oversamplingRate);
 	}
 
 	void process(const ProcessArgs& args) override {
