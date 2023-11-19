@@ -139,7 +139,7 @@ struct Oscillators : Module {
 			ringmod[c/4] 	= simd::clamp(params[RINGMOD_PARAM].getValue()   + 0.1f *inputs[RINGMOD_INPUT].getPolyVoltageSimd<float_4>(c),   0.f, 1.f);
 			ringmod[c/4] *= 5.f / INT32_MAX / INT32_MAX;
 
-			int sync = std::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getVoltage() / 5.f, 0.f, 1.f));
+			int sync = std::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getVoltageSum() / 5.f, 0.f, 1.f));
 
 			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);

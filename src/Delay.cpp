@@ -236,10 +236,11 @@ struct Delay : Module {
 				// advance BBD delay line
 				++index;
 				index &= delayLineSize-1;
+
+				phasor -= 2.f;
 			}
 
 			phasor += phaseInc;
-			phasor = phasor > 1.f ? phasor - 2.f : phasor;
 		}
 
 		// simple average over output

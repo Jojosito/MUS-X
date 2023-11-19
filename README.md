@@ -41,9 +41,9 @@ A pair of analog-style oscillators.
 'Shape' blends from sawtooth to pulse wave.
 'PW' adjusts the pulse wave from 0% to 100% duty cycle.
 'Vol' adjusts the oscillator volume.
-'Sync' hard syncs oscillator 2 to oscillator 1, or oscillator 1 to oscillator 2.
+'Sync' hard syncs oscillator 2 to oscillator 1.
 'FM' adjusts the (Linear-Through-Zero) frequency modulation from oscillator 1 to oscillator 2.
-Since the oscillators have no DC-offset, oscillator 2 stays in tune when applying FM.
+Oscillator 2 stays in tune when applying FM.
 'RM' adjusts the volume of the ring modulator (multiplication of oscillator 1 and 2).
 
 Every parameter is CV controllable.
