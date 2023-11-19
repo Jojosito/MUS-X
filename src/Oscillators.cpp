@@ -97,7 +97,7 @@ struct Oscillators : Module {
 		configInput(OSC2VOCT_INPUT, 	"Oscillator 2 V/Oct");
 		configOutput(OUT_OUTPUT, 		"Mix");
 
-		lightDivider.setDivision(128);
+		lightDivider.setDivision(512);
 	}
 
 	void setOversamplingRate(int arg)
@@ -212,12 +212,12 @@ struct Oscillators : Module {
 struct OscillatorsWidget : ModuleWidget {
 	OscillatorsWidget(Oscillators* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Oscillators.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/Oscillators.svg"), asset::plugin(pluginInstance, "res/Oscillators-dark.svg")));
 
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 18.179)), module, Oscillators::OSC1SHAPE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.48, 18.179)), module, Oscillators::OSC1PW_PARAM));
@@ -229,19 +229,19 @@ struct OscillatorsWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.5, 82.429)), module, Oscillators::OSC2PW_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 82.429)), module, Oscillators::OSC2VOL_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 28.888)), module, Oscillators::OSC1SHAPE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.48, 28.888)), module, Oscillators::OSC1PW_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 28.888)), module, Oscillators::OSC1VOL_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 61.012)), module, Oscillators::SYNC_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.48, 61.012)), module, Oscillators::FM_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 61.012)), module, Oscillators::RINGMOD_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 93.137)), module, Oscillators::OSC2SHAPE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.48, 93.137)), module, Oscillators::OSC2PW_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 93.137)), module, Oscillators::OSC2VOL_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.26, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.5, 112.438)), module, Oscillators::OSC2VOCT_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 28.888)), module, Oscillators::OSC1SHAPE_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.48, 28.888)), module, Oscillators::OSC1PW_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 28.888)), module, Oscillators::OSC1VOL_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 61.012)), module, Oscillators::SYNC_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.48, 61.012)), module, Oscillators::FM_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 61.012)), module, Oscillators::RINGMOD_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 93.137)), module, Oscillators::OSC2SHAPE_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.48, 93.137)), module, Oscillators::OSC2PW_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 93.137)), module, Oscillators::OSC2VOL_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.26, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.5, 112.438)), module, Oscillators::OSC2VOCT_INPUT));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(45.816, 112.438)), module, Oscillators::OUT_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(45.816, 112.438)), module, Oscillators::OUT_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {

@@ -130,21 +130,21 @@ struct Drift : Module {
 struct DriftWidget : ModuleWidget {
 	DriftWidget(Drift* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Drift.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/Drift.svg"), asset::plugin(pluginInstance, "res/Drift-dark.svg")));
 
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 16.062)), module, Drift::CONST_PARAM));
 		addParam(createParamCentered<VCVButton>(mm2px(Vec(7.62, 32.125)), module, Drift::RANDOMIZE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 48.188)), module, Drift::DRIFT_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.251)), module, Drift::RATE_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 96.375)), module, Drift::POLY_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 96.375)), module, Drift::POLY_INPUT));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 112.438)), module, Drift::OUT_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, Drift::OUT_OUTPUT));
 	}
 };
 

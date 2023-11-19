@@ -156,12 +156,12 @@ struct ADSR : Module {
 struct ADSRWidget : ModuleWidget {
 	ADSRWidget(ADSR* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/ADSR.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/ADSR.svg"), asset::plugin(pluginInstance, "res/ADSR-dark.svg")));
 
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 16.062)), module, ADSR::A_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 24.094)), module, ADSR::VELSCALE_PARAM));
@@ -170,13 +170,13 @@ struct ADSRWidget : ModuleWidget {
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 56.219)), module, ADSR::SUSMOD_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, ADSR::R_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 80.313)), module, ADSR::VEL_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 80.313)), module, ADSR::SUSMOD_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 96.375)), module, ADSR::GATE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 96.375)), module, ADSR::RETRIG_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 80.313)), module, ADSR::VEL_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 80.313)), module, ADSR::SUSMOD_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 96.375)), module, ADSR::GATE_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 96.375)), module, ADSR::RETRIG_INPUT));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 112.438)), module, ADSR::SGATE_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 112.438)), module, ADSR::ENV_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, ADSR::SGATE_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 112.438)), module, ADSR::ENV_OUTPUT));
 	}
 };
 

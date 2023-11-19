@@ -111,7 +111,7 @@ struct Delay : Module {
 		configOutput(L_OUTPUT, "Left");
 		configOutput(R_OUTPUT, "Right");
 
-		lightDivider.setDivision(128);
+		lightDivider.setDivision(256);
 		knobDivider.setDivision(16);
 
 		configBypass(L_INPUT, L_OUTPUT);
@@ -312,12 +312,12 @@ struct Delay : Module {
 struct DelayWidget : ModuleWidget {
 	DelayWidget(Delay* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Delay.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/Delay.svg"), asset::plugin(pluginInstance, "res/Delay-dark.svg")));
 
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(15.24, 24.094)), module, Delay::TIME_PARAM));
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(45.72, 24.094)), module, Delay::FEEDBACK_PARAM));
@@ -336,13 +336,13 @@ struct DelayWidget : ModuleWidget {
 		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(38.1, 88.344)), module, Delay::INVERT_PARAM, Delay::INVERT_LIGHT));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(53.34, 88.344)), module, Delay::MIX_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 40.156)), module, Delay::TIME_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 40.156)), module, Delay::FEEDBACK_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 112.438)), module, Delay::L_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 112.438)), module, Delay::R_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 40.156)), module, Delay::TIME_CV_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 40.156)), module, Delay::FEEDBACK_CV_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, Delay::L_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 112.438)), module, Delay::R_INPUT));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(38.312, 112.438)), module, Delay::L_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(53.552, 112.438)), module, Delay::R_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(38.312, 112.438)), module, Delay::L_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(53.552, 112.438)), module, Delay::R_OUTPUT));
 	}
 };
 

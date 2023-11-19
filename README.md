@@ -10,7 +10,7 @@ During the decay and release phase, a gate signal is output. This can e.g. be us
 A delay inspired by analog bucket-brigade delay pedals.
 
 'Time' adjusts the delay time. The range is determined by the 'BBD size' parameter.
-The delay time can also be tapped with the 'Tap' button.
+The delay time can also be tapped with the 'Tap' button. The delay time is also visualized by the 'Tap'-button LED.
 'Feedback' adjusts the delay feedback. WARNING: this goes well beyond 100% and can cause self oscillation. The output is limited to +-10V.
 Both 'Time' and 'Feedback' can be CV controlled.
 
@@ -20,7 +20,7 @@ Both 'Time' and 'Feedback' can be CV controlled.
 'BBD size' adjusts the number of stages of the BBD line. A smaller size can be used for very short delays, or a chorus effect. Many famous hardware units use 2048 or 4096 stages.
 A larger BBD size can give longer delay times, and a brighter delay without aliasing.
 
-'Input' adjusts the input level to the delay. It does not affect the dry signal output.
+'Input' adjusts the input level to the delay. It does not affect the dry signal output. A small LED indicates an overload of the delay circuit and will result in saturation.
 Turning up the 'Stereo' parameter gives a ping-pong delay. It has no effect when 'Inv R' is enabled.
 If 'Inv R' is enabled, the right wet signal will be the inverted left wet signal. You can use this with a small BBD size (e.g. 512), no feedback, and delay time modulation to create a chorus effect.
 'Mix' adjusts the dry-wet balance.
