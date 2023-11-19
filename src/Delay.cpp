@@ -35,6 +35,8 @@ struct Delay : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
+		TAP_LIGHT,
+		OVERLOAD_LIGHT,
 		INVERT_LIGHT,
 		LIGHTS_LEN
 	};
@@ -78,12 +80,16 @@ struct Delay : Module {
 	dsp::ClockDivider lightDivider;
 	dsp::ClockDivider knobDivider;
 
+	double tapLightPhasor = 0;
+	musx::TOnePole<float_4> lightFilter;
+
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		delayTimeQty = configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
 		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.5f, "Feedback", " %", 0, 100);
 
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
+
 
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
 		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.03125f, "Low pass filter resonance", " %", 0, 160);
@@ -116,6 +122,7 @@ struct Delay : Module {
 		compander.setCompressorCutoffFreq(5.01f/e.sampleRate);
 		compander.setExpanderCutoffFreq(4.964f/e.sampleRate);
 		dcBlocker.setCutoffFreq(20.f/e.sampleRate);
+		lightFilter.setCutoffFreq(5.f/e.sampleRate*lightDivider.getDivision());
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -272,6 +279,29 @@ struct Delay : Module {
 
 		// Light
 		if (lightDivider.process()) {
+			double tapPhaseInc = 1.f / args.sampleRate * freq * 2 * lightDivider.getDivision();
+			tapLightPhasor += tapPhaseInc;
+			tapLightPhasor = tapLightPhasor > 1.f ? tapLightPhasor - 2.f : tapLightPhasor;
+			float_4 lightSignal = {
+					float(tapLightPhasor > 0.f),
+					compander.compressorAmplitude()[0],
+					0, 0};
+			lightFilter.process(lightSignal);
+
+			float tapBrightness = 0.5;
+			if (freq < 60.f)
+			{
+				tapBrightness = lightFilter.lowpass()[0];
+			}
+			lights[TAP_LIGHT].setBrightness(tapBrightness);
+
+			float overloadBrightness = 0;
+			if (lightFilter.lowpass()[1] > 2.f)
+			{
+				overloadBrightness = lightFilter.lowpass()[1] - 2.f;
+			}
+			lights[OVERLOAD_LIGHT].setBrightness(overloadBrightness);
+
 			lights[INVERT_LIGHT].setBrightness(params[INVERT_PARAM].getValue());
 		}
 	}
@@ -291,13 +321,16 @@ struct DelayWidget : ModuleWidget {
 
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(15.24, 24.094)), module, Delay::TIME_PARAM));
 		addParam(createParamCentered<RoundBigBlackKnob>(mm2px(Vec(45.72, 24.094)), module, Delay::FEEDBACK_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(28.36, 32.125)), module, Delay::TAP_PARAM));
+		auto tapParam = createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(28.36, 32.125)), module, Delay::TAP_PARAM, Delay::TAP_LIGHT);
+		tapParam->momentary = true;
+		addParam(tapParam);
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::CUTOFF_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::RESONANCE_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 64.25)), module, Delay::NOISE_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 64.25)), module, Delay::BBD_SIZE_PARAM));
 
+		addChild(createLight<MediumLight<RedLight>>(mm2px(Vec(3., 80.0)), module, Delay::OVERLOAD_LIGHT));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 88.344)), module, Delay::INPUT_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 88.344)), module, Delay::STEREO_WIDTH_PARAM));
 		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(38.1, 88.344)), module, Delay::INVERT_PARAM, Delay::INVERT_LIGHT));

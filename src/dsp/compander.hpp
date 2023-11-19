@@ -38,6 +38,11 @@ struct TCompander {
 		T gain = simd::fmin(expAmplitude.lowpass(), 10.f);
 		return gain * in;
 	}
+
+	inline T compressorAmplitude()
+	{
+		return compAmplitude.lowpass();
+	}
 };
 
 
