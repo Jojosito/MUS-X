@@ -1,3 +1,0 @@
-Title:  14pt bold
-Labels: 12pt
-Logo:    8pt bold italic

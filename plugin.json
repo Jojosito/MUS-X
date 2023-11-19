@@ -5,7 +5,7 @@
   "license": "GPL-3.0-or-later",
   "brand": "MUS-X",
   "author": "Dr. Johannes Rauch",
-  "authorEmail": "jojo@mus-x.de",
+  "authorEmail": "vcv@mus-x.de",
   "authorUrl": "mus-x.de",
   "pluginUrl": "https://github.com/Jojosito/MUS-X",
   "manualUrl": "https://github.com/Jojosito/MUS-X",
@@ -16,7 +16,7 @@
     {
       "slug": "ADSR",
       "name": "ADSR",
-      "description": "ADSR envelope generator",
+      "description": "ADSR envelope generator.",
       "tags": [
         "Envelope generator",
         "Polyphonic"
@@ -34,9 +34,36 @@
     {
       "slug": "Oscillators",
       "name": "Oscillators",
-      "description": "Massively oversampled analog oscillator pair with sync, crossmod and ringmod.",
+      "description": "Massively oversampled analog oscillator pair with sync, FM and ringmod.",
       "tags": [
         "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Delay",
+      "name": "Delay",
+      "description": "Bucket-brigade ping-pong delay.",
+      "tags": [
+        "Delay",
+        "Effect"
+      ]
+    },
+    {
+      "slug": "OnePole",
+      "name": "OnePole",
+      "description": "Simple one-pole highpass and lowpass filters.",
+      "tags": [
+        "filter",
+        "polyphonic"
+      ]
+    },
+    {
+      "slug": "Drift",
+      "name": "Drift",
+      "description": "Random constant offset and drift.",
+      "tags": [
+        "Random",
         "Polyphonic"
       ]
     }

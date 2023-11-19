@@ -1,5 +1,8 @@
 #include "plugin.hpp"
 
+namespace musx {
+
+using namespace rack;
 using simd::float_4;
 
 struct ADSR : Module {
@@ -56,10 +59,10 @@ struct ADSR : Module {
 
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 0.f, 1.f, 0.5f, "Attack", " ms", LAMBDA_BASE, MIN_TIME * 1000);
-		configParam(D_PARAM, 0.f, 1.f, 0.5f, "Decay", " ms", LAMBDA_BASE, MIN_TIME * 1000);
-		configParam(S_PARAM, 0.f, 1.f, 0.5f, "Sustain", "%", 0, 100);
-		configParam(R_PARAM, 0.f, 1.f, 0.5f, "Release", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(A_PARAM, 0.f, 1.f, 0.1f, "Attack", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(D_PARAM, 0.f, 1.f, 0.1f, "Decay", " ms", LAMBDA_BASE, MIN_TIME * 1000);
+		configParam(S_PARAM, 0.f, 1.f, 1.f, "Sustain", "%", 0, 100);
+		configParam(R_PARAM, 0.f, 1.f, 0.1f, "Release", " ms", LAMBDA_BASE, MIN_TIME * 1000);
 
 		configParam(VELSCALE_PARAM, 0.f, 1.f, 0.f, "Velocity CV");
 		configParam(SUSMOD_PARAM, -1.f, 1.f, 0.f, "Sustain CV");
@@ -153,12 +156,12 @@ struct ADSR : Module {
 struct ADSRWidget : ModuleWidget {
 	ADSRWidget(ADSR* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/ADSR.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/ADSR.svg"), asset::plugin(pluginInstance, "res/ADSR-dark.svg")));
 
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 16.062)), module, ADSR::A_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 24.094)), module, ADSR::VELSCALE_PARAM));
@@ -167,15 +170,17 @@ struct ADSRWidget : ModuleWidget {
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 56.219)), module, ADSR::SUSMOD_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, ADSR::R_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 80.313)), module, ADSR::VEL_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 80.313)), module, ADSR::SUSMOD_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 96.375)), module, ADSR::GATE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 96.375)), module, ADSR::RETRIG_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 80.313)), module, ADSR::VEL_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 80.313)), module, ADSR::SUSMOD_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 96.375)), module, ADSR::GATE_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 96.375)), module, ADSR::RETRIG_INPUT));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 112.438)), module, ADSR::SGATE_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 112.438)), module, ADSR::ENV_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, ADSR::SGATE_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(22.86, 112.438)), module, ADSR::ENV_OUTPUT));
 	}
 };
 
 
 Model* modelADSR = createModel<ADSR, ADSRWidget>("ADSR");
+
+}

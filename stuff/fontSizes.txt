@@ -1,0 +1,5 @@
+Title:  14pt bold
+Labels: 12pt
+Logo:    8pt bold italic
+
+Invert in inkscape: Select all, Extensions -> Color -> Invert 

@@ -1,5 +1,7 @@
 #include "plugin.hpp"
 
+using namespace rack;
+using namespace musx;
 
 Plugin* pluginInstance;
 
@@ -9,8 +11,11 @@ void init(Plugin* p) {
 
 	// Add modules here
 	p->addModel(modelADSR);
-	p->addModel(modelTuner);
+	p->addModel(modelDelay);
+	p->addModel(modelDrift);
+	p->addModel(modelOnePole);
 	p->addModel(modelOscillators);
+	p->addModel(modelTuner);
 
 	// Any other plugin initialization may go here.
 	// As an alternative, consider lazy-loading assets and lookup tables when your module is created to reduce startup times of Rack.
