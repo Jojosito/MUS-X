@@ -216,7 +216,7 @@ struct Delay : Module {
 			float_4 readout = delayLine[index];
 
 			// add noise
-			readout += params[NOISE_PARAM].getValue() * random::normal(); // TODO noise level is Rack sample rate dependent!!!
+			readout += params[NOISE_PARAM].getValue() * random::normal();
 
 			// nonlinearity
 			readout = musx::waveshape(readout/5.f)*5.f;
