@@ -144,10 +144,17 @@ struct OscillatorsDev : Module {
 			// frequencies and phase increments
 			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate * 2;
+			float_4 tri1Amt = simd::fmax(-osc1Shape[c/4], 0.f);
+			float_4 sawSq1Amt = simd::fmin(1.f + osc1Shape[c/4], 1.f);
+			float_4 sq1Amt = simd::fmax(osc1Shape[c/4], 0.f);
 			int32_4 phase1Offset = simd::ifelse(osc1PW[c/4] < 0, (-1.f - osc1PW[c/4]) * INT32_MAX, (1.f - osc1PW[c/4]) * INT32_MAX); // for pulse wave = saw + inverted saw with phaseshift
+
 
 			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c)), minFreq, maxFreq);
 			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate * 2;
+			float_4 tri2Amt = simd::fmax(-osc2Shape[c/4], 0.f);
+			float_4 sawSq2Amt = simd::fmin(1.f + osc2Shape[c/4], 1.f);
+			float_4 sq2Amt = simd::fmax(osc2Shape[c/4], 0.f);
 			int32_4 phase2Offset = simd::ifelse(osc2PW[c/4] < 0, (-1.f - osc2PW[c/4]) * INT32_MAX, (1.f - osc2PW[c/4]) * INT32_MAX); // for pulse wave
 
 			// calculate the oversampled oscillators and mix
@@ -158,19 +165,15 @@ struct OscillatorsDev : Module {
 				float_4 doSync = sync & (phasor1[c/4] + phase1Inc < phasor1[c/4]);
 
 				phasor1[c/4] += phase1Inc;
-				float_4 wave1 = simd::ifelse(osc1Shape[c/4] < 0,
-						simd::ifelse(1.f * phasor1[c/4] < (-1.f - osc1Shape[c/4]) * INT32_MAX,
-								phasor1[c/4],
-								-phasor1[c/4]) * (1.f - osc1Shape[c/4]) - osc1Shape[c/4] * INT32_MAX,
-						(phasor1[c/4] + phase1Offset) * osc1Shape[c/4] - 1.f * phasor1[c/4]); // +-INT32_MAX
+				float_4 tri1 = simd::ifelse(phasor1[c/4] < 0, phasor1[c/4], -phasor1[c/4]) * 2.f + INT32_MAX; // +-INT32_MAX
+				float_4 sawSq1 = (phasor1[c/4] + phase1Offset) * sq1Amt - 1.f * phasor1[c/4]; // +-INT32_MAX
+				float_4 wave1 = tri1Amt * tri1 + sawSq1Amt * sawSq1; // +-INT32_MAX
 
 				int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
 				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
-				float_4 wave2 = simd::ifelse(osc2Shape[c/4] < 0,
-						simd::ifelse(1.f * phasor2[c/4] < (-1.f - osc2Shape[c/4]) * INT32_MAX,
-								phasor2[c/4],
-								-phasor2[c/4]) * (1.f - osc2Shape[c/4]) - osc2Shape[c/4] * INT32_MAX,
-						(phasor2[c/4] + phase2Offset) * osc2Shape[c/4] - 1.f * phasor2[c/4]); // +-INT32_MAX
+				float_4 tri2 = simd::ifelse(phasor2[c/4] < 0, phasor2[c/4], -phasor2[c/4]) * 2.f + INT32_MAX; // +-INT32_MAX
+				float_4 sawSq2 = (phasor2[c/4] + phase2Offset) * sq2Amt - 1.f * phasor2[c/4]; // +-INT32_MAX
+				float_4 wave2 = tri2Amt * tri2 + sawSq2Amt * sawSq2; // +-INT32_MAX
 
 				inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 			}
