@@ -14,7 +14,6 @@ extern Model* modelDelay;
 extern Model* modelDrift;
 extern Model* modelOnePole;
 extern Model* modelOscillators;
-extern Model* modelOscillatorsDev;
 extern Model* modelTuner;
 
 }
