@@ -48,6 +48,11 @@ struct TOnePole {
 		tmp = a*x - b*tmp;
 	}
 
+	inline T processLowpass(T x) {
+		tmp = a*x - b*tmp;
+		return tmp;
+	}
+
 	T lowpass()
 	{
 		return tmp;
