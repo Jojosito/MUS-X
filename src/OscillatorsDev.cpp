@@ -1,6 +1,5 @@
 #include "plugin.hpp"
 #include "dsp/decimator.hpp"
-#include "dsp/filters.hpp"
 
 namespace musx {
 
@@ -48,7 +47,6 @@ struct OscillatorsDev : Module {
 	static const int minFreq = 0.01f; // min frequency of the oscillators in Hz
 	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
 
-	int samplingRate = 48000;
 	int oversamplingRate = 16;
 
 	HalfBandDecimatorCascade<float_4> decimator[4];
@@ -58,9 +56,6 @@ struct OscillatorsDev : Module {
 	// integers overflow, so phase resets automatically
 	int32_4 phasor1[4] = {0};
 	int32_4 phasor2[4] = {0};
-
-	musx::TOnePole<float_4> osc1Lowpass[4];
-	musx::TOnePole<float_4> osc2Lowpass[4];
 
 	float_4 mix[4][maxOversamplingRate] = {0};
 
@@ -105,11 +100,6 @@ struct OscillatorsDev : Module {
 		lightDivider.setDivision(512);
 	}
 
-	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		samplingRate = e.sampleRate;
-		setOversamplingRate(oversamplingRate);
-	}
-
 	void setOversamplingRate(int arg)
 	{
 		oversamplingRate = arg;
@@ -125,9 +115,6 @@ struct OscillatorsDev : Module {
 			}
 
 			decimator[c/4].reset();
-
-			osc1Lowpass[c/4].setCutoffFreq(18000.f/samplingRate/oversamplingRate);
-			osc2Lowpass[c/4].setCutoffFreq(18000.f/samplingRate/oversamplingRate);
 		}
 	}
 
@@ -181,7 +168,6 @@ struct OscillatorsDev : Module {
 				float_4 tri1 = (1.f*phasor1Offset + (phasor1Offset > 0) * 2.f * phasor1Offset) + INT32_MAX/2; // +-INT32_MAX/2
 				float_4 sawSq1 = phasor1Offset * sq1Amt - 1.f * phasor1[c/4]; // +-INT32_MAX
 				float_4 wave1 = tri1Amt * tri1 + sawSq1Amt * sawSq1; // +-INT32_MAX
-				wave1 = osc1Lowpass[c/4].processLowpass(wave1);
 
 				int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
 				int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
@@ -190,7 +176,6 @@ struct OscillatorsDev : Module {
 				float_4 tri2 = (1.f*phasor2Offset + (phasor2Offset > 0) * 2.f * phasor2Offset) + INT32_MAX/2; // +-INT32_MAX/2
 				float_4 sawSq2 = phasor2Offset * sq2Amt - 1.f * phasor2[c/4]; // +-INT32_MAX
 				float_4 wave2 = tri2Amt * tri2 + sawSq2Amt * sawSq2; // +-INT32_MAX
-				wave2 = osc2Lowpass[c/4].processLowpass(wave2);
 
 				inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 			}
