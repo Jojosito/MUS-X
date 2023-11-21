@@ -38,8 +38,8 @@ A simple CV controllable 1-pole highpass and lowpass filter.
 
 ### Oscillators
 A pair of analog-style oscillators.
-'Shape' blends from sawtooth to pulse wave.
-'PW' adjusts the pulse wave from 0% to 100% duty cycle.
+'Shape' blends from triangle to sawtooth to pulse wave.
+'PW' adjusts the phase of the triangle, and the pulse wave from 0% to 100% duty cycle.
 'Vol' adjusts the oscillator volume.
 'Sync' hard syncs oscillator 2 to oscillator 1.
 'FM' adjusts the (Linear-Through-Zero) frequency modulation from oscillator 1 to oscillator 2.
