@@ -15,6 +15,7 @@ void init(Plugin* p) {
 	p->addModel(modelDrift);
 	p->addModel(modelOnePole);
 	p->addModel(modelOscillators);
+	p->addModel(modelOscillatorsDev);
 	p->addModel(modelTuner);
 
 	// Any other plugin initialization may go here.

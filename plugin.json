@@ -41,6 +41,15 @@
       ]
     },
     {
+      "slug": "OscillatorsDev",
+      "name": "Oscillators Development",
+      "description": "Massively oversampled analog oscillator pair with sync, FM and ringmod.",
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
       "slug": "Delay",
       "name": "Delay",
       "description": "Bucket-brigade ping-pong delay.",
