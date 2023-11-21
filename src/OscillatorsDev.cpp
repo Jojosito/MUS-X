@@ -165,14 +165,16 @@ struct OscillatorsDev : Module {
 				float_4 doSync = sync & (phasor1[c/4] + phase1Inc < phasor1[c/4]);
 
 				phasor1[c/4] += phase1Inc;
-				float_4 tri1 = simd::ifelse(phasor1[c/4] < 0, phasor1[c/4], -phasor1[c/4]) * 2.f + INT32_MAX; // +-INT32_MAX
-				float_4 sawSq1 = (phasor1[c/4] + phase1Offset) * sq1Amt - 1.f * phasor1[c/4]; // +-INT32_MAX
+				int32_4 phasor1Offset = phasor1[c/4] + phase1Offset;
+				float_4 tri1 = simd::ifelse(phasor1Offset > 0, phasor1Offset, -phasor1Offset) * 2.f - INT32_MAX; // +-INT32_MAX
+				float_4 sawSq1 = phasor1Offset * sq1Amt - 1.f * phasor1[c/4]; // +-INT32_MAX
 				float_4 wave1 = tri1Amt * tri1 + sawSq1Amt * sawSq1; // +-INT32_MAX
 
 				int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
+				int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
 				phasor2[c/4] = simd::ifelse(doSync, -INT32_MAX, phasor2[c/4] + phase2IncWithFm);
-				float_4 tri2 = simd::ifelse(phasor2[c/4] < 0, phasor2[c/4], -phasor2[c/4]) * 2.f + INT32_MAX; // +-INT32_MAX
-				float_4 sawSq2 = (phasor2[c/4] + phase2Offset) * sq2Amt - 1.f * phasor2[c/4]; // +-INT32_MAX
+				float_4 tri2 = simd::ifelse(phasor2Offset > 0, phasor2Offset, -phasor2Offset) * 2.f - INT32_MAX; // +-INT32_MAX
+				float_4 sawSq2 = phasor2Offset * sq2Amt - 1.f * phasor2[c/4]; // +-INT32_MAX
 				float_4 wave2 = tri2Amt * tri2 + sawSq2Amt * sawSq2; // +-INT32_MAX
 
 				inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
