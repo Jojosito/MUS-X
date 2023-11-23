@@ -212,7 +212,7 @@ struct Oscillators : Module {
 			float_4 out = decimator[c/4].process(actualOversamplingRate);
 
 			// DC blocker
-			if (dcBlock)
+			if (dcBlock && !lfoMode)
 			{
 				dcBlocker[c].process(out);
 				out = dcBlocker[c].highpass();
@@ -312,6 +312,8 @@ struct OscillatorsWidget : ModuleWidget {
 				module->dcBlock = mode;
 			}
 		));
+
+		menu->addChild(new MenuSeparator);
 
 		menu->addChild(createBoolMenuItem("LFO mode", "",
 			[=]() {
