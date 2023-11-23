@@ -30,7 +30,7 @@ struct Tuner : Module {
 
 	Tuner() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(OCTAVE_PARAM, -4.f, 4.f, 0.f, "Octave");
+		configParam(OCTAVE_PARAM, -5.f, 5.f, 0.f, "Octave");
 		configParam(SEMI_PARAM, -12.f, 12.f, 0.f, "Coarse tune", " cents", 0.f, 100.f);
 		configParam(FINE_PARAM, -1.f/12.f, 1.f/12.f, 0.f, "Fine tune", " cents", 0.f, 1200.f);
 
@@ -111,7 +111,7 @@ struct TunerWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Snap octaves", {"no", "yes"},
+		menu->addChild(createBoolMenuItem("Snap octaves", "",
 			[=]() {
 				return module->snapOctaves;
 			},
@@ -121,7 +121,7 @@ struct TunerWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createIndexSubmenuItem("Snap semitones", {"no", "yes"},
+		menu->addChild(createBoolMenuItem("Snap semitones", "",
 			[=]() {
 				return module->snapSemitones;
 			},

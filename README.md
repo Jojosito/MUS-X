@@ -56,6 +56,6 @@ With no oversampling, the oscillators alias a lot.
 Right click on the module to adjust the oversampling factor.
 
 ### Tune
-Tune a V/Oct signal by +-4 octaves, plus coarse (1 octave) and fine (1 semitone) tuning.
+Tune a V/Oct signal by +-5 octaves, plus coarse (1 octave) and fine (1 semitone) tuning.
 The 'Fine' input is added and can be used for subtle modulations in the semitone range.
 The output is limited to +-12V, so a huge frequency range can be covered.

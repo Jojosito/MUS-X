@@ -1,5 +1,6 @@
 #include "plugin.hpp"
 #include "dsp/decimator.hpp"
+#include "dsp/filters.hpp"
 
 namespace musx {
 
@@ -44,10 +45,13 @@ struct Oscillators : Module {
 	};
 
 	static const int maxOversamplingRate = 1024;
-	static const int minFreq = 0.01f; // min frequency of the oscillators in Hz
+	static const int minFreq = 0.0001f; // min frequency of the oscillators in Hz
 	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
 
+	bool lfoMode = false;
+
 	int oversamplingRate = 16;
+	int actualOversamplingRate = 16;
 
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
@@ -70,6 +74,9 @@ struct Oscillators : Module {
 
 	float_4 fm[4] = {0};
 	float_4 ringmod[4] = {0};
+
+	bool dcBlock = true;
+	musx::TOnePole<float_4> dcBlocker[4];
 
 	dsp::ClockDivider lightDivider;
 
@@ -98,6 +105,12 @@ struct Oscillators : Module {
 		configOutput(OUT_OUTPUT, 		"Mix");
 
 		lightDivider.setDivision(512);
+	}
+
+	void onSampleRateChange(const SampleRateChangeEvent& e) override {
+		for (int c = 0; c < 16; c += 4) {
+			dcBlocker[c/4].setCutoffFreq(20.f/e.sampleRate);
+		}
 	}
 
 	void setOversamplingRate(int arg)
@@ -142,24 +155,39 @@ struct Oscillators : Module {
 			int32_4 sync = simd::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getPolyVoltageSimd<float_4>(c) / 5.f, 0.f, 1.f));
 
 			// frequencies, phase increments, factors etc
-			float_4 freq1 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c)), minFreq, maxFreq);
-			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / oversamplingRate * 2;
+			float_4 freq1 = dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c));
+			float_4 freq2 = dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c));
+
+			actualOversamplingRate = oversamplingRate;
+			if (lfoMode)
+			{
+				// bring frequency down 7 octaves, ca. 2 Hz @ 0V CV/Oct input
+				freq1 /= 128;
+				freq2 /= 128;
+
+				actualOversamplingRate = 1;
+			}
+
+			freq1 = simd::clamp(freq1, minFreq, maxFreq);
+			freq2 = simd::clamp(freq2, minFreq, maxFreq);
+
+
+			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / actualOversamplingRate * 2;
 			float_4 tri1Amt = 2.f * simd::fmax(-osc1Shape[c/4], 0.f);  // [2, 0, 0]
 			float_4 sawSq1Amt = simd::fmin(1.f + osc1Shape[c/4], 1.f); // [0, 1, 1]
 			float_4 sq1Amt = simd::fmax(osc1Shape[c/4], 0.f);          // [0, 0, 1]
 			int32_4 phase1Offset = simd::ifelse(osc1PW[c/4] < 0, (-1.f - osc1PW[c/4]) * INT32_MAX, (1.f - osc1PW[c/4]) * INT32_MAX); // for pulse wave = saw + inverted saw with phaseshift
 
-			float_4 freq2 = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c)), minFreq, maxFreq);
-			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / oversamplingRate * 2;
+			int32_4 phase2Inc = INT32_MAX / args.sampleRate * freq2 / actualOversamplingRate * 2;
 			float_4 tri2Amt = 2.f * simd::fmax(-osc2Shape[c/4], 0.f);
 			float_4 sawSq2Amt = simd::fmin(1.f + osc2Shape[c/4], 1.f);
 			float_4 sq2Amt = simd::fmax(osc2Shape[c/4], 0.f);
 			int32_4 phase2Offset = simd::ifelse(osc2PW[c/4] < 0, (-1.f - osc2PW[c/4]) * INT32_MAX, (1.f - osc2PW[c/4]) * INT32_MAX); // for pulse wave
 
 			// calculate the oversampled oscillators and mix
-			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
+			float_4* inBuffer = decimator[c/4].getInputArray(actualOversamplingRate);
 
-			for (int i = 0; i < oversamplingRate; ++i)
+			for (int i = 0; i < actualOversamplingRate; ++i)
 			{
 				float_4 doSync = sync & (phasor1[c/4] + phase1Inc < phasor1[c/4]); // reset phasor2 ?
 
@@ -181,7 +209,16 @@ struct Oscillators : Module {
 			}
 
 			// downsampling
-			outputs[OUT_OUTPUT].setVoltageSimd(decimator[c/4].process(oversamplingRate), c);
+			float_4 out = decimator[c/4].process(actualOversamplingRate);
+
+			// DC blocker
+			if (dcBlock)
+			{
+				dcBlocker[c].process(out);
+				out = dcBlocker[c].highpass();
+			}
+
+			outputs[OUT_OUTPUT].setVoltageSimd(out, c);
 		}
 
 		// Light
@@ -193,6 +230,8 @@ struct Oscillators : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
+		json_object_set_new(rootJ, "dcBlock", json_boolean(dcBlock));
+		json_object_set_new(rootJ, "lfoMode", json_boolean(lfoMode));
 		return rootJ;
 	}
 
@@ -201,6 +240,16 @@ struct Oscillators : Module {
 		if (oversamplingRateJ)
 		{
 			setOversamplingRate(json_integer_value(oversamplingRateJ));
+		}
+		json_t* dcBlockJ = json_object_get(rootJ, "dcBlock");
+		if (dcBlockJ)
+		{
+			dcBlock = (json_boolean_value(dcBlockJ));
+		}
+		json_t* lfoModeJ = json_object_get(rootJ, "lfoMode");
+		if (lfoModeJ)
+		{
+			lfoMode = (json_boolean_value(lfoModeJ));
 		}
 	}
 };
@@ -252,6 +301,24 @@ struct OscillatorsWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->setOversamplingRate(std::pow(2, mode));
+			}
+		));
+
+		menu->addChild(createBoolMenuItem("DC blocker", "",
+			[=]() {
+				return module->dcBlock;
+			},
+			[=](int mode) {
+				module->dcBlock = mode;
+			}
+		));
+
+		menu->addChild(createBoolMenuItem("LFO mode", "",
+			[=]() {
+				return module->lfoMode;
+			},
+			[=](int mode) {
+				module->lfoMode = mode;
 			}
 		));
 	}
