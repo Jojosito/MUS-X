@@ -43,13 +43,13 @@ A pair of analog-style oscillators.
 'Vol' adjusts the oscillator volume.
 'Sub' adjusts the sub-oscillator volume, a square wave one octave below oscillator 1.
 'Sync' hard syncs oscillator 2 to oscillator 1.
-'FM' adjusts the (Linear-Through-Zero) frequency modulation from oscillator 1 to oscillator 2.
+'FM' adjusts the (linear-through-zero) frequency modulation from oscillator 1 to oscillator 2.
 Oscillator 2 stays in tune when applying FM.
 'RM' adjusts the volume of the ring modulator (multiplication of oscillator 1 and 2).
 
 Every parameter is CV controllable.
 There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' module to add tuning controls.
-'Out' outputs the mix of oscillator 1, oscillator 2 and the ring modulator.
+'Out' outputs the mix of oscillator 1, the sub-oscillator, oscillator 2 and the ring modulator. The output is soft-clipped to +-10V.
 
 The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled to reduce aliasing.
 This is especially useful for FM and sync sounds.
