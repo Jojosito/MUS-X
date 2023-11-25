@@ -201,27 +201,23 @@ struct Oscillators : Module {
 				int32_4 phasor1 = phasor1Sub[c/4] + phasor1Sub[c/4];
 				int32_4 phasor1Offset = phasor1 + phase1Offset;
 
-				// sync?
-				float_4 doSync = sync & (phasor1 + phase1Inc < phasor1); // reset phasor2 ?
-
 				// osc 1 waveform
-				float_4 tri1 = (1.f*phasor1Offset + (phasor1Offset > 0) * 2.f * phasor1Offset) + INT32_MAX/2; // +-INT32_MAX/2
-				float_4 sawSq1 = phasor1Offset * sq1Amt - 1.f * phasor1; // +-INT32_MAX
-				float_4 wave1 = tri1Amt * tri1 + sawSq1Amt * sawSq1; // +-INT32_MAX
+				float_4 wave1 = tri1Amt * ((1.f*phasor1Offset + (phasor1Offset > 0) * 2.f * phasor1Offset) + INT32_MAX/2); // +-INT32_MAX
+				wave1 += sawSq1Amt * (phasor1Offset * sq1Amt - 1.f * phasor1); // +-INT32_MAX
 
 				// osc 1 suboscillator
 				float_4 sub1 = 5.f + (phasor1Sub[c/4] > 0) * 10.f; // +-5
 
 				// phasor for osc 2
-				int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
+				phasor2[c/4] += phase2Inc + int32_4(fm[c/4] * wave1);
 				int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
-				phasor2[c/4] += phase2IncWithFm;
-				phasor2[c/4] -= doSync * (phasor2[c/4] + INT32_MAX);
+
+				// sync / reset phasor2 ?
+				phasor2[c/4] -= (sync & (phasor1 + phase1Inc < phasor1)) * (phasor2[c/4] + INT32_MAX);
 
 				// osc 2 waveform
-				float_4 tri2 = (1.f*phasor2Offset + (phasor2Offset > 0) * 2.f * phasor2Offset) + INT32_MAX/2; // +-INT32_MAX/2
-				float_4 sawSq2 = phasor2Offset * sq2Amt - 1.f * phasor2[c/4]; // +-INT32_MAX
-				float_4 wave2 = tri2Amt * tri2 + sawSq2Amt * sawSq2; // +-INT32_MAX
+				float_4 wave2 = tri2Amt * ((1.f*phasor2Offset + (phasor2Offset > 0) * 2.f * phasor2Offset) + INT32_MAX/2); // +-INT32_MAX
+				wave2 += sawSq2Amt * (phasor2Offset * sq2Amt - 1.f * phasor2[c/4]); // +-INT32_MAX
 
 				// mix
 				inBuffer[i] = osc1Subvol[c/4] * sub1 + osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
