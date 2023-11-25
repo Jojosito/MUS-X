@@ -210,10 +210,10 @@ struct Oscillators : Module {
 
 				// phasor for osc 2
 				phasor2[c/4] += phase2Inc + int32_4(fm[c/4] * wave1);
-				int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
 
 				// sync / reset phasor2 ?
 				phasor2[c/4] -= (sync & (phasor1 + phase1Inc < phasor1)) * (phasor2[c/4] + INT32_MAX);
+				int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
 
 				// osc 2 waveform
 				float_4 wave2 = tri2Amt * ((1.f*phasor2Offset + (phasor2Offset > 0) * 2.f * phasor2Offset) + INT32_MAX/2); // +-INT32_MAX
