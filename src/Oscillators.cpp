@@ -234,8 +234,8 @@ struct Oscillators : Module {
 					out = dcBlocker[c/4].highpass();
 				}
 
-				// saturator
-				out = 10.f/0.384900179f * musx::cheapSaturator(0.384900179f/10.f * out);
+				// saturator +-10V
+				out = musx::cheapSaturator(out);
 
 				inBuffer[i] = out;
 			}

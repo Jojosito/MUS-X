@@ -13,6 +13,7 @@ inline float_4 waveshape(float_4 in)
 	return in - a*in*in - b*in*in*in + a;
 }
 
+// y_max = +-1
 inline float_4 tanh(float_4 x)
 {
 	// Pade approximant of tanh
@@ -20,10 +21,11 @@ inline float_4 tanh(float_4 x)
 	return x * (27 + x * x) / (27 + 9 * x * x);
 }
 
+// y_max = +-10
 inline float_4 cheapSaturator(float_4 x)
 {
-	x = simd::clamp(x, -0.5773502692f, 0.5773502692f);
-	return x - x*x*x;
+	x = simd::clamp(x, -15.f, 15.f);
+	return x - 1.f/675.f * x*x*x;
 }
 
 }
