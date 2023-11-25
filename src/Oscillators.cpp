@@ -1,6 +1,7 @@
 #include "plugin.hpp"
 #include "dsp/decimator.hpp"
 #include "dsp/filters.hpp"
+#include "dsp/functions.hpp"
 
 namespace musx {
 
@@ -52,6 +53,7 @@ struct Oscillators : Module {
 
 	bool lfoMode = false;
 
+	int sampleRate = 48000;
 	int oversamplingRate = 16;
 	int actualOversamplingRate = 16;
 
@@ -113,9 +115,8 @@ struct Oscillators : Module {
 	}
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		for (int c = 0; c < 16; c += 4) {
-			dcBlocker[c/4].setCutoffFreq(20.f/e.sampleRate);
-		}
+		sampleRate = e.sampleRate;
+		setOversamplingRate(oversamplingRate);
 	}
 
 	void setOversamplingRate(int arg)
@@ -133,6 +134,7 @@ struct Oscillators : Module {
 			}
 
 			decimator[c/4].reset();
+			dcBlocker[c/4].setCutoffFreq(20.f/sampleRate/oversamplingRate);
 		}
 	}
 
@@ -147,6 +149,7 @@ struct Oscillators : Module {
 			osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getPolyVoltageSimd<float_4>(c),    0.f, 1.f);
 			osc1Vol[c/4]   *= 5.f / INT32_MAX;
 			osc1Subvol[c/4] = simd::clamp(params[OSC1SUBVOL_PARAM].getValue() + 0.1f *inputs[OSC1SUBVOL_INPUT].getPolyVoltageSimd<float_4>(c), 0.f, 1.f);
+			osc1Subvol[c/4]   *= 5.f / INT32_MAX;
 
 			osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.2f *inputs[OSC2SHAPE_INPUT].getPolyVoltageSimd<float_4>(c), -1.f, 1.f);
 			osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.2f *inputs[OSC2PW_INPUT].getPolyVoltageSimd<float_4>(c),    -1.f, 1.f);
@@ -194,6 +197,8 @@ struct Oscillators : Module {
 			// calculate the oversampled oscillators and mix
 			float_4* inBuffer = decimator[c/4].getInputArray(actualOversamplingRate);
 
+			bool calcDcBlock = dcBlock && !lfoMode;
+
 			for (int i = 0; i < actualOversamplingRate; ++i)
 			{
 				// phasors for subosc 1 and osc 1
@@ -206,7 +211,7 @@ struct Oscillators : Module {
 				wave1 += sawSq1Amt * (phasor1Offset * sq1Amt - 1.f * phasor1); // +-INT32_MAX
 
 				// osc 1 suboscillator
-				float_4 sub1 = 5.f + (phasor1Sub[c/4] > 0) * 10.f; // +-5
+				float_4 sub1 = 1.f * (phasor1Sub[c/4] + INT32_MAX) - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
 				// phasor for osc 2
 				phasor2[c/4] += phase2Inc + int32_4(fm[c/4] * wave1);
@@ -220,18 +225,23 @@ struct Oscillators : Module {
 				wave2 += sawSq2Amt * (phasor2Offset * sq2Amt - 1.f * phasor2[c/4]); // +-INT32_MAX
 
 				// mix
-				inBuffer[i] = osc1Subvol[c/4] * sub1 + osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+				float_4 out = osc1Subvol[c/4] * sub1 + osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+
+				// DC blocker
+				if (calcDcBlock)
+				{
+					dcBlocker[c/4].process(out);
+					out = dcBlocker[c/4].highpass();
+				}
+
+				// saturator
+				out = 20.f * musx::cheapSaturator(0.05f * out);
+
+				inBuffer[i] = out;
 			}
 
 			// downsampling
 			float_4 out = decimator[c/4].process(actualOversamplingRate);
-
-			// DC blocker
-			if (dcBlock && !lfoMode)
-			{
-				dcBlocker[c/4].process(out);
-				out = dcBlocker[c/4].highpass();
-			}
 
 			outputs[OUT_OUTPUT].setVoltageSimd(out, c);
 		}
