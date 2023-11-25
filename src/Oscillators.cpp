@@ -13,6 +13,7 @@ struct Oscillators : Module {
 		OSC1SHAPE_PARAM,
 		OSC1PW_PARAM,
 		OSC1VOL_PARAM,
+		OSC1SUBVOL_PARAM,
 		OSC2SHAPE_PARAM,
 		OSC2PW_PARAM,
 		OSC2VOL_PARAM,
@@ -25,6 +26,7 @@ struct Oscillators : Module {
 		OSC1SHAPE_INPUT,
 		OSC1PW_INPUT,
 		OSC1VOL_INPUT,
+		OSC1SUBVOL_INPUT,
 		OSC2SHAPE_INPUT,
 		OSC2PW_INPUT,
 		OSC2VOL_INPUT,
@@ -58,7 +60,7 @@ struct Oscillators : Module {
 	int channels = 1;
 
 	// integers overflow, so phase resets automatically
-	int32_4 phasor1[4] = {0};
+	int32_4 phasor1Sub[4] = {0};
 	int32_4 phasor2[4] = {0};
 
 	float_4 mix[4][maxOversamplingRate] = {0};
@@ -67,6 +69,7 @@ struct Oscillators : Module {
 	float_4 osc1Shape[4] = {0};
 	float_4 osc1PW[4] = {0};
 	float_4 osc1Vol[4] = {0};
+	float_4 osc1Subvol[4] = {0};
 
 	float_4 osc2Shape[4] = {0};
 	float_4 osc2PW[4] = {0};
@@ -83,10 +86,11 @@ struct Oscillators : Module {
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(OSC1SHAPE_PARAM,   -1.f, 1.f, 0.f,  "Oscillator 1 shape");
-		configParam(OSC1PW_PARAM, 	   -1.f, 1.f, 0.f,  "Oscillator 1 pulse width", " %", 0.f, 50.f, 50.f);
+		configParam(OSC1PW_PARAM, 	   -1.f, 1.f, 0.f,  "Oscillator 1 triangle phase / pulse width", " %", 0.f, 50.f, 50.f);
 		configParam(OSC1VOL_PARAM, 		0.f, 1.f, 0.f,  "Oscillator 1 volume", 		" %", 0.f, 100.f);
+		configParam(OSC1SUBVOL_PARAM, 	0.f, 1.f, 0.f,  "Oscillator 1 sub-oscillator volume", " %", 0.f, 100.f);
 		configParam(OSC2SHAPE_PARAM,   -1.f, 1.f, 0.f,  "Oscillator 2 shape");
-		configParam(OSC2PW_PARAM, 	   -1.f, 1.f, 0.f,  "Oscillator 2 pulse width", " %", 0.f, 50.f, 50.f);
+		configParam(OSC2PW_PARAM, 	   -1.f, 1.f, 0.f,  "Oscillator 2 triangle phase / pulse width", " %", 0.f, 50.f, 50.f);
 		configParam(OSC2VOL_PARAM, 		0.f, 1.f, 0.5f, "Oscillator 2 volume", 		" %", 0.f, 100.f);
 		configSwitch(SYNC_PARAM, 		  0,   1,   0,  "Sync", {"Off", "Sync osc 2 to osc 1"});
 		configParam(FM_PARAM, 	  		0.f, 1.f, 0.f, 	"Osc 1 to osc 2 FM amount", " %", 0.f, 100.f);
@@ -94,6 +98,7 @@ struct Oscillators : Module {
 		configInput(OSC1SHAPE_INPUT, 	"Oscillator 1 shape CV");
 		configInput(OSC1PW_INPUT, 		"Oscillator 1 pulse width CV");
 		configInput(OSC1VOL_INPUT, 		"Oscillator 1 volume CV");
+		configInput(OSC1SUBVOL_INPUT, 	"Oscillator 1 sub-oscillator volume CV");
 		configInput(OSC2SHAPE_INPUT, 	"Oscillator 2 shape CV");
 		configInput(OSC2PW_INPUT, 		"Oscillator 2 pulse width CV");
 		configInput(OSC2VOL_INPUT, 		"Oscillator 2 volume CV");
@@ -119,7 +124,7 @@ struct Oscillators : Module {
 
 		// reset phasors and mix
 		for (int c = 0; c < 16; c += 4) {
-			phasor1[c/4] = 0.f;
+			phasor1Sub[c/4] = 0.f;
 			phasor2[c/4] = 0.f;
 
 			for (int i = 0; i < maxOversamplingRate; ++i)
@@ -141,6 +146,7 @@ struct Oscillators : Module {
 			osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.2f *inputs[OSC1PW_INPUT].getPolyVoltageSimd<float_4>(c),    -1.f, 1.f);
 			osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getPolyVoltageSimd<float_4>(c),    0.f, 1.f);
 			osc1Vol[c/4]   *= 5.f / INT32_MAX;
+			osc1Subvol[c/4] = simd::clamp(params[OSC1SUBVOL_PARAM].getValue() + 0.1f *inputs[OSC1SUBVOL_INPUT].getPolyVoltageSimd<float_4>(c), 0.f, 1.f);
 
 			osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.2f *inputs[OSC2SHAPE_INPUT].getPolyVoltageSimd<float_4>(c), -1.f, 1.f);
 			osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.2f *inputs[OSC2PW_INPUT].getPolyVoltageSimd<float_4>(c),    -1.f, 1.f);
@@ -172,7 +178,8 @@ struct Oscillators : Module {
 			freq2 = simd::clamp(freq2, minFreq, maxFreq);
 
 
-			int32_4 phase1Inc = INT32_MAX / args.sampleRate * freq1 / actualOversamplingRate * 2;
+			int32_4 phase1SubInc = INT32_MAX / args.sampleRate * freq1 / actualOversamplingRate;
+			int32_4 phase1Inc = phase1SubInc + phase1SubInc;
 			float_4 tri1Amt = 2.f * simd::fmax(-osc1Shape[c/4], 0.f);  // [2, 0, 0]
 			float_4 sawSq1Amt = simd::fmin(1.f + osc1Shape[c/4], 1.f); // [0, 1, 1]
 			float_4 sq1Amt = simd::fmax(osc1Shape[c/4], 0.f);          // [0, 0, 1]
@@ -189,23 +196,35 @@ struct Oscillators : Module {
 
 			for (int i = 0; i < actualOversamplingRate; ++i)
 			{
-				float_4 doSync = sync & (phasor1[c/4] + phase1Inc < phasor1[c/4]); // reset phasor2 ?
+				// phasors for subosc 1 and osc 1
+				phasor1Sub[c/4] += phase1SubInc;
+				int32_4 phasor1 = phasor1Sub[c/4] + phasor1Sub[c/4];
+				int32_4 phasor1Offset = phasor1 + phase1Offset;
 
-				phasor1[c/4] += phase1Inc;
-				int32_4 phasor1Offset = phasor1[c/4] + phase1Offset;
+				// sync?
+				float_4 doSync = sync & (phasor1 + phase1Inc < phasor1); // reset phasor2 ?
+
+				// osc 1 waveform
 				float_4 tri1 = (1.f*phasor1Offset + (phasor1Offset > 0) * 2.f * phasor1Offset) + INT32_MAX/2; // +-INT32_MAX/2
-				float_4 sawSq1 = phasor1Offset * sq1Amt - 1.f * phasor1[c/4]; // +-INT32_MAX
+				float_4 sawSq1 = phasor1Offset * sq1Amt - 1.f * phasor1; // +-INT32_MAX
 				float_4 wave1 = tri1Amt * tri1 + sawSq1Amt * sawSq1; // +-INT32_MAX
 
+				// osc 1 suboscillator
+				float_4 sub1 = 5.f + (phasor1Sub[c/4] > 0) * 10.f; // +-5
+
+				// phasor for osc 2
 				int32_4 phase2IncWithFm = phase2Inc + int32_4(fm[c/4] * wave1);
 				int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
 				phasor2[c/4] += phase2IncWithFm;
 				phasor2[c/4] -= doSync * (phasor2[c/4] + INT32_MAX);
+
+				// osc 2 waveform
 				float_4 tri2 = (1.f*phasor2Offset + (phasor2Offset > 0) * 2.f * phasor2Offset) + INT32_MAX/2; // +-INT32_MAX/2
 				float_4 sawSq2 = phasor2Offset * sq2Amt - 1.f * phasor2[c/4]; // +-INT32_MAX
 				float_4 wave2 = tri2Amt * tri2 + sawSq2Amt * sawSq2; // +-INT32_MAX
 
-				inBuffer[i] = osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
+				// mix
+				inBuffer[i] = osc1Subvol[c/4] * sub1 + osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmod[c/4] * wave1 * wave2; // +-5V each
 			}
 
 			// downsampling
@@ -214,8 +233,8 @@ struct Oscillators : Module {
 			// DC blocker
 			if (dcBlock && !lfoMode)
 			{
-				dcBlocker[c].process(out);
-				out = dcBlocker[c].highpass();
+				dcBlocker[c/4].process(out);
+				out = dcBlocker[c/4].highpass();
 			}
 
 			outputs[OUT_OUTPUT].setVoltageSimd(out, c);
@@ -265,29 +284,31 @@ struct OscillatorsWidget : ModuleWidget {
 		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 18.179)), module, Oscillators::OSC1SHAPE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.48, 18.179)), module, Oscillators::OSC1PW_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.72, 18.179)), module, Oscillators::OSC1VOL_PARAM));
-		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(15.26, 50.304)), module, Oscillators::SYNC_PARAM, Oscillators::SYNC_LIGHT));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.5, 50.304)), module, Oscillators::FM_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 50.304)), module, Oscillators::RINGMOD_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.26, 82.429)), module, Oscillators::OSC2SHAPE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(30.5, 82.429)), module, Oscillators::OSC2PW_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 82.429)), module, Oscillators::OSC2VOL_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(8.361, 18.179)), module, Oscillators::OSC1SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(23.601, 18.179)), module, Oscillators::OSC1PW_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(37.253, 18.179)), module, Oscillators::OSC1VOL_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(48.683, 18.179)), module, Oscillators::OSC1SUBVOL_PARAM));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(10.497, 50.304)), module, Oscillators::SYNC_PARAM, Oscillators::SYNC_LIGHT));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(25.737, 50.304)), module, Oscillators::FM_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(42.641, 50.304)), module, Oscillators::RINGMOD_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(12.614, 83.488)), module, Oscillators::OSC2SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(28.912, 83.488)), module, Oscillators::OSC2PW_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(45.816, 83.488)), module, Oscillators::OSC2VOL_PARAM));
 
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 28.888)), module, Oscillators::OSC1SHAPE_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.48, 28.888)), module, Oscillators::OSC1PW_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 28.888)), module, Oscillators::OSC1VOL_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 61.012)), module, Oscillators::SYNC_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.48, 61.012)), module, Oscillators::FM_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 61.012)), module, Oscillators::RINGMOD_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.24, 93.137)), module, Oscillators::OSC2SHAPE_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.48, 93.137)), module, Oscillators::OSC2PW_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(45.72, 93.137)), module, Oscillators::OSC2VOL_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(15.26, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(30.5, 112.438)), module, Oscillators::OSC2VOCT_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.361, 28.888)), module, Oscillators::OSC1SHAPE_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(23.601, 28.888)), module, Oscillators::OSC1PW_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(37.253, 28.888)), module, Oscillators::OSC1VOL_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(48.683, 28.888)), module, Oscillators::OSC1SUBVOL_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(10.478, 61.012)), module, Oscillators::SYNC_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(25.717, 61.012)), module, Oscillators::FM_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(42.545, 61.012)), module, Oscillators::RINGMOD_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.594, 94.196)), module, Oscillators::OSC2SHAPE_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.892, 94.196)), module, Oscillators::OSC2PW_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(45.72, 94.196)), module, Oscillators::OSC2VOL_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 112.438)), module, Oscillators::OSC1VOCT_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(27.94, 112.438)), module, Oscillators::OSC2VOCT_INPUT));
 
-		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(45.816, 112.438)), module, Oscillators::OUT_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(43.256, 112.438)), module, Oscillators::OUT_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {

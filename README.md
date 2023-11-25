@@ -41,6 +41,7 @@ A pair of analog-style oscillators.
 'Shape' blends from triangle to sawtooth to pulse wave.
 'PW' adjusts the phase of the triangle, and the pulse wave from 0% to 100% duty cycle.
 'Vol' adjusts the oscillator volume.
+'Sub' adjusts the sub-oscillator volume, a square wave one octave below oscillator 1.
 'Sync' hard syncs oscillator 2 to oscillator 1.
 'FM' adjusts the (Linear-Through-Zero) frequency modulation from oscillator 1 to oscillator 2.
 Oscillator 2 stays in tune when applying FM.
