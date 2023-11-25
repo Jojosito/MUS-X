@@ -147,19 +147,19 @@ struct Oscillators : Module {
 			osc1Shape[c/4] 	= simd::clamp(params[OSC1SHAPE_PARAM].getValue() + 0.2f *inputs[OSC1SHAPE_INPUT].getPolyVoltageSimd<float_4>(c), -1.f, 1.f);
 			osc1PW[c/4] 	= simd::clamp(params[OSC1PW_PARAM].getValue() 	 + 0.2f *inputs[OSC1PW_INPUT].getPolyVoltageSimd<float_4>(c),    -1.f, 1.f);
 			osc1Vol[c/4] 	= simd::clamp(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getPolyVoltageSimd<float_4>(c),    0.f, 1.f);
-			osc1Vol[c/4]   *= 5.f / INT32_MAX;
+			osc1Vol[c/4]   *= 10.f / INT32_MAX;
 			osc1Subvol[c/4] = simd::clamp(params[OSC1SUBVOL_PARAM].getValue() + 0.1f *inputs[OSC1SUBVOL_INPUT].getPolyVoltageSimd<float_4>(c), 0.f, 1.f);
-			osc1Subvol[c/4]   *= 5.f / INT32_MAX;
+			osc1Subvol[c/4]   *= 10.f / INT32_MAX;
 
 			osc2Shape[c/4] 	= simd::clamp(params[OSC2SHAPE_PARAM].getValue() + 0.2f *inputs[OSC2SHAPE_INPUT].getPolyVoltageSimd<float_4>(c), -1.f, 1.f);
 			osc2PW[c/4] 	= simd::clamp(params[OSC2PW_PARAM].getValue() 	 + 0.2f *inputs[OSC2PW_INPUT].getPolyVoltageSimd<float_4>(c),    -1.f, 1.f);
 			osc2Vol[c/4] 	= simd::clamp(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getPolyVoltageSimd<float_4>(c),    0.f, 1.f);
-			osc2Vol[c/4]   *= 5.f / INT32_MAX;
+			osc2Vol[c/4]   *= 10.f / INT32_MAX;
 
 			fm[c/4] 		= simd::clamp(params[FM_INPUT].getValue()  + 0.1f *inputs[FM_INPUT].getPolyVoltageSimd<float_4>(c),  0.f, 1.f);
 			fm[c/4] 		= fm[c/4] * fm[c/4] * 0.5f / oversamplingRate; // scale
 			ringmod[c/4]  	= simd::clamp(params[RINGMOD_PARAM].getValue() + 0.1f *inputs[RINGMOD_INPUT].getPolyVoltageSimd<float_4>(c), 0.f, 1.f);
-			ringmod[c/4]   *= 5.f / INT32_MAX / INT32_MAX;
+			ringmod[c/4]   *= 10.f / INT32_MAX / INT32_MAX;
 
 			int32_4 sync = simd::round(clamp(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getPolyVoltageSimd<float_4>(c) / 5.f, 0.f, 1.f));
 
@@ -235,7 +235,7 @@ struct Oscillators : Module {
 				}
 
 				// saturator
-				out = 20.f * musx::cheapSaturator(0.05f * out);
+				out = 10.f/0.384900179f * musx::cheapSaturator(0.384900179f/10.f * out);
 
 				inBuffer[i] = out;
 			}
