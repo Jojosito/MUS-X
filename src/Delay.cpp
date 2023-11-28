@@ -64,7 +64,9 @@ struct Delay : Module {
 
 	static constexpr float minCutoff = 200.f; // Hz
 	static constexpr float maxCutoff = 10000.f; // Hz
-	// TODO combine filters with simd
+
+	int filterOrder = 1; // 0 = 1 pole; 3 = 4 pole
+
 	// input filter
 	musx::TFourPole<float_4> inFilter;
 
@@ -91,7 +93,7 @@ struct Delay : Module {
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
 
 
-		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.7f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
+		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.65f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
 		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.3125f, "Low pass filter resonance", " %", 0, 160);
 		configParam(NOISE_PARAM, 0.f, 0.25f, 0.025f, "Noise level", " %", 0, 400);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
@@ -202,7 +204,7 @@ struct Delay : Module {
 
 		// anti-aliasing filter
 		inFilter.process(inMono);
-		inMono = inFilter.lowpass3();
+		inMono = inFilter.lowpassN(filterOrder);
 
 		out = 0;
 		// oversampled BBD simulation
@@ -252,7 +254,7 @@ struct Delay : Module {
 
 		// reconstruction filter
 		outFilter.process(out);
-		out = outFilter.lowpass3();
+		out = outFilter.lowpassN(filterOrder);
 
 		// expander
 		out = compander.expand(out);
@@ -311,6 +313,19 @@ struct Delay : Module {
 		}
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "filterOrder", json_integer(filterOrder));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* filterOrderJ = json_object_get(rootJ, "filterOrder");
+		if (filterOrderJ)
+		{
+			filterOrder = json_integer_value(filterOrderJ);
+		}
+	}
 };
 
 
@@ -348,6 +363,21 @@ struct DelayWidget : ModuleWidget {
 
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(38.312, 112.438)), module, Delay::L_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(53.552, 112.438)), module, Delay::R_OUTPUT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Delay* module = getModule<Delay>();
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createIndexSubmenuItem("Low pass filter order", {"6 dB/Oct", "12 dB/Oct", "18 dB/Oct", "24 dB/Oct"},
+			[=]() {
+				return module->filterOrder;
+			},
+			[=](int mode) {
+				module->filterOrder = mode;
+			}
+		));
 	}
 };
 

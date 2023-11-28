@@ -149,6 +149,10 @@ struct TFourPole {
 		return clamp(tmp4[3] * (1.f + q));
 	}
 
+	T lowpassN(int order) {
+		return clamp(tmp4[order] * (1.f + q));
+	}
+
 	T clamp(T in)
 	{
 		//if (typeid(T) == typeid(float_4))
