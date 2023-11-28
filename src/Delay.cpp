@@ -85,15 +85,15 @@ struct Delay : Module {
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		delayTimeQty = configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
+		delayTimeQty = configParam(TIME_PARAM, 0.f, 1.f, 0.65f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
 		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.5f, "Feedback", " %", 0, 100);
 
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
 
 
-		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
-		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.03125f, "Low pass filter resonance", " %", 0, 160);
-		configParam(NOISE_PARAM, 0.f, 2.5f, 0.0625f, "Noise level", " %", 0, 40);
+		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.7f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
+		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.3125f, "Low pass filter resonance", " %", 0, 160);
+		configParam(NOISE_PARAM, 0.f, 0.25f, 0.025f, "Noise level", " %", 0, 400);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
 		getParamQuantity(BBD_SIZE_PARAM)->smoothEnabled = false;
@@ -119,8 +119,8 @@ struct Delay : Module {
 	}
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		compander.setCompressorCutoffFreq(5.01f/e.sampleRate);
-		compander.setExpanderCutoffFreq(4.964f/e.sampleRate);
+		compander.setCompressorCutoffFreq(20.f/e.sampleRate);
+		compander.setExpanderCutoffFreq(20.f/e.sampleRate);
 		dcBlocker.setCutoffFreq(20.f/e.sampleRate);
 		lightFilter.setCutoffFreq(5.f/e.sampleRate*lightDivider.getDivision());
 
