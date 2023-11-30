@@ -63,6 +63,7 @@ FM and the ring modulator can create a DC offset. Therefore, a DC blocker is ena
 An input of 0V gives a frequency of about 2 Hz.
 
 ### Tune
-Tune a V/Oct signal by +-5 octaves, plus coarse (1 octave) and fine (1 semitone) tuning.
+Tune a V/Oct signal by octaves, plus coarse and fine (1 semitone) tuning.
+The ranges can be adjusted in the context menu.
 The 'Fine' input is added and can be used for subtle modulations in the semitone range.
 The output is limited to +-12V, so a huge frequency range can be covered.

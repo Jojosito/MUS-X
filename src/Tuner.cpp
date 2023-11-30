@@ -25,13 +25,13 @@ struct Tuner : Module {
 		LIGHTS_LEN
 	};
 
+	int octaveRange = 4;
 	bool snapOctaves = true;
+	int semiRange = 12;
 	bool snapSemitones = true;
 
 	Tuner() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(OCTAVE_PARAM, -5.f, 5.f, 0.f, "Octave");
-		configParam(SEMI_PARAM, -12.f, 12.f, 0.f, "Coarse tune", " cents", 0.f, 100.f);
 		configParam(FINE_PARAM, -1.f/12.f, 1.f/12.f, 0.f, "Fine tune", " cents", 0.f, 1200.f);
 
 		configInput(VOCT_INPUT, "V/Oct");
@@ -45,9 +45,11 @@ struct Tuner : Module {
 
 	void setSnap()
 	{
+		configParam(OCTAVE_PARAM, -octaveRange, octaveRange, 0.f, "Octave");
 		getParamQuantity(OCTAVE_PARAM)->snapEnabled = snapOctaves;
 		getParamQuantity(OCTAVE_PARAM)->smoothEnabled = !snapOctaves;
 
+		configParam(SEMI_PARAM, -semiRange, semiRange, 0.f, "Coarse tune", " cents", 0.f, 100.f);
 		getParamQuantity(SEMI_PARAM)->snapEnabled = snapSemitones;
 		getParamQuantity(SEMI_PARAM)->smoothEnabled = !snapSemitones;
 	}
@@ -65,16 +67,30 @@ struct Tuner : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "octaveRange", json_integer(octaveRange));
 		json_object_set_new(rootJ, "snapOctaves", json_boolean(snapOctaves));
+
+		json_object_set_new(rootJ, "semiRange", json_integer(semiRange));
 		json_object_set_new(rootJ, "snapSemitones", json_boolean(snapSemitones));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
+		json_t* octaveRangeJ = json_object_get(rootJ, "octaveRange");
+		if (octaveRangeJ)
+		{
+			octaveRange = json_integer_value(octaveRangeJ);
+		}
 		json_t* snapOctavesJ = json_object_get(rootJ, "snapOctaves");
 		if (snapOctavesJ)
 		{
 			snapOctaves = json_boolean_value(snapOctavesJ);
+		}
+
+		json_t* semiRangeJ = json_object_get(rootJ, "semiRange");
+		if (semiRangeJ)
+		{
+			semiRange = json_integer_value(semiRangeJ);
 		}
 		json_t* snapSemitonesJ = json_object_get(rootJ, "snapSemitones");
 		if (snapSemitonesJ)
@@ -111,12 +127,34 @@ struct TunerWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
+		menu->addChild(createIndexSubmenuItem("Octave range", {"3 (+-1)", "5 (+-2)", "7 (+-3)", "9 (+-4)", "11 (+-5)", "13 (+-6)", "15 (+-7)"},
+			[=]() {
+				return module->octaveRange - 1;
+			},
+			[=](int mode) {
+				module->octaveRange = mode + 1;
+				module->setSnap();
+			}
+		));
+
 		menu->addChild(createBoolMenuItem("Snap octaves", "",
 			[=]() {
 				return module->snapOctaves;
 			},
 			[=](int mode) {
 				module->snapOctaves = mode;
+				module->setSnap();
+			}
+		));
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createIndexSubmenuItem("Semitone range", {"3 (+-1)", "5 (+-2)", "7 (+-3)", "9 (+-4)", "11 (+-5)", "13 (+-6)", "15 (+-7)", "17 (+-8)", "19 (+-9)", "21 (+-10)", "23 (+-11)", "25 (+-12)"},
+			[=]() {
+				return module->semiRange - 1;
+			},
+			[=](int mode) {
+				module->semiRange = mode + 1;
 				module->setSnap();
 			}
 		));
