@@ -16,6 +16,8 @@ struct Delay : Module {
 		RESONANCE_PARAM,
 		NOISE_PARAM,
 		BBD_SIZE_PARAM,
+		POLES_PARAM,
+		COMPANDER_PARAM,
 		INPUT_PARAM,
 		STEREO_WIDTH_PARAM,
 		INVERT_PARAM,
@@ -65,8 +67,6 @@ struct Delay : Module {
 	static constexpr float minCutoff = 200.f; // Hz
 	static constexpr float maxCutoff = 10000.f; // Hz
 
-	int filterOrder = 1; // 0 = 1 pole; 3 = 4 pole
-
 	// input filter
 	musx::TFourPole<float_4> inFilter;
 
@@ -95,10 +95,16 @@ struct Delay : Module {
 
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.65f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
 		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.3125f, "Low pass filter resonance", " %", 0, 160);
+
 		configParam(NOISE_PARAM, 0.f, 0.25f, 0.025f, "Noise level", " %", 0, 400);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
 		getParamQuantity(BBD_SIZE_PARAM)->smoothEnabled = false;
+
+		configParam(POLES_PARAM, 0, 3, 1, "Low pass filter order", " dB/Oct", 0, 6, 6);
+		getParamQuantity(POLES_PARAM)->snapEnabled = true;
+		getParamQuantity(POLES_PARAM)->smoothEnabled = false;
+		configParam(COMPANDER_PARAM, .1f, 40.f, 20.f, "Compander low pass filter frequency", " Hz");
 
 		configParam(INPUT_PARAM, 0.f, 4.f, 1.f, "Delay input level", " %", 0, 100);
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 0.5f, "Stereo width", " %", 0, 100);
@@ -121,8 +127,8 @@ struct Delay : Module {
 	}
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		compander.setCompressorCutoffFreq(20.f/e.sampleRate);
-		compander.setExpanderCutoffFreq(20.f/e.sampleRate);
+		compander.setCompressorCutoffFreq(params[COMPANDER_PARAM].getValue()/e.sampleRate);
+		compander.setExpanderCutoffFreq(params[COMPANDER_PARAM].getValue()/e.sampleRate);
 		dcBlocker.setCutoffFreq(20.f/e.sampleRate);
 		lightFilter.setCutoffFreq(5.f/e.sampleRate*lightDivider.getDivision());
 
@@ -168,6 +174,9 @@ struct Delay : Module {
 				tapCounter = 0;
 			}
 			prevTap = params[TAP_PARAM].getValue();
+
+			compander.setCompressorCutoffFreq(params[COMPANDER_PARAM].getValue()/args.sampleRate);
+			compander.setExpanderCutoffFreq(params[COMPANDER_PARAM].getValue()/args.sampleRate);
 		}
 
 		// calculate frequency for BBD clock
@@ -204,7 +213,7 @@ struct Delay : Module {
 
 		// anti-aliasing filter
 		inFilter.process(inMono);
-		inMono = inFilter.lowpassN(filterOrder);
+		inMono = inFilter.lowpassN(params[POLES_PARAM].getValue());
 
 		out = 0;
 		// oversampled BBD simulation
@@ -254,7 +263,7 @@ struct Delay : Module {
 
 		// reconstruction filter
 		outFilter.process(out);
-		out = outFilter.lowpassN(filterOrder);
+		out = outFilter.lowpassN(params[POLES_PARAM].getValue());
 
 		// expander
 		out = compander.expand(out);
@@ -312,20 +321,6 @@ struct Delay : Module {
 			lights[INVERT_LIGHT].setBrightness(params[INVERT_PARAM].getValue());
 		}
 	}
-
-	json_t* dataToJson() override {
-		json_t* rootJ = json_object();
-		json_object_set_new(rootJ, "filterOrder", json_integer(filterOrder));
-		return rootJ;
-	}
-
-	void dataFromJson(json_t* rootJ) override {
-		json_t* filterOrderJ = json_object_get(rootJ, "filterOrder");
-		if (filterOrderJ)
-		{
-			filterOrder = json_integer_value(filterOrderJ);
-		}
-	}
 };
 
 
@@ -347,8 +342,11 @@ struct DelayWidget : ModuleWidget {
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::CUTOFF_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::RESONANCE_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 64.25)), module, Delay::NOISE_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 64.25)), module, Delay::BBD_SIZE_PARAM));
+
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 56.219)), module, Delay::NOISE_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 56.219)), module, Delay::BBD_SIZE_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 72.281)), module, Delay::POLES_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 72.281)), module, Delay::COMPANDER_PARAM));
 
 		addChild(createLight<MediumLight<RedLight>>(mm2px(Vec(3., 80.0)), module, Delay::OVERLOAD_LIGHT));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 88.344)), module, Delay::INPUT_PARAM));
@@ -363,21 +361,6 @@ struct DelayWidget : ModuleWidget {
 
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(38.312, 112.438)), module, Delay::L_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(53.552, 112.438)), module, Delay::R_OUTPUT));
-	}
-
-	void appendContextMenu(Menu* menu) override {
-		Delay* module = getModule<Delay>();
-
-		menu->addChild(new MenuSeparator);
-
-		menu->addChild(createIndexSubmenuItem("Low pass filter order", {"6 dB/Oct", "12 dB/Oct", "18 dB/Oct", "24 dB/Oct"},
-			[=]() {
-				return module->filterOrder;
-			},
-			[=](int mode) {
-				module->filterOrder = mode;
-			}
-		));
 	}
 };
 
