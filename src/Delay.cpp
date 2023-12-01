@@ -16,6 +16,8 @@ struct Delay : Module {
 		RESONANCE_PARAM,
 		NOISE_PARAM,
 		BBD_SIZE_PARAM,
+		POLES_PARAM,
+		COMPANDER_PARAM,
 		INPUT_PARAM,
 		STEREO_WIDTH_PARAM,
 		INVERT_PARAM,
@@ -64,7 +66,7 @@ struct Delay : Module {
 
 	static constexpr float minCutoff = 200.f; // Hz
 	static constexpr float maxCutoff = 10000.f; // Hz
-	// TODO combine filters with simd
+
 	// input filter
 	musx::TFourPole<float_4> inFilter;
 
@@ -85,18 +87,24 @@ struct Delay : Module {
 
 	Delay() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		delayTimeQty = configParam(TIME_PARAM, 0.f, 1.f, 0.5f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
+		delayTimeQty = configParam(TIME_PARAM, 0.f, 1.f, 0.65f, "Delay time", " ms", maxDelayTime/minDelayTime, minDelayTime);
 		configParam(FEEDBACK_PARAM, 0.f, 3.0f, 0.5f, "Feedback", " %", 0, 100);
 
 		configSwitch(TAP_PARAM, 0, 1, 0, "Tap tempo");
 
 
-		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.5f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
-		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.03125f, "Low pass filter resonance", " %", 0, 160);
-		configParam(NOISE_PARAM, 0.f, 2.5f, 0.0625f, "Noise level", " %", 0, 40);
+		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.65f, "Low pass filter cutoff frequency", " Hz", maxCutoff/minCutoff, minCutoff);
+		configParam(RESONANCE_PARAM, 0.f, 0.625f, 0.3125f, "Low pass filter resonance", " %", 0, 160);
+
+		configParam(NOISE_PARAM, 0.f, 0.25f, 0.025f, "Noise level", " %", 0, 400);
 		configParam(BBD_SIZE_PARAM, 8, 14, 12, "BBD delay line size", " buckets", 2);
 		getParamQuantity(BBD_SIZE_PARAM)->snapEnabled = true;
 		getParamQuantity(BBD_SIZE_PARAM)->smoothEnabled = false;
+
+		configParam(POLES_PARAM, 0, 3, 1, "Low pass filter order", " dB/Oct", 0, 6, 6);
+		getParamQuantity(POLES_PARAM)->snapEnabled = true;
+		getParamQuantity(POLES_PARAM)->smoothEnabled = false;
+		configParam(COMPANDER_PARAM, .1f, 40.f, 20.f, "Compander low pass filter frequency", " Hz");
 
 		configParam(INPUT_PARAM, 0.f, 4.f, 1.f, "Delay input level", " %", 0, 100);
 		configParam(STEREO_WIDTH_PARAM, 0.f, 1.f, 0.5f, "Stereo width", " %", 0, 100);
@@ -119,8 +127,8 @@ struct Delay : Module {
 	}
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
-		compander.setCompressorCutoffFreq(5.01f/e.sampleRate);
-		compander.setExpanderCutoffFreq(4.964f/e.sampleRate);
+		compander.setCompressorCutoffFreq(params[COMPANDER_PARAM].getValue()/e.sampleRate);
+		compander.setExpanderCutoffFreq(params[COMPANDER_PARAM].getValue()/e.sampleRate);
 		dcBlocker.setCutoffFreq(20.f/e.sampleRate);
 		lightFilter.setCutoffFreq(5.f/e.sampleRate*lightDivider.getDivision());
 
@@ -166,6 +174,9 @@ struct Delay : Module {
 				tapCounter = 0;
 			}
 			prevTap = params[TAP_PARAM].getValue();
+
+			compander.setCompressorCutoffFreq(params[COMPANDER_PARAM].getValue()/args.sampleRate);
+			compander.setExpanderCutoffFreq(params[COMPANDER_PARAM].getValue()/args.sampleRate);
 		}
 
 		// calculate frequency for BBD clock
@@ -202,7 +213,7 @@ struct Delay : Module {
 
 		// anti-aliasing filter
 		inFilter.process(inMono);
-		inMono = inFilter.lowpass3();
+		inMono = inFilter.lowpassN(params[POLES_PARAM].getValue());
 
 		out = 0;
 		// oversampled BBD simulation
@@ -252,7 +263,7 @@ struct Delay : Module {
 
 		// reconstruction filter
 		outFilter.process(out);
-		out = outFilter.lowpass3();
+		out = outFilter.lowpassN(params[POLES_PARAM].getValue());
 
 		// expander
 		out = compander.expand(out);
@@ -310,7 +321,6 @@ struct Delay : Module {
 			lights[INVERT_LIGHT].setBrightness(params[INVERT_PARAM].getValue());
 		}
 	}
-
 };
 
 
@@ -332,8 +342,11 @@ struct DelayWidget : ModuleWidget {
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, Delay::CUTOFF_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 64.25)), module, Delay::RESONANCE_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 64.25)), module, Delay::NOISE_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 64.25)), module, Delay::BBD_SIZE_PARAM));
+
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 56.219)), module, Delay::NOISE_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 56.219)), module, Delay::BBD_SIZE_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(38.1, 72.281)), module, Delay::POLES_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(53.34, 72.281)), module, Delay::COMPANDER_PARAM));
 
 		addChild(createLight<MediumLight<RedLight>>(mm2px(Vec(3., 80.0)), module, Delay::OVERLOAD_LIGHT));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 88.344)), module, Delay::INPUT_PARAM));

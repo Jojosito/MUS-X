@@ -20,7 +20,8 @@
       "tags": [
         "Envelope generator",
         "Polyphonic"
-      ]
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#adsr"
     },
     {
       "slug": "Tuner",
@@ -29,7 +30,8 @@
       "tags": [
         "Tuner",
         "Polyphonic"
-      ]
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#tune"
     },
     {
       "slug": "Oscillators",
@@ -37,8 +39,10 @@
       "description": "Massively oversampled analog oscillator pair with sync, FM and ringmod.",
       "tags": [
         "Oscillator",
+        "Low-frequency oscillator",
         "Polyphonic"
-      ]
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#oscillators"
     },
     {
       "slug": "Delay",
@@ -47,16 +51,18 @@
       "tags": [
         "Delay",
         "Effect"
-      ]
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#delay"
     },
     {
       "slug": "OnePole",
       "name": "OnePole",
       "description": "Simple one-pole highpass and lowpass filters.",
       "tags": [
-        "filter",
-        "polyphonic"
-      ]
+        "Filter",
+        "Polyphonic"
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#onepole"
     },
     {
       "slug": "Drift",
@@ -65,7 +71,8 @@
       "tags": [
         "Random",
         "Polyphonic"
-      ]
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#drift"
     }
   ]
 }

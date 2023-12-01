@@ -48,6 +48,11 @@ struct TOnePole {
 		tmp = a*x - b*tmp;
 	}
 
+	inline T processLowpass(T x) {
+		tmp = a*x - b*tmp;
+		return tmp;
+	}
+
 	T lowpass()
 	{
 		return tmp;
@@ -142,6 +147,10 @@ struct TFourPole {
 
 	T lowpass4() {
 		return clamp(tmp4[3] * (1.f + q));
+	}
+
+	T lowpassN(int order) {
+		return clamp(tmp4[order] * (1.f + q));
 	}
 
 	T clamp(T in)
