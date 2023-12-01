@@ -132,7 +132,7 @@ struct TunerWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Octave range", {"3 (+-1)", "5 (+-2)", "7 (+-3)", "9 (+-4)", "11 (+-5)", "13 (+-6)", "15 (+-7)"},
+		menu->addChild(createIndexSubmenuItem("Octave range", {"3 (±1)", "5 (±2)", "7 (±3)", "9 (±4)", "11 (±5)", "13 (±6)", "15 (±7)"},
 			[=]() {
 				return module->octaveRange - 1;
 			},
@@ -154,7 +154,7 @@ struct TunerWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Semitone range", {"3 (+-1)", "5 (+-2)", "7 (+-3)", "9 (+-4)", "11 (+-5)", "13 (+-6)", "15 (+-7)", "17 (+-8)", "19 (+-9)", "21 (+-10)", "23 (+-11)", "25 (+-12)"},
+		menu->addChild(createIndexSubmenuItem("Semitone range", {"3 (±1)", "5 (±2)", "7 (±3)", "9 (±4)", "11 (±5)", "13 (±6)", "15 (±7)", "17 (±8)", "19 (±9)", "21 (±10)", "23 (±11)", "25 (±12)"},
 			[=]() {
 				return module->semiRange - 1;
 			},
