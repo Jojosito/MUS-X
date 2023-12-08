@@ -88,10 +88,11 @@ struct Drift : Module {
 			{
 				for (int c = 0; c < 16; c += 4) {
 					float cutoffFreq = simd::pow(base, params[RATE_PARAM].getValue()) * minFreq / args.sampleRate * clockDivider;
-					lowpass[c/4].setCutoffFreq(cutoffFreq);
-					lowpass[c/4].reset();
 
-					driftScale = 1.e30;
+					driftScale = std::exp(-1.2f * std::log10(cutoffFreq*args.sampleRate / divider.getDivision())) * 128.f + 7.f;
+
+					lowpass[c/4].setCutoffFreq(cutoffFreq);
+					lowpass[c/4].tmp = simd::clamp(lowpass[c/4].tmp, -5.f/driftScale, 5.f/driftScale);
 
 					lastRateParam = params[RATE_PARAM].getValue();
 				}
@@ -99,18 +100,12 @@ struct Drift : Module {
 
 			for (int c = 0; c < channels; c += 4) {
 				float_4 rn = {rack::random::get<float>() - 0.5f,
-							  rack::random::get<float>() - 0.5f,
+						   	  rack::random::get<float>() - 0.5f,
 							  rack::random::get<float>() - 0.5f,
 							  rack::random::get<float>() - 0.5f};
 
 				lowpass[c/4].process(rn);
 				float_4 drift = lowpass[c/4].lowpass();
-
-				// limit drift to +-5V
-				for (int i = 0; i < 4; ++i)
-				{
-					driftScale = simd::fmin(driftScale, 5.f / std::abs(drift[i]));
-				}
 
 				outputs[OUT_OUTPUT].setVoltageSimd(simd::clamp(
 						params[CONST_PARAM].getValue() * params[CONST_PARAM].getValue() * diverge[c/4] +
