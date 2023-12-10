@@ -4,6 +4,7 @@
 
 ### ADSR
 ADSR envelope generator with exponential decay/release, built in velocity scaling and sustain CV.
+'Rnd' randomly scales the A, D, S and R parameters per channel. This simulates the behaviour of old polysynths with analog envelopes, where each voice/envelope behaves slightly different due to component tolerances.
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
 ### Delay
