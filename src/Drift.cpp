@@ -89,7 +89,7 @@ struct Drift : Module {
 				for (int c = 0; c < 16; c += 4) {
 					float cutoffFreq = simd::pow(base, params[RATE_PARAM].getValue()) * minFreq / args.sampleRate * clockDivider;
 
-					driftScale = std::exp(-1.2f * std::log10(cutoffFreq*args.sampleRate / divider.getDivision())) * 128.f + 7.f;
+					driftScale = std::exp(-1.2f * std::log10(cutoffFreq*48000 / divider.getDivision())) * 128.f + 7.f;
 
 					lowpass[c/4].setCutoffFreq(cutoffFreq);
 					lowpass[c/4].tmp = simd::clamp(lowpass[c/4].tmp, -5.f/driftScale, 5.f/driftScale);
