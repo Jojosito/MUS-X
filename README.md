@@ -1,5 +1,7 @@
 # MUS-X
 
+Modules for VCV Rack, with a focus on MIDI-controllable, analog poly-synths.
+
 ## Modules
 
 ### ADSR

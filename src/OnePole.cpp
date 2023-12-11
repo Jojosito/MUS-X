@@ -39,9 +39,9 @@ struct OnePole : Module {
 
 	OnePole() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(HIGHPASS_PARAM, 0.f, 1.f, 0.f, "High pass  cutoff frequency", " Hz", base, minFreq);
+		configParam(HIGHPASS_PARAM, 0.f, 1.f, 0.f, "High pass cutoff frequency", " Hz", base, minFreq);
 		configParam(LOWPASS_PARAM, 0.f, 1.f, 1.f, "Low pass cutoff frequency", " Hz", base, minFreq);
-		configInput(HIGHPASS_INPUT, "High pass  cutoff frequency CV");
+		configInput(HIGHPASS_INPUT, "High pass cutoff frequency CV");
 		configInput(LOWPASS_INPUT, "Low pass cutoff frequency CV");
 		configInput(IN_INPUT, "Audio");
 		configOutput(OUT_OUTPUT, "Filtered");
