@@ -59,6 +59,7 @@ struct Tuner : Module {
 	void process(const ProcessArgs& args) override {
 		int channels = std::max(1, inputs[VOCT1_INPUT].getChannels());
 		channels = std::max(channels, inputs[VOCT2_INPUT].getChannels());
+		channels = std::max(channels, inputs[FINE_INPUT].getChannels());
 		outputs[VOCT_OUTPUT].setChannels(channels);
 
 		for (int c = 0; c < channels; c += 4) {
