@@ -119,6 +119,32 @@ struct Drift : Module {
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
 		lastRateParam = -1.f;
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_t* divergeJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(divergeJ, i, json_real(diverge[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "diverge", divergeJ);
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* divergesJ = json_object_get(rootJ, "diverge");
+		if (divergesJ)
+		{
+			for (int i = 0; i < 16; i++)
+			{
+				json_t* divergeJ = json_array_get(divergesJ, i);
+				if (divergeJ)
+				{
+					diverge[i/4][i%4] = json_real_value(divergeJ);
+				}
+			}
+		}
+	}
 };
 
 

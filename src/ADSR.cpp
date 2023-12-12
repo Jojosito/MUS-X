@@ -97,6 +97,7 @@ struct ADSR : Module {
 						  rack::random::get<float>() - 0.5f,
 						  rack::random::get<float>() - 0.5f,
 						  rack::random::get<float>() - 0.5f};
+			randomS[c/4] *= 0.5;
 			randomR[c/4] = {rack::random::get<float>() - 0.5f,
 						  rack::random::get<float>() - 0.5f,
 						  rack::random::get<float>() - 0.5f,
@@ -185,6 +186,75 @@ struct ADSR : Module {
 		lastAttackParam = -1.f;
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+
+		json_t* randomAJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomAJ, i, json_real(randomA[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomA", randomAJ);
+
+		json_t* randomDJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomDJ, i, json_real(randomD[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomD", randomDJ);
+
+		json_t* randomSJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomSJ, i, json_real(randomS[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomS", randomSJ);
+
+		json_t* randomRJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomRJ, i, json_real(randomR[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomR", randomRJ);
+
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* randomAsJ = json_object_get(rootJ, "randomA");
+		json_t* randomDsJ = json_object_get(rootJ, "randomD");
+		json_t* randomSsJ = json_object_get(rootJ, "randomS");
+		json_t* randomRsJ = json_object_get(rootJ, "randomR");
+		if (randomAsJ && randomDsJ && randomSsJ && randomRsJ)
+		{
+			for (int i = 0; i < 16; i++)
+			{
+				json_t* randomAJ = json_array_get(randomAsJ, i);
+				if (randomAJ)
+				{
+					randomA[i/4][i%4] = json_real_value(randomAJ);
+				}
+
+				json_t* randomDJ = json_array_get(randomDsJ, i);
+				if (randomDJ)
+				{
+					randomD[i/4][i%4] = json_real_value(randomDJ);
+				}
+
+				json_t* randomSJ = json_array_get(randomSsJ, i);
+				if (randomSJ)
+				{
+					randomS[i/4][i%4] = json_real_value(randomSJ);
+				}
+
+				json_t* randomRJ = json_array_get(randomRsJ, i);
+				if (randomRJ)
+				{
+					randomR[i/4][i%4] = json_real_value(randomRJ);
+				}
+			}
+		}
+	}
 };
 
 

@@ -1,12 +1,12 @@
 # MUS-X
 
-Modules for VCV Rack, with a focus on MIDI-controllable, analog poly-synths.
+Modules for VCV Rack, with a focus on MIDI-controllable, analog poly-synths, and per-voice variance.
 
 ## Modules
 
 ### ADSR
 ADSR envelope generator with exponential decay/release, built in velocity scaling and sustain CV.
-'Rnd' randomly scales the A, D, S and R parameters per channel. This simulates the behaviour of old polysynths with analog envelopes, where each voice/envelope behaves slightly different due to component tolerances.
+'Rnd' randomly scales the A, D, S and R parameters per channel. This simulates the behaviour of old polysynths with analog envelopes, where each voice/envelope behaves slightly different due to component tolerances. The offsets are individually generated for each ADSR module, and stored with the patch.
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
 ### Delay
@@ -34,7 +34,7 @@ If 'Inv R' is enabled, the right wet signal will be the inverted left wet signal
 Drift generates subtle constant offset and drift.
 The 'Poly' input determines the polyphony channels of the output.
 'Const' adjusts the amount of a random (per voice) constant offset.
-'RNG' generates a new set of random offsets.
+'RNG' generates a new set of random offsets. The offsets are stored with the patch.
 'Drift' adjusts the amount of a random (per voice) drift.
 'Drift Rate' adjusts the frequency of the random drift.
 
