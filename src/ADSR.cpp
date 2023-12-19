@@ -8,11 +8,12 @@ using simd::float_4;
 struct ADSR : Module {
 	enum ParamId {
 		A_PARAM,
-		VELSCALE_PARAM,
 		D_PARAM,
 		S_PARAM,
-		SUSMOD_PARAM,
 		R_PARAM,
+		VELSCALE_PARAM,
+		RANDSCALE_PARAM,
+		SUSMOD_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -56,16 +57,23 @@ struct ADSR : Module {
 	float lastAttackParam = -1.f;
 	float lastDecayParam = -1.f;
 	float lastReleaseParam = -1.f;
+	float lastRandParam = -1.f;
+
+	float_4 randomA[4] = {};
+	float_4 randomD[4] = {};
+	float_4 randomS[4] = {};
+	float_4 randomR[4] = {};
 
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(A_PARAM, 0.f, 1.f, 0.1f, "Attack", " ms", LAMBDA_BASE, MIN_TIME * 1000);
 		configParam(D_PARAM, 0.f, 1.f, 0.1f, "Decay", " ms", LAMBDA_BASE, MIN_TIME * 1000);
-		configParam(S_PARAM, 0.f, 1.f, 1.f, "Sustain", "%", 0, 100);
+		configParam(S_PARAM, 0.f, 1.f, 1.f, "Sustain", " %", 0, 100);
 		configParam(R_PARAM, 0.f, 1.f, 0.1f, "Release", " ms", LAMBDA_BASE, MIN_TIME * 1000);
 
-		configParam(VELSCALE_PARAM, 0.f, 1.f, 0.f, "Velocity CV");
-		configParam(SUSMOD_PARAM, -1.f, 1.f, 0.f, "Sustain CV");
+		configParam(VELSCALE_PARAM, 0.f, 1.f, 0.f, "Velocity scaling", " %", 0, 100);
+		configParam(RANDSCALE_PARAM, 0.f, 1.f, 0.f, "Polyphonic random scaling", " %", 0, 100);
+		configParam(SUSMOD_PARAM, -1.f, 1.f, 0.f, "Sustain CV", " %", 0, 100);
 
 		configInput(VEL_INPUT, "Velocity CV");
 		configInput(SUSMOD_INPUT, "Sustain CV");
@@ -75,6 +83,26 @@ struct ADSR : Module {
 
 		configOutput(SGATE_OUTPUT, "Decay/Sustain stage");
 		configOutput(ENV_OUTPUT, "Envelope");
+
+		for (int c = 0; c < 16; c += 4) {
+			randomA[c/4] = {rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f};
+			randomD[c/4] = {rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f};
+			randomS[c/4] = {rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f};
+			randomS[c/4] *= 0.5;
+			randomR[c/4] = {rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f,
+						  rack::random::get<float>() - 0.5f};
+		}
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -83,7 +111,8 @@ struct ADSR : Module {
 		if (channels != std::max(1, inputs[GATE_INPUT].getChannels()) ||
 			params[A_PARAM].getValue() != lastAttackParam ||
 			params[D_PARAM].getValue() != lastDecayParam ||
-			params[R_PARAM].getValue() != lastReleaseParam)
+			params[R_PARAM].getValue() != lastReleaseParam ||
+			params[RANDSCALE_PARAM].getValue() != lastRandParam)
 		{
 			channels = std::max(1, inputs[GATE_INPUT].getChannels());
 			outputs[SGATE_OUTPUT].setChannels(channels);
@@ -92,11 +121,17 @@ struct ADSR : Module {
 			lastAttackParam = params[A_PARAM].getValue();
 			lastDecayParam = params[D_PARAM].getValue();
 			lastReleaseParam = params[R_PARAM].getValue();
+			lastRandParam = params[RANDSCALE_PARAM].getValue();
 
 			for (int c = 0; c < channels; c += 4) {
 				attackLambda[c/4] = simd::pow(LAMBDA_BASE, -lastAttackParam) / MIN_TIME;
+				attackLambda[c/4] *= 1 + lastRandParam * randomA[c/4];
+
 				decayLambda[c/4] = simd::pow(LAMBDA_BASE, -lastDecayParam) / MIN_TIME;
+				decayLambda[c/4] *= 1 + lastRandParam * randomD[c/4];
+
 				releaseLambda[c/4] = simd::pow(LAMBDA_BASE, -lastReleaseParam) / MIN_TIME;
+				releaseLambda[c/4] *= 1 + lastRandParam * randomR[c/4];
 			}
 		}
 
@@ -105,6 +140,7 @@ struct ADSR : Module {
 			this->sustain[c/4] = simd::clamp(params[S_PARAM].getValue() +
 					inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) * 0.1f * params[SUSMOD_PARAM].getValue(),
 					0.f, 1.f);
+			this->sustain[c/4] *= 1 + lastRandParam * randomS[c/4];
 
 			// Gate
 			float_4 oldGate = gate[c/4];
@@ -150,6 +186,75 @@ struct ADSR : Module {
 		lastAttackParam = -1.f;
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+
+		json_t* randomAJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomAJ, i, json_real(randomA[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomA", randomAJ);
+
+		json_t* randomDJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomDJ, i, json_real(randomD[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomD", randomDJ);
+
+		json_t* randomSJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomSJ, i, json_real(randomS[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomS", randomSJ);
+
+		json_t* randomRJ = json_array();
+		for (int i = 0; i < 16; i++)
+		{
+			json_array_insert_new(randomRJ, i, json_real(randomR[i/4][i%4]));
+		}
+		json_object_set_new(rootJ, "randomR", randomRJ);
+
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* randomAsJ = json_object_get(rootJ, "randomA");
+		json_t* randomDsJ = json_object_get(rootJ, "randomD");
+		json_t* randomSsJ = json_object_get(rootJ, "randomS");
+		json_t* randomRsJ = json_object_get(rootJ, "randomR");
+		if (randomAsJ && randomDsJ && randomSsJ && randomRsJ)
+		{
+			for (int i = 0; i < 16; i++)
+			{
+				json_t* randomAJ = json_array_get(randomAsJ, i);
+				if (randomAJ)
+				{
+					randomA[i/4][i%4] = json_real_value(randomAJ);
+				}
+
+				json_t* randomDJ = json_array_get(randomDsJ, i);
+				if (randomDJ)
+				{
+					randomD[i/4][i%4] = json_real_value(randomDJ);
+				}
+
+				json_t* randomSJ = json_array_get(randomSsJ, i);
+				if (randomSJ)
+				{
+					randomS[i/4][i%4] = json_real_value(randomSJ);
+				}
+
+				json_t* randomRJ = json_array_get(randomRsJ, i);
+				if (randomRJ)
+				{
+					randomR[i/4][i%4] = json_real_value(randomRJ);
+				}
+			}
+		}
+	}
 };
 
 
@@ -164,8 +269,9 @@ struct ADSRWidget : ModuleWidget {
 		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 16.062)), module, ADSR::A_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 24.094)), module, ADSR::VELSCALE_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 16.062)), module, ADSR::VELSCALE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 32.125)), module, ADSR::D_PARAM));
+		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 32.125)), module, ADSR::RANDSCALE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 48.188)), module, ADSR::S_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.86, 56.219)), module, ADSR::SUSMOD_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 64.25)), module, ADSR::R_PARAM));

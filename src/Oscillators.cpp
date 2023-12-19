@@ -140,6 +140,7 @@ struct Oscillators : Module {
 
 	void process(const ProcessArgs& args) override {
 		channels = std::max(1, inputs[OSC1VOCT_INPUT].getChannels());
+		channels = std::max(channels, inputs[OSC2VOCT_INPUT].getChannels());
 		outputs[OUT_OUTPUT].setChannels(channels);
 
 		for (int c = 0; c < channels; c += 4) {
