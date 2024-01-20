@@ -633,6 +633,11 @@ struct ModMatrix : Module {
 			channels = std::max(channels, in->getChannels());
 		}
 
+		for (auto& out : outs)
+		{
+			out->setChannels(channels);
+		}
+
 		// calc matrix
 		for (int c = 0; c < channels; c += 4) {
 			// loop over outs
