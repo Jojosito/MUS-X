@@ -39,7 +39,6 @@ struct ModMatrix : Module {
 		_1_14_PARAM,
 		_1_15_PARAM,
 		_1_16_PARAM,
-		SEL1_PARAM,
 		_2_1_PARAM,
 		_2_2_PARAM,
 		_2_3_PARAM,
@@ -56,7 +55,6 @@ struct ModMatrix : Module {
 		_2_14_PARAM,
 		_2_15_PARAM,
 		_2_16_PARAM,
-		SEL2_PARAM,
 		_3_1_PARAM,
 		_3_2_PARAM,
 		_3_3_PARAM,
@@ -73,7 +71,6 @@ struct ModMatrix : Module {
 		_3_14_PARAM,
 		_3_15_PARAM,
 		_3_16_PARAM,
-		SEL3_PARAM,
 		_4_1_PARAM,
 		_4_2_PARAM,
 		_4_3_PARAM,
@@ -90,7 +87,6 @@ struct ModMatrix : Module {
 		_4_14_PARAM,
 		_4_15_PARAM,
 		_4_16_PARAM,
-		SEL4_PARAM,
 		_5_1_PARAM,
 		_5_2_PARAM,
 		_5_3_PARAM,
@@ -107,7 +103,6 @@ struct ModMatrix : Module {
 		_5_14_PARAM,
 		_5_15_PARAM,
 		_5_16_PARAM,
-		SEL5_PARAM,
 		_6_1_PARAM,
 		_6_2_PARAM,
 		_6_3_PARAM,
@@ -124,7 +119,6 @@ struct ModMatrix : Module {
 		_6_14_PARAM,
 		_6_15_PARAM,
 		_6_16_PARAM,
-		SEL6_PARAM,
 		_7_1_PARAM,
 		_7_2_PARAM,
 		_7_3_PARAM,
@@ -141,7 +135,6 @@ struct ModMatrix : Module {
 		_7_14_PARAM,
 		_7_15_PARAM,
 		_7_16_PARAM,
-		SEL7_PARAM,
 		_8_1_PARAM,
 		_8_2_PARAM,
 		_8_3_PARAM,
@@ -158,7 +151,6 @@ struct ModMatrix : Module {
 		_8_14_PARAM,
 		_8_15_PARAM,
 		_8_16_PARAM,
-		SEL8_PARAM,
 		_9_1_PARAM,
 		_9_2_PARAM,
 		_9_3_PARAM,
@@ -175,7 +167,6 @@ struct ModMatrix : Module {
 		_9_14_PARAM,
 		_9_15_PARAM,
 		_9_16_PARAM,
-		SEL9_PARAM,
 		_10_1_PARAM,
 		_10_2_PARAM,
 		_10_3_PARAM,
@@ -192,7 +183,6 @@ struct ModMatrix : Module {
 		_10_14_PARAM,
 		_10_15_PARAM,
 		_10_16_PARAM,
-		SEL10_PARAM,
 		_11_1_PARAM,
 		_11_2_PARAM,
 		_11_3_PARAM,
@@ -209,7 +199,6 @@ struct ModMatrix : Module {
 		_11_14_PARAM,
 		_11_15_PARAM,
 		_11_16_PARAM,
-		SEL11_PARAM,
 		_12_1_PARAM,
 		_12_2_PARAM,
 		_12_3_PARAM,
@@ -226,6 +215,17 @@ struct ModMatrix : Module {
 		_12_14_PARAM,
 		_12_15_PARAM,
 		_12_16_PARAM,
+		SEL1_PARAM,
+		SEL2_PARAM,
+		SEL3_PARAM,
+		SEL4_PARAM,
+		SEL5_PARAM,
+		SEL6_PARAM,
+		SEL7_PARAM,
+		SEL8_PARAM,
+		SEL9_PARAM,
+		SEL10_PARAM,
+		SEL11_PARAM,
 		SEL12_PARAM,
 		PARAMS_LEN
 	};
@@ -268,6 +268,8 @@ struct ModMatrix : Module {
 		LIGHTS_LEN
 	};
 
+	static constexpr size_t rows = 12;
+	static constexpr size_t columns = 16;
 	int channels = 1;
 
 	std::vector<Input*> ins;
@@ -276,351 +278,37 @@ struct ModMatrix : Module {
 
 	ModMatrix() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(CTRL1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(CTRL16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_1_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_2_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_3_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_4_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_5_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_6_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_7_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_8_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_9_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_10_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_11_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_5_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_6_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_7_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_8_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_9_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_10_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_11_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_12_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_13_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_14_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_15_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(_12_16_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(SEL12_PARAM, 0.f, 1.f, 0.f, "");
-		configInput(_0_INPUT, "");
-		configInput(_1_INPUT, "");
-		configInput(_2_INPUT, "");
-		configInput(_3_INPUT, "");
-		configInput(_4_INPUT, "");
-		configInput(_5_INPUT, "");
-		configInput(_6_INPUT, "");
-		configInput(_7_INPUT, "");
-		configInput(_8_INPUT, "");
-		configInput(_9_INPUT, "");
-		configInput(_10_INPUT, "");
-		configInput(_11_INPUT, "");
-		configInput(_12_INPUT, "");
-		configOutput(_1_OUTPUT, "");
-		configOutput(_2_OUTPUT, "");
-		configOutput(_3_OUTPUT, "");
-		configOutput(_4_OUTPUT, "");
-		configOutput(_5_OUTPUT, "");
-		configOutput(_6_OUTPUT, "");
-		configOutput(_7_OUTPUT, "");
-		configOutput(_8_OUTPUT, "");
-		configOutput(_9_OUTPUT, "");
-		configOutput(_10_OUTPUT, "");
-		configOutput(_11_OUTPUT, "");
-		configOutput(_12_OUTPUT, "");
-		configOutput(_13_OUTPUT, "");
-		configOutput(_14_OUTPUT, "");
-		configOutput(_15_OUTPUT, "");
-		configOutput(_16_OUTPUT, "");
-
-		// ins
-		for (size_t i = _1_INPUT; i<=_12_INPUT; i++)
+		for (size_t i = 0; i < columns; i++)
 		{
-			ins.push_back(&inputs[i]);
+			configParam(CTRL1_PARAM + i,  0.f, 1.f, 0.f, "Control " + std::to_string(i+1));
 		}
 
-		// matrix
-		std::vector<Param*> row_1;
-		for (size_t i = _1_1_PARAM; i<=_1_16_PARAM; i++)
+		for (size_t i = 0; i < rows; i++)
 		{
-			row_1.push_back(&params[i]);
+			std::vector<Param*> row;
+			for (size_t j = 0; j < columns; j++)
+			{
+				size_t iParam = _1_1_PARAM + i*columns + j;
+				configParam(iParam,  0.f, 1.f, 0.f, "Input " + std::to_string(i+1) + " to Mix " + std::to_string(j+1));
+				row.push_back(&params[iParam]);
+			}
+			matrix.push_back(row);
 		}
-		matrix.push_back(row_1);
 
-		std::vector<Param*> row_2;
-		for (size_t i = _2_1_PARAM; i<=_2_16_PARAM; i++)
+		for (size_t i = 0; i < rows; i++)
 		{
-			row_2.push_back(&params[i]);
+			configParam(SEL1_PARAM + i,  0.f, 1.f, 0.f, "Select Row " + std::to_string(i+1) + " for control");
+			getParamQuantity(SEL1_PARAM + i)->snapEnabled = true;
+
+			configInput(_1_INPUT + i, "Signal " + std::to_string(i+1));
+			ins.push_back(&inputs[_1_INPUT + i]);
 		}
-		matrix.push_back(row_2);
 
-		std::vector<Param*> row_3;
-		for (size_t i = _3_1_PARAM; i<=_3_16_PARAM; i++)
-		{
-			row_3.push_back(&params[i]);
-		}
-		matrix.push_back(row_3);
 
-		std::vector<Param*> row_4;
-		for (size_t i = _4_1_PARAM; i<=_4_16_PARAM; i++)
+		for (size_t i = 0; i < columns; i++)
 		{
-			row_4.push_back(&params[i]);
-		}
-		matrix.push_back(row_4);
-
-		std::vector<Param*> row_5;
-		for (size_t i = _5_1_PARAM; i<=_5_16_PARAM; i++)
-		{
-			row_5.push_back(&params[i]);
-		}
-		matrix.push_back(row_5);
-
-		std::vector<Param*> row_6;
-		for (size_t i = _6_1_PARAM; i<=_6_16_PARAM; i++)
-		{
-			row_6.push_back(&params[i]);
-		}
-		matrix.push_back(row_6);
-
-		std::vector<Param*> row_7;
-		for (size_t i = _7_1_PARAM; i<=_7_16_PARAM; i++)
-		{
-			row_7.push_back(&params[i]);
-		}
-		matrix.push_back(row_7);
-
-		std::vector<Param*> row_8;
-		for (size_t i = _8_1_PARAM; i<=_8_16_PARAM; i++)
-		{
-			row_8.push_back(&params[i]);
-		}
-		matrix.push_back(row_8);
-
-		std::vector<Param*> row_9;
-		for (size_t i = _9_1_PARAM; i<=_9_16_PARAM; i++)
-		{
-			row_9.push_back(&params[i]);
-		}
-		matrix.push_back(row_9);
-
-		std::vector<Param*> row_10;
-		for (size_t i = _10_1_PARAM; i<=_10_16_PARAM; i++)
-		{
-			row_10.push_back(&params[i]);
-		}
-		matrix.push_back(row_10);
-
-		std::vector<Param*> row_11;
-		for (size_t i = _11_1_PARAM; i<=_11_16_PARAM; i++)
-		{
-			row_11.push_back(&params[i]);
-		}
-		matrix.push_back(row_11);
-
-		std::vector<Param*> row_12;
-		for (size_t i = _12_1_PARAM; i<=_12_16_PARAM; i++)
-		{
-			row_12.push_back(&params[i]);
-		}
-		matrix.push_back(row_12);
-
-		// outs
-		for (size_t i = _1_OUTPUT; i<=_16_OUTPUT; i++)
-		{
-			outs.push_back(&outputs[i]);
+			configOutput(_1_OUTPUT + i, "Mix " + std::to_string(i+1));
+			outs.push_back(&outputs[_1_OUTPUT + i]);
 		}
 	}
 
@@ -647,7 +335,8 @@ struct ModMatrix : Module {
 				if (out->isConnected())
 				{
 					// loop over ins, multiply with params
-					float_4 val = inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) * params[CTRL1_PARAM + iOut].getValue();
+					float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) : 10.;
+					val *= params[CTRL1_PARAM + iOut].getValue();
 
 					for (size_t iIn = 0; iIn < ins.size(); iIn++)
 					{
