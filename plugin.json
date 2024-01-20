@@ -73,6 +73,15 @@
         "Polyphonic"
       ],
       "manualUrl": "https://github.com/Jojosito/MUS-X#drift"
+    },
+    {
+      "slug": "ModMatrix",
+      "name": "Mod Matrix",
+      "description": "MIDI controllable Mod Matrix",
+      "tags": [
+        "Mixer",
+        "Polyphonic"
+      ]
     }
   ]
 }
