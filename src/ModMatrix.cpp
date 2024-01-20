@@ -2,6 +2,9 @@
 
 namespace musx {
 
+using namespace rack;
+using simd::float_4;
+
 struct ModMatrix : Module {
 	enum ParamId {
 		CTRL1_PARAM,
@@ -265,6 +268,12 @@ struct ModMatrix : Module {
 		LIGHTS_LEN
 	};
 
+	int channels = 1;
+
+	std::vector<Input*> ins;
+	std::vector<std::vector<Param*>> matrix;
+	std::vector<Output*> outs;
+
 	ModMatrix() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CTRL1_PARAM, 0.f, 1.f, 0.f, "");
@@ -516,9 +525,135 @@ struct ModMatrix : Module {
 		configOutput(_14_OUTPUT, "");
 		configOutput(_15_OUTPUT, "");
 		configOutput(_16_OUTPUT, "");
+
+		// ins
+		for (size_t i = _1_INPUT; i<=_12_INPUT; i++)
+		{
+			ins.push_back(&inputs[i]);
+		}
+
+		// matrix
+		std::vector<Param*> row_1;
+		for (size_t i = _1_1_PARAM; i<=_1_16_PARAM; i++)
+		{
+			row_1.push_back(&params[i]);
+		}
+		matrix.push_back(row_1);
+
+		std::vector<Param*> row_2;
+		for (size_t i = _2_1_PARAM; i<=_2_16_PARAM; i++)
+		{
+			row_2.push_back(&params[i]);
+		}
+		matrix.push_back(row_2);
+
+		std::vector<Param*> row_3;
+		for (size_t i = _3_1_PARAM; i<=_3_16_PARAM; i++)
+		{
+			row_3.push_back(&params[i]);
+		}
+		matrix.push_back(row_3);
+
+		std::vector<Param*> row_4;
+		for (size_t i = _4_1_PARAM; i<=_4_16_PARAM; i++)
+		{
+			row_4.push_back(&params[i]);
+		}
+		matrix.push_back(row_4);
+
+		std::vector<Param*> row_5;
+		for (size_t i = _5_1_PARAM; i<=_5_16_PARAM; i++)
+		{
+			row_5.push_back(&params[i]);
+		}
+		matrix.push_back(row_5);
+
+		std::vector<Param*> row_6;
+		for (size_t i = _6_1_PARAM; i<=_6_16_PARAM; i++)
+		{
+			row_6.push_back(&params[i]);
+		}
+		matrix.push_back(row_6);
+
+		std::vector<Param*> row_7;
+		for (size_t i = _7_1_PARAM; i<=_7_16_PARAM; i++)
+		{
+			row_7.push_back(&params[i]);
+		}
+		matrix.push_back(row_7);
+
+		std::vector<Param*> row_8;
+		for (size_t i = _8_1_PARAM; i<=_8_16_PARAM; i++)
+		{
+			row_8.push_back(&params[i]);
+		}
+		matrix.push_back(row_8);
+
+		std::vector<Param*> row_9;
+		for (size_t i = _9_1_PARAM; i<=_9_16_PARAM; i++)
+		{
+			row_9.push_back(&params[i]);
+		}
+		matrix.push_back(row_9);
+
+		std::vector<Param*> row_10;
+		for (size_t i = _10_1_PARAM; i<=_10_16_PARAM; i++)
+		{
+			row_10.push_back(&params[i]);
+		}
+		matrix.push_back(row_10);
+
+		std::vector<Param*> row_11;
+		for (size_t i = _11_1_PARAM; i<=_11_16_PARAM; i++)
+		{
+			row_11.push_back(&params[i]);
+		}
+		matrix.push_back(row_11);
+
+		std::vector<Param*> row_12;
+		for (size_t i = _12_1_PARAM; i<=_12_16_PARAM; i++)
+		{
+			row_12.push_back(&params[i]);
+		}
+		matrix.push_back(row_12);
+
+		// outs
+		for (size_t i = _1_OUTPUT; i<=_16_OUTPUT; i++)
+		{
+			outs.push_back(&outputs[i]);
+		}
 	}
 
 	void process(const ProcessArgs& args) override {
+		// channels
+		channels = std::max(1, inputs[_0_INPUT].getChannels());
+
+		for (auto& in : ins)
+		{
+			channels = std::max(channels, in->getChannels());
+		}
+
+		// calc matrix
+		for (int c = 0; c < channels; c += 4) {
+			// loop over outs
+			for (size_t iOut = 0; iOut < outs.size(); iOut++)
+			{
+				Output* out = outs[iOut];
+				if (out->isConnected())
+				{
+					// loop over ins, multiply with params
+					float_4 val = inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) * params[CTRL1_PARAM + iOut].getValue();
+
+					for (size_t iIn = 0; iIn < ins.size(); iIn++)
+					{
+						Input* in = ins[iIn];
+						val += in->getPolyVoltageSimd<float_4>(c) * matrix[iIn][iOut]->getValue();
+					}
+
+					out->setVoltageSimd(simd::clamp(val, -10.f, 10.f), c);
+				}
+			}
+		}
 	}
 };
 
