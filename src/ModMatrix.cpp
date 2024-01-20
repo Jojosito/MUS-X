@@ -276,11 +276,14 @@ struct ModMatrix : Module {
 	std::vector<std::vector<Param*>> matrix;
 	std::vector<Output*> outs;
 
+	bool bipolar = false;
+
 	ModMatrix() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+
 		for (size_t i = 0; i < columns; i++)
 		{
-			configParam(CTRL1_PARAM + i,  0.f, 1.f, 0.f, "Control " + std::to_string(i+1));
+			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1));
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -289,26 +292,41 @@ struct ModMatrix : Module {
 			for (size_t j = 0; j < columns; j++)
 			{
 				size_t iParam = _1_1_PARAM + i*columns + j;
-				configParam(iParam,  0.f, 1.f, 0.f, "Input " + std::to_string(i+1) + " to Mix " + std::to_string(j+1));
+				configParam(iParam, -1.f * bipolar, 1.f, 0.f, "Input " + std::to_string(i+1) + " to Mix " + std::to_string(j+1));
 				row.push_back(&params[iParam]);
 			}
 			matrix.push_back(row);
 		}
+		setPolarity();
 
 		for (size_t i = 0; i < rows; i++)
 		{
 			configParam(SEL1_PARAM + i,  0.f, 1.f, 0.f, "Select Row " + std::to_string(i+1) + " for control");
 			getParamQuantity(SEL1_PARAM + i)->snapEnabled = true;
+			getParamQuantity(SEL1_PARAM + i)->randomizeEnabled = false;
 
 			configInput(_1_INPUT + i, "Signal " + std::to_string(i+1));
 			ins.push_back(&inputs[_1_INPUT + i]);
 		}
 
-
 		for (size_t i = 0; i < columns; i++)
 		{
 			configOutput(_1_OUTPUT + i, "Mix " + std::to_string(i+1));
 			outs.push_back(&outputs[_1_OUTPUT + i]);
+		}
+	}
+
+	void setPolarity()
+	{
+		for (size_t j = 0; j < columns; j++)
+		{
+			for (size_t i = 0; i < rows + 1; i++)
+			{
+				size_t iParam = CTRL1_PARAM + i*columns + j;
+				ParamQuantity* qty = paramQuantities[iParam];
+				qty->minValue = -1.f * bipolar;
+				params[iParam].value = std::max(qty->minValue, qty->getValue());
+			}
 		}
 	}
 
@@ -325,6 +343,9 @@ struct ModMatrix : Module {
 		{
 			out->setChannels(channels);
 		}
+
+		// control
+
 
 		// calc matrix
 		for (int c = 0; c < channels; c += 4) {
@@ -344,9 +365,24 @@ struct ModMatrix : Module {
 						val += in->getPolyVoltageSimd<float_4>(c) * matrix[iIn][iOut]->getValue();
 					}
 
-					out->setVoltageSimd(simd::clamp(val, -10.f, 10.f), c);
+					out->setVoltageSimd(simd::clamp(val, -12.f, 12.f), c);
 				}
 			}
+		}
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "bipolar", json_boolean(bipolar));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* bipolarJ = json_object_get(rootJ, "bipolar");
+		if (bipolarJ)
+		{
+			bipolar = (json_boolean_value(bipolarJ));
+			setPolarity();
 		}
 	}
 };
@@ -614,8 +650,24 @@ struct ModMatrixWidget : ModuleWidget {
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(128.575, 120.21)), module, ModMatrix::_15_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(136.596, 120.21)), module, ModMatrix::_16_OUTPUT));
 	}
-};
 
+	void appendContextMenu(Menu* menu) override {
+		ModMatrix* module = getModule<ModMatrix>();
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createBoolMenuItem("Bipolar", "",
+			[=]() {
+				return module->bipolar;
+			},
+			[=](int mode) {
+				module->bipolar = mode;
+				module->setPolarity();
+				// TODO redraw!!!
+			}
+		));
+	}
+};
 
 Model* modelModMatrix = createModel<ModMatrix, ModMatrixWidget>("ModMatrix");
 
