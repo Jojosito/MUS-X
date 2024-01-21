@@ -293,7 +293,11 @@ struct ModMatrix : Module {
 	std::vector<Param*> controlSelectors;
 	size_t prevSelectedControl = 0;
 
+	int sampleRateReduction = 1;
 	bool bipolar = false;
+
+	dsp::ClockDivider controlDivider;
+	dsp::ClockDivider matrixDivider;
 
 	ModMatrix() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -334,6 +338,9 @@ struct ModMatrix : Module {
 			configOutput(_1_OUTPUT + i, "Mix " + std::to_string(i+1));
 			outs.push_back(&outputs[_1_OUTPUT + i]);
 		}
+
+		controlDivider.setDivision(1);
+		matrixDivider.setDivision(1);
 	}
 
 	void setPolarity()
@@ -359,103 +366,115 @@ struct ModMatrix : Module {
 		}
 	}
 
+	void setSampleRateReduction(int arg)
+	{
+		sampleRateReduction = arg;
+		controlDivider.setDivision(sampleRateReduction);
+		matrixDivider.setDivision(sampleRateReduction);
+	}
+
 	void process(const ProcessArgs& args) override {
-		//
-		// channels
-		//
-		channels = std::max(1, inputs[_0_INPUT].getChannels());
-
-		for (auto& in : ins)
+		if (controlDivider.process())
 		{
-			channels = std::max(channels, in->getChannels());
-		}
+			//
+			// channels
+			//
+			channels = std::max(1, inputs[_0_INPUT].getChannels());
 
-		for (auto& out : outs)
-		{
-			out->setChannels(channels);
-		}
-
-
-		//
-		// control
-		//
-		// check if/which control button is pressed
-		size_t selectedControl = 0; // 0 means no button is pressed
-		for (size_t i=0; i<rows; i++)
-		{
-			Param* p = controlSelectors[i];
-			if (p->getValue())
+			for (auto& in : ins)
 			{
-				selectedControl = i+1;
-				break;
+				channels = std::max(channels, in->getChannels());
+			}
+
+			for (auto& out : outs)
+			{
+				out->setChannels(channels);
+			}
+
+
+			//
+			// control
+			//
+			// check if/which control button is pressed
+			size_t selectedControl = 0; // 0 means no button is pressed
+			for (size_t i=0; i<rows; i++)
+			{
+				Param* p = controlSelectors[i];
+				if (p->getValue())
+				{
+					selectedControl = i+1;
+					break;
+				}
+			}
+
+			// lights
+			for (size_t i=0; i<rows; i++)
+			{
+				lights[i].setBrightness(i == selectedControl-1);
+			}
+
+			if (selectedControl && selectedControl != prevSelectedControl)
+			{
+				// set control knobs to values of row when control knob is pressed
+				for (size_t i=0; i<columns; i++)
+				{
+					controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
+				}
+			}
+			else if (prevSelectedControl && !selectedControl)
+			{
+				// set control knobs to previous values when control buttons are de-pressed
+				for (size_t i=0; i<columns; i++)
+				{
+					controlKnobs[i]->setValue(controlKnobValues[i]);
+				}
+			}
+			prevSelectedControl = selectedControl;
+
+
+			if (!selectedControl)
+			{
+				// update controlKnobValues
+				for (size_t i=0; i<columns; i++)
+				{
+					controlKnobValues[i] = controlKnobs[i]->getValue();
+				}
+			}
+			else
+			{
+				// control selected rows
+				for (size_t j=0; j<columns; j++)
+				{
+					matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
+				}
 			}
 		}
-
-		// lights
-		for (size_t i=0; i<rows; i++)
-		{
-			lights[i].setBrightness(i == selectedControl-1);
-		}
-
-		if (selectedControl && selectedControl != prevSelectedControl)
-		{
-			// set control knobs to values of row when control knob is pressed
-			for (size_t i=0; i<columns; i++)
-			{
-				controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
-			}
-		}
-		else if (prevSelectedControl && !selectedControl)
-		{
-			// set control knobs to previous values when control buttons are de-pressed
-			for (size_t i=0; i<columns; i++)
-			{
-				controlKnobs[i]->setValue(controlKnobValues[i]);
-			}
-		}
-		prevSelectedControl = selectedControl;
-
-
-		if (!selectedControl)
-		{
-			// update controlKnobValues
-			for (size_t i=0; i<columns; i++)
-			{
-				controlKnobValues[i] = controlKnobs[i]->getValue();
-			}
-		}
-		else
-		{
-			// control selected rows
-			for (size_t j=0; j<columns; j++)
-			{
-				matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
-			}
-		}
-
 
 		//
 		// calc matrix
 		//
-		for (int c = 0; c < channels; c += 4) {
-			// loop over outs
-			for (size_t iOut = 0; iOut < outs.size(); iOut++)
-			{
-				Output* out = outs[iOut];
-				if (out->isConnected())
+		if (matrixDivider.process())
+		{
+			for (int c = 0; c < channels; c += 4) {
+				// loop over outs
+				for (size_t iOut = 0; iOut < outs.size(); iOut++)
 				{
-					// loop over ins, multiply with params
-					float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) :
-							bipolar ? 5. : 10.;
-					val *= controlKnobValues[iOut];
-
-					for (size_t iIn = 0; iIn < ins.size(); iIn++)
+					Output* out = outs[iOut];
+					if (out->isConnected())
 					{
-						Input* in = ins[iIn];
-						val += in->getPolyVoltageSimd<float_4>(c) * matrix[iIn][iOut]->getValue();
-					}
+						// loop over ins, multiply with params
+						float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) :
+								bipolar ? 5. : 10.;
+						val *= controlKnobValues[iOut];
 
-					out->setVoltageSimd(simd::clamp(val, -12.f, 12.f), c);
+						for (size_t iIn = 0; iIn < ins.size(); iIn++)
+						{
+							Input* in = ins[iIn];
+							val += in->getPolyVoltageSimd<float_4>(c) * matrix[iIn][iOut]->getValue();
+						}
+
+						out->setVoltageSimd(simd::clamp(val, -12.f, 12.f), c);
+					}
 				}
 			}
 		}
@@ -463,11 +482,17 @@ struct ModMatrix : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "sampleRateReduction", json_integer(sampleRateReduction));
 		json_object_set_new(rootJ, "bipolar", json_boolean(bipolar));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
+		json_t* sampleRateReductionJ = json_object_get(rootJ, "sampleRateReduction");
+		if (sampleRateReductionJ)
+		{
+			setSampleRateReduction(json_integer_value(sampleRateReductionJ));
+		}
 		json_t* bipolarJ = json_object_get(rootJ, "bipolar");
 		if (bipolarJ)
 		{
@@ -747,6 +772,15 @@ struct ModMatrixWidget : ModuleWidget {
 		ModMatrix* module = getModule<ModMatrix>();
 
 		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createIndexSubmenuItem("Reduce internal sample rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x", "256x", "512x", "1024x"},
+			[=]() {
+				return log2(module->sampleRateReduction);
+			},
+			[=](int mode) {
+				module->setSampleRateReduction(std::pow(2, mode));
+			}
+		));
 
 		menu->addChild(createBoolMenuItem("Bipolar", "",
 			[=]() {
