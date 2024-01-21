@@ -276,6 +276,10 @@ struct ModMatrix : Module {
 	std::vector<std::vector<Param*>> matrix;
 	std::vector<Output*> outs;
 
+	std::vector<Param*> controlKnobs;
+	std::vector<float> controlKnobValues;
+	std::vector<Param*> controlSelectors;
+
 	bool bipolar = false;
 
 	ModMatrix() {
@@ -284,6 +288,8 @@ struct ModMatrix : Module {
 		for (size_t i = 0; i < columns; i++)
 		{
 			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1), " %", 0.f, 100.f);
+			controlKnobs.push_back(&params[CTRL1_PARAM + i]);
+			controlKnobValues.push_back(params[CTRL1_PARAM + i].getValue());
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -304,6 +310,7 @@ struct ModMatrix : Module {
 			configParam(SEL1_PARAM + i,  0.f, 1.f, 0.f, "Select Row " + std::to_string(i+1) + " for control");
 			getParamQuantity(SEL1_PARAM + i)->snapEnabled = true;
 			getParamQuantity(SEL1_PARAM + i)->randomizeEnabled = false;
+			controlSelectors.push_back(&params[SEL1_PARAM + i]);
 
 			configInput(_1_INPUT + i, "Signal " + std::to_string(i+1));
 			ins.push_back(&inputs[_1_INPUT + i]);
@@ -318,6 +325,15 @@ struct ModMatrix : Module {
 
 	void setPolarity()
 	{
+		if (bipolar)
+		{
+			configInput(_0_INPUT, "Signal 0 (normalled to 5V)");
+		}
+		else
+		{
+			configInput(_0_INPUT, "Signal 0 (normalled to 10V)");
+		}
+
 		for (size_t j = 0; j < columns; j++)
 		{
 			for (size_t i = 0; i < rows + 1; i++)
@@ -345,6 +361,42 @@ struct ModMatrix : Module {
 		}
 
 		// control
+		bool controlKnobPressed = false;
+		for (Param* p : controlSelectors)
+		{
+			if (p->getValue())
+			{
+				controlKnobPressed = true;
+				break;
+			}
+		}
+
+		if (!controlKnobPressed)
+		{
+			for (size_t i=0; i<columns; i++)
+			{
+				controlKnobValues[i] = controlKnobs[i]->getValue();
+			}
+		}
+		else
+		{
+			for (size_t i=0; i<rows; i++)
+			{
+				if (controlSelectors[i]->getValue())
+				{
+					for (size_t j=0; j<columns; j++)
+					{
+						if (controlKnobs[j]->getValue() != controlKnobValues[j])
+						{
+							matrix[i][j]->setValue(controlKnobs[j]->getValue());
+						}
+					}
+				}
+			}
+		}
+
+		// todo set control knobs to previous values when control knobs are de-pressed
+
 
 
 		// calc matrix
@@ -356,8 +408,9 @@ struct ModMatrix : Module {
 				if (out->isConnected())
 				{
 					// loop over ins, multiply with params
-					float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) : 10.;
-					val *= params[CTRL1_PARAM + iOut].getValue();
+					float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) :
+							bipolar ? 5. : 10.;
+					val *= controlKnobValues[iOut];
 
 					for (size_t iIn = 0; iIn < ins.size(); iIn++)
 					{
@@ -430,7 +483,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 18.601)), module, ModMatrix::_1_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 18.601)), module, ModMatrix::_1_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 18.601)), module, ModMatrix::_1_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 18.601)), module, ModMatrix::SEL1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 26.89)), module, ModMatrix::_2_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 26.891)), module, ModMatrix::_2_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 26.89)), module, ModMatrix::_2_3_PARAM));
@@ -447,7 +499,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 26.891)), module, ModMatrix::_2_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 26.891)), module, ModMatrix::_2_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 26.891)), module, ModMatrix::_2_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 26.891)), module, ModMatrix::SEL2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 35.181)), module, ModMatrix::_3_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 35.182)), module, ModMatrix::_3_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 35.181)), module, ModMatrix::_3_3_PARAM));
@@ -464,7 +515,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 35.182)), module, ModMatrix::_3_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 35.182)), module, ModMatrix::_3_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 35.182)), module, ModMatrix::_3_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 35.182)), module, ModMatrix::SEL3_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 43.471)), module, ModMatrix::_4_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 43.472)), module, ModMatrix::_4_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 43.471)), module, ModMatrix::_4_3_PARAM));
@@ -481,7 +531,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 43.472)), module, ModMatrix::_4_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 43.472)), module, ModMatrix::_4_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 43.472)), module, ModMatrix::_4_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 43.472)), module, ModMatrix::SEL4_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 51.762)), module, ModMatrix::_5_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 51.762)), module, ModMatrix::_5_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 51.761)), module, ModMatrix::_5_3_PARAM));
@@ -498,7 +547,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 51.763)), module, ModMatrix::_5_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 51.763)), module, ModMatrix::_5_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 51.763)), module, ModMatrix::_5_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 51.762)), module, ModMatrix::SEL5_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 60.053)), module, ModMatrix::_6_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 60.053)), module, ModMatrix::_6_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 60.052)), module, ModMatrix::_6_3_PARAM));
@@ -515,7 +563,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 60.053)), module, ModMatrix::_6_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 60.053)), module, ModMatrix::_6_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 60.053)), module, ModMatrix::_6_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 60.053)), module, ModMatrix::SEL6_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 68.342)), module, ModMatrix::_7_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 68.342)), module, ModMatrix::_7_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 68.341)), module, ModMatrix::_7_3_PARAM));
@@ -532,7 +579,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 68.343)), module, ModMatrix::_7_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 68.343)), module, ModMatrix::_7_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 68.343)), module, ModMatrix::_7_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 68.342)), module, ModMatrix::SEL7_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 76.632)), module, ModMatrix::_8_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 76.632)), module, ModMatrix::_8_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 76.631)), module, ModMatrix::_8_3_PARAM));
@@ -549,7 +595,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 76.633)), module, ModMatrix::_8_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 76.633)), module, ModMatrix::_8_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 76.633)), module, ModMatrix::_8_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 76.632)), module, ModMatrix::SEL8_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 84.923)), module, ModMatrix::_9_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 84.923)), module, ModMatrix::_9_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 84.922)), module, ModMatrix::_9_3_PARAM));
@@ -566,7 +611,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 84.923)), module, ModMatrix::_9_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 84.923)), module, ModMatrix::_9_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 84.923)), module, ModMatrix::_9_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 84.923)), module, ModMatrix::SEL9_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 93.212)), module, ModMatrix::_10_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 93.213)), module, ModMatrix::_10_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 93.212)), module, ModMatrix::_10_3_PARAM));
@@ -583,7 +627,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 93.214)), module, ModMatrix::_10_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 93.214)), module, ModMatrix::_10_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 93.214)), module, ModMatrix::_10_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 93.213)), module, ModMatrix::SEL10_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 101.503)), module, ModMatrix::_11_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 101.503)), module, ModMatrix::_11_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 101.502)), module, ModMatrix::_11_3_PARAM));
@@ -600,7 +643,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 101.504)), module, ModMatrix::_11_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 101.504)), module, ModMatrix::_11_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 101.504)), module, ModMatrix::_11_16_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 101.503)), module, ModMatrix::SEL11_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(14.692, 109.795)), module, ModMatrix::_12_1_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.713, 109.795)), module, ModMatrix::_12_2_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(30.734, 109.794)), module, ModMatrix::_12_3_PARAM));
@@ -617,7 +659,36 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(120.554, 109.795)), module, ModMatrix::_12_14_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 109.795)), module, ModMatrix::_12_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 109.795)), module, ModMatrix::_12_16_PARAM));
+
+		/*
+		// TODO lights
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 18.601)), module, ModMatrix::SEL1_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 26.891)), module, ModMatrix::SEL2_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 35.182)), module, ModMatrix::SEL3_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 43.472)), module, ModMatrix::SEL4_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 51.762)), module, ModMatrix::SEL5_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 60.053)), module, ModMatrix::SEL6_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 68.342)), module, ModMatrix::SEL7_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 76.632)), module, ModMatrix::SEL8_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 84.923)), module, ModMatrix::SEL9_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 93.213)), module, ModMatrix::SEL10_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 101.503)), module, ModMatrix::SEL11_PARAM));
 		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 109.795)), module, ModMatrix::SEL12_PARAM));
+		*/
+
+		// TODO remove, only for development!
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 18.601)), module, ModMatrix::SEL1_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 26.891)), module, ModMatrix::SEL2_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 35.182)), module, ModMatrix::SEL3_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 43.472)), module, ModMatrix::SEL4_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 51.762)), module, ModMatrix::SEL5_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 60.053)), module, ModMatrix::SEL6_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 68.342)), module, ModMatrix::SEL7_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 76.632)), module, ModMatrix::SEL8_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 84.923)), module, ModMatrix::SEL9_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 93.213)), module, ModMatrix::SEL10_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 101.503)), module, ModMatrix::SEL11_PARAM));
+		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 109.795)), module, ModMatrix::SEL12_PARAM));
 
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(5.904, 8.819)), module, ModMatrix::_0_INPUT));
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(6.142, 18.601)), module, ModMatrix::_1_INPUT));
