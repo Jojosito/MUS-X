@@ -294,7 +294,8 @@ struct ModMatrix : Module {
 	size_t prevSelectedControl = 0;
 
 	int sampleRateReduction = 1;
-	bool bipolar = false;
+	bool latchButtons = false;
+	bool bipolar = true;
 
 	dsp::ClockDivider controlDivider;
 	dsp::ClockDivider matrixDivider;
@@ -483,6 +484,7 @@ struct ModMatrix : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "sampleRateReduction", json_integer(sampleRateReduction));
+		json_object_set_new(rootJ, "latchButtons", json_boolean(latchButtons));
 		json_object_set_new(rootJ, "bipolar", json_boolean(bipolar));
 		return rootJ;
 	}
@@ -498,6 +500,11 @@ struct ModMatrix : Module {
 		{
 			bipolar = (json_boolean_value(bipolarJ));
 			setPolarity();
+		}
+		json_t* latchButtonsJ = json_object_get(rootJ, "latchButtons");
+		if (latchButtonsJ)
+		{
+			latchButtons = (json_boolean_value(latchButtonsJ));
 		}
 	}
 };
@@ -722,7 +729,6 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 109.795)), module, ModMatrix::_12_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 109.795)), module, ModMatrix::_12_16_PARAM));
 
-		// TODO remove latch, only for development!
 		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  18.601)), module, ModMatrix::SEL1_PARAM, ModMatrix::SEL1_LIGHT));
 		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  26.891)), module, ModMatrix::SEL2_PARAM, ModMatrix::SEL2_LIGHT));
 		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  35.182)), module, ModMatrix::SEL3_PARAM, ModMatrix::SEL3_LIGHT));
@@ -782,6 +788,24 @@ struct ModMatrixWidget : ModuleWidget {
 			}
 		));
 
+		menu->addChild(createBoolMenuItem("Latch buttons", "",
+			[=]() {
+				return module->latchButtons;
+			},
+			[=](int mode) {
+				module->latchButtons = mode;
+				setLatch(module);
+
+				// redraw
+				event::Change c;
+				for (ParamWidget* param : getParams())
+				{
+					param->onChange(c);
+				}
+			}
+		));
+		setLatch(module);
+
 		menu->addChild(createBoolMenuItem("Bipolar", "",
 			[=]() {
 				return module->bipolar;
@@ -796,9 +820,17 @@ struct ModMatrixWidget : ModuleWidget {
 				{
 					param->onChange(c);
 				}
-
 			}
 		));
+	}
+
+	void setLatch(ModMatrix* module)
+	{
+		for (size_t i = module->SEL1_PARAM; i <= module->SEL12_PARAM; i++)
+		{
+			VCVLightLatch<MediumSimpleLight<WhiteLight>>* p = dynamic_cast<VCVLightLatch<MediumSimpleLight<WhiteLight>>*>(getParam(i));
+			p->momentary = !module->latchButtons;
+		}
 	}
 };
 
