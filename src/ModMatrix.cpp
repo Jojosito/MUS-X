@@ -280,7 +280,7 @@ struct ModMatrix : Module {
 	std::vector<float> controlKnobValues;
 	std::vector<Param*> controlSelectors;
 
-	bool prevControlKnobPressed = false;
+	bool prevControlButtonsPressed = false;
 
 	bool bipolar = false;
 
@@ -349,7 +349,9 @@ struct ModMatrix : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
+		//
 		// channels
+		//
 		channels = std::max(1, inputs[_0_INPUT].getChannels());
 
 		for (auto& in : ins)
@@ -362,29 +364,34 @@ struct ModMatrix : Module {
 			out->setChannels(channels);
 		}
 
+		//
 		// control
-		bool controlKnobPressed = false;
+		//
+		// check if any of the control buttons are pressed
+		bool controlButtonsPressed = false;
 		for (Param* p : controlSelectors)
 		{
 			if (p->getValue())
 			{
-				controlKnobPressed = true;
+				controlButtonsPressed = true;
 				break;
 			}
 		}
 
-		// set control knobs to previous values when control knobs are de-pressed
-		if (prevControlKnobPressed & !controlKnobPressed)
+		// set control knobs to previous values when control buttons are de-pressed
+		if (prevControlButtonsPressed & !controlButtonsPressed)
 		{
 			for (size_t i=0; i<columns; i++)
 			{
 				controlKnobs[i]->setValue(controlKnobValues[i]);
 			}
 		}
-		prevControlKnobPressed = controlKnobPressed;
+		prevControlButtonsPressed = controlButtonsPressed;
 
-		if (!controlKnobPressed)
+
+		if (!controlButtonsPressed)
 		{
+			// update controlKnobValues
 			for (size_t i=0; i<columns; i++)
 			{
 				controlKnobValues[i] = controlKnobs[i]->getValue();
@@ -392,6 +399,7 @@ struct ModMatrix : Module {
 		}
 		else
 		{
+			// control selected rows
 			for (size_t i=0; i<rows; i++)
 			{
 				if (controlSelectors[i]->getValue())
@@ -408,8 +416,9 @@ struct ModMatrix : Module {
 		}
 
 
-
+		//
 		// calc matrix
+		//
 		for (int c = 0; c < channels; c += 4) {
 			// loop over outs
 			for (size_t iOut = 0; iOut < outs.size(); iOut++)
