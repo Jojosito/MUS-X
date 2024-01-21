@@ -6,7 +6,7 @@ Modules for VCV Rack, with a focus on MIDI-controllable, analog poly-synths, and
 
 ### ADSR
 ADSR envelope generator with exponential decay/release, built in velocity scaling and sustain CV.
-'Rnd' randomly scales the A, D, S and R parameters per channel. This simulates the behaviour of old polysynths with analog envelopes, where each voice/envelope behaves slightly different due to component tolerances. The offsets are individually generated for each ADSR module, and stored with the patch.
+'Rnd' randomly scales the A, D, S and R parameters per channel. This simulates the behavior of old polysynths with analog envelopes, where each voice/envelope behaves slightly different due to component tolerances. The offsets are individually generated for each ADSR module, and stored with the patch.
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
 ### Delay
@@ -14,7 +14,7 @@ A delay inspired by analog bucket-brigade delay pedals.
 
 'Time' adjusts the delay time. The range is determined by the 'BBD size' parameter.
 The delay time can also be tapped with the 'Tap' button. The delay time is also visualized by the 'Tap'-button LED.
-'Feedback' adjusts the delay feedback. WARNING: this goes well beyond 100% and can cause self oscillation. The output is limited to +-10V.
+'Feedback' adjusts the delay feedback. WARNING: this goes well beyond 100% and can cause self oscillation. The output is limited to ±10V.
 Both 'Time' and 'Feedback' can be CV controlled.
 
 'Cutoff' adjusts the cutoff frequency of the anti-aliasing and reconstruction filters. It makes the delay brighter or darker. The aliasing of the BBD can be audible at higher cutoff frequencies.
@@ -49,10 +49,10 @@ Selecting a row by holding a button immediately changes the values of the 'Contr
 Once you release the button, the values of the 'Control' knobs revert back to their previous 'base' values.
 
 The internal sample rate can be reduced from the context menu. Since modulation signals are usually not audio rate, this can be used to save CPU time.
-The behaviour of the buttons can be switched from momentary to latched. Regardless of the mode, only one row can be selected for editing. The active row is indicated by a light.
-The behaviour of the knobs can be switched between bipolar and unipolar.
+The behavior of the buttons can be switched from momentary to latched. Regardless of the mode, only one row can be selected for editing. The active row is indicated by a light.
+The behavior of the knobs can be switched between bipolar and unipolar.
 
-The outputs are clamped to +-12V.
+The outputs are clamped to ±12V.
 
 ### OnePole
 A simple CV controllable 1-pole highpass and lowpass filter.
@@ -70,7 +70,7 @@ Oscillator 2 stays in tune when applying FM.
 
 Every parameter is CV controllable.
 There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' module to add tuning controls.
-'Out' outputs the mix of oscillator 1, the sub-oscillator, oscillator 2 and the ring modulator. The output is soft-clipped to +-10V.
+'Out' outputs the mix of oscillator 1, the sub-oscillator, oscillator 2 and the ring modulator. The output is soft-clipped to ±10V.
 
 The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled to reduce aliasing.
 This is especially useful for FM and sync sounds.
@@ -86,4 +86,4 @@ An input of 0V gives a frequency of about 2 Hz.
 Tune by octaves, plus coarse and fine (1 semitone) tuning.
 The ranges can be adjusted in the context menu.
 The two 'V/Oct' and the 'Fine' input are added and tuned. The 'Fine' input can be used for subtle modulations in the semitone range.
-The output is limited to +-12V, so a huge frequency range can be covered.
+The output is limited to ±12V, so a huge frequency range can be covered.
