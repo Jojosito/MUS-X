@@ -280,6 +280,8 @@ struct ModMatrix : Module {
 	std::vector<float> controlKnobValues;
 	std::vector<Param*> controlSelectors;
 
+	bool prevControlKnobPressed = false;
+
 	bool bipolar = false;
 
 	ModMatrix() {
@@ -371,6 +373,16 @@ struct ModMatrix : Module {
 			}
 		}
 
+		// set control knobs to previous values when control knobs are de-pressed
+		if (prevControlKnobPressed & !controlKnobPressed)
+		{
+			for (size_t i=0; i<columns; i++)
+			{
+				controlKnobs[i]->setValue(controlKnobValues[i]);
+			}
+		}
+		prevControlKnobPressed = controlKnobPressed;
+
 		if (!controlKnobPressed)
 		{
 			for (size_t i=0; i<columns; i++)
@@ -394,8 +406,6 @@ struct ModMatrix : Module {
 				}
 			}
 		}
-
-		// todo set control knobs to previous values when control knobs are de-pressed
 
 
 
