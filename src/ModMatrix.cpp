@@ -397,7 +397,7 @@ struct ModMatrix : Module {
 			lights[i].setBrightness(i == selectedControl-1);
 		}
 
-		if (!prevSelectedControl && selectedControl)
+		if (selectedControl && selectedControl != prevSelectedControl)
 		{
 			// set control knobs to values of row when control knob is pressed
 			for (size_t i=0; i<columns; i++)
