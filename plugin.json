@@ -77,7 +77,7 @@
     {
       "slug": "ModMatrix",
       "name": "Mod Matrix",
-      "description": "MIDI controllable Mod Matrix",
+      "description": "MIDI controllable 13x16 Modulation Matrix",
       "tags": [
         "Mixer",
         "Polyphonic"

@@ -38,6 +38,22 @@ The 'Poly' input determines the polyphony channels of the output.
 'Drift' adjusts the amount of a random (per voice) drift.
 'Drift Rate' adjusts the frequency of the random drift.
 
+### Mod Matrix
+A modulation matrix with 13 inputs and 16 outputs.
+It is fully MIDI-controllable with 16 knobs and 12 buttons.
+
+The recommended usage is to assign up to 16 knobs of your MIDI controller to the 'Control' knobs in the first row, and up to 12 buttons of your MIDI controller to the 'Select' buttons in the right column.
+Connect modulation sources to the 'Signal' inputs (leave input 0 disconnected), and modulation destinations to the 'Mix' outputs. 
+When no buttons are pressed, the 'Control' knobs control the 'base' value from -5V to 5V (in bipolar mode), or 0V to 10V (in unipolar mode). The range of the base value can be changed by connecting the 'Signal 0' input.
+Selecting a row by holding a button immediately changes the values of the control knobs to the values of the selected row. You can then control the selected row of the modulation matrix with your MIDI controller knobs.
+Once you release the button, the values of the control knobs revert back to their original 'base' values.
+
+The internal sample rate can be reduced from the context menu. Since modulation signals are usually not audio rate, this can be used to save CPU time.
+The behaviour of the buttons can be switched from momentary to latched. Regardless of the mode, only one row can be selected for editing. The active row is indicated by a light.
+The behaviour of the knobs can be switched between bipolar and unipolar.
+
+The outputs are clamped to +-12V.
+
 ### OnePole
 A simple CV controllable 1-pole highpass and lowpass filter.
 
