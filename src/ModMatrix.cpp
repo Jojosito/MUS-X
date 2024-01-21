@@ -265,6 +265,18 @@ struct ModMatrix : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
+		SEL1_LIGHT,
+		SEL2_LIGHT,
+		SEL3_LIGHT,
+		SEL4_LIGHT,
+		SEL5_LIGHT,
+		SEL6_LIGHT,
+		SEL7_LIGHT,
+		SEL8_LIGHT,
+		SEL9_LIGHT,
+		SEL10_LIGHT,
+		SEL11_LIGHT,
+		SEL12_LIGHT,
 		LIGHTS_LEN
 	};
 
@@ -279,8 +291,7 @@ struct ModMatrix : Module {
 	std::vector<Param*> controlKnobs;
 	std::vector<float> controlKnobValues;
 	std::vector<Param*> controlSelectors;
-
-	bool prevControlButtonsPressed = false;
+	size_t prevSelectedControl = 0;
 
 	bool bipolar = false;
 
@@ -364,32 +375,48 @@ struct ModMatrix : Module {
 			out->setChannels(channels);
 		}
 
+
 		//
 		// control
 		//
-		// check if any of the control buttons are pressed
-		bool controlButtonsPressed = false;
-		for (Param* p : controlSelectors)
+		// check if/which control button is pressed
+		size_t selectedControl = 0; // 0 means no button is pressed
+		for (size_t i=0; i<rows; i++)
 		{
+			Param* p = controlSelectors[i];
 			if (p->getValue())
 			{
-				controlButtonsPressed = true;
+				selectedControl = i+1;
 				break;
 			}
 		}
 
-		// set control knobs to previous values when control buttons are de-pressed
-		if (prevControlButtonsPressed & !controlButtonsPressed)
+		// lights
+		for (size_t i=0; i<rows; i++)
 		{
+			lights[i].setBrightness(i == selectedControl-1);
+		}
+
+		if (!prevSelectedControl && selectedControl)
+		{
+			// set control knobs to values of row when control knob is pressed
+			for (size_t i=0; i<columns; i++)
+			{
+				controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
+			}
+		}
+		else if (prevSelectedControl && !selectedControl)
+		{
+			// set control knobs to previous values when control buttons are de-pressed
 			for (size_t i=0; i<columns; i++)
 			{
 				controlKnobs[i]->setValue(controlKnobValues[i]);
 			}
 		}
-		prevControlButtonsPressed = controlButtonsPressed;
+		prevSelectedControl = selectedControl;
 
 
-		if (!controlButtonsPressed)
+		if (!selectedControl)
 		{
 			// update controlKnobValues
 			for (size_t i=0; i<columns; i++)
@@ -400,18 +427,9 @@ struct ModMatrix : Module {
 		else
 		{
 			// control selected rows
-			for (size_t i=0; i<rows; i++)
+			for (size_t j=0; j<columns; j++)
 			{
-				if (controlSelectors[i]->getValue())
-				{
-					for (size_t j=0; j<columns; j++)
-					{
-						if (controlKnobs[j]->getValue() != controlKnobValues[j])
-						{
-							matrix[i][j]->setValue(controlKnobs[j]->getValue());
-						}
-					}
-				}
+				matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
 			}
 		}
 
@@ -679,35 +697,19 @@ struct ModMatrixWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(128.575, 109.795)), module, ModMatrix::_12_15_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(136.596, 109.795)), module, ModMatrix::_12_16_PARAM));
 
-		/*
-		// TODO lights
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 18.601)), module, ModMatrix::SEL1_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 26.891)), module, ModMatrix::SEL2_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 35.182)), module, ModMatrix::SEL3_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 43.472)), module, ModMatrix::SEL4_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 51.762)), module, ModMatrix::SEL5_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 60.053)), module, ModMatrix::SEL6_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 68.342)), module, ModMatrix::SEL7_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 76.632)), module, ModMatrix::SEL8_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 84.923)), module, ModMatrix::SEL9_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 93.213)), module, ModMatrix::SEL10_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 101.503)), module, ModMatrix::SEL11_PARAM));
-		addParam(createParamCentered<VCVButton>(mm2px(Vec(144.617, 109.795)), module, ModMatrix::SEL12_PARAM));
-		*/
-
-		// TODO remove, only for development!
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 18.601)), module, ModMatrix::SEL1_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 26.891)), module, ModMatrix::SEL2_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 35.182)), module, ModMatrix::SEL3_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 43.472)), module, ModMatrix::SEL4_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 51.762)), module, ModMatrix::SEL5_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 60.053)), module, ModMatrix::SEL6_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 68.342)), module, ModMatrix::SEL7_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 76.632)), module, ModMatrix::SEL8_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 84.923)), module, ModMatrix::SEL9_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 93.213)), module, ModMatrix::SEL10_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 101.503)), module, ModMatrix::SEL11_PARAM));
-		addParam(createParamCentered<VCVLatch>(mm2px(Vec(144.617, 109.795)), module, ModMatrix::SEL12_PARAM));
+		// TODO remove latch, only for development!
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  18.601)), module, ModMatrix::SEL1_PARAM, ModMatrix::SEL1_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  26.891)), module, ModMatrix::SEL2_PARAM, ModMatrix::SEL2_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  35.182)), module, ModMatrix::SEL3_PARAM, ModMatrix::SEL3_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  43.472)), module, ModMatrix::SEL4_PARAM, ModMatrix::SEL4_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  51.762)), module, ModMatrix::SEL5_PARAM, ModMatrix::SEL5_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  60.053)), module, ModMatrix::SEL6_PARAM, ModMatrix::SEL6_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  68.342)), module, ModMatrix::SEL7_PARAM, ModMatrix::SEL7_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  76.632)), module, ModMatrix::SEL8_PARAM, ModMatrix::SEL8_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  84.923)), module, ModMatrix::SEL9_PARAM, ModMatrix::SEL9_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617,  93.213)), module, ModMatrix::SEL10_PARAM, ModMatrix::SEL10_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617, 101.503)), module, ModMatrix::SEL11_PARAM, ModMatrix::SEL11_LIGHT));
+		addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(144.617, 109.795)), module, ModMatrix::SEL12_PARAM, ModMatrix::SEL12_LIGHT));
 
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(5.904, 8.819)), module, ModMatrix::_0_INPUT));
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(6.142, 18.601)), module, ModMatrix::_1_INPUT));
