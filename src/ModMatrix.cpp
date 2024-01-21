@@ -283,7 +283,7 @@ struct ModMatrix : Module {
 
 		for (size_t i = 0; i < columns; i++)
 		{
-			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1));
+			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1), " %", 0.f, 100.f);
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -292,7 +292,7 @@ struct ModMatrix : Module {
 			for (size_t j = 0; j < columns; j++)
 			{
 				size_t iParam = _1_1_PARAM + i*columns + j;
-				configParam(iParam, -1.f * bipolar, 1.f, 0.f, "Input " + std::to_string(i+1) + " to Mix " + std::to_string(j+1));
+				configParam(iParam, -1.f * bipolar, 1.f, 0.f, "Input " + std::to_string(i+1) + " to Mix " + std::to_string(j+1), " %", 0.f, 100.f);
 				row.push_back(&params[iParam]);
 			}
 			matrix.push_back(row);
@@ -325,7 +325,7 @@ struct ModMatrix : Module {
 				size_t iParam = CTRL1_PARAM + i*columns + j;
 				ParamQuantity* qty = paramQuantities[iParam];
 				qty->minValue = -1.f * bipolar;
-				params[iParam].value = std::max(qty->minValue, qty->getValue());
+				params[iParam].setValue(std::max(qty->minValue, qty->getValue()));
 			}
 		}
 	}
@@ -393,10 +393,10 @@ struct ModMatrixWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/ModMatrix.svg"), asset::plugin(pluginInstance, "res/ModMatrix-dark.svg")));
 
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(14.455, 8.29)), module, ModMatrix::CTRL1_PARAM));
 		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(22.476, 8.29)), module, ModMatrix::CTRL2_PARAM));
@@ -663,7 +663,14 @@ struct ModMatrixWidget : ModuleWidget {
 			[=](int mode) {
 				module->bipolar = mode;
 				module->setPolarity();
-				// TODO redraw!!!
+
+				// redraw
+				event::Change c;
+				for (ParamWidget* param : getParams())
+				{
+					param->onChange(c);
+				}
+
 			}
 		));
 	}
