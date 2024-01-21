@@ -39,7 +39,7 @@ The 'Poly' input determines the polyphony channels of the output.
 'Drift Rate' adjusts the frequency of the random drift.
 
 ### Mod Matrix
-A modulation matrix with 13 inputs and 16 outputs.
+A polyphonic modulation matrix with 13 inputs and 16 outputs.
 It is fully MIDI-controllable with 16 knobs and 12 buttons.
 
 The recommended usage is to assign up to 16 knobs of your MIDI controller to the 'Control' knobs in the first row, and up to 12 buttons of your MIDI controller to the 'Select' buttons in the right column.
