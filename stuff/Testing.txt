@@ -16,3 +16,6 @@ Testing TODOs
 
 - dark theme
 
+- validate json:
+cd ~/VCVRack/rack-library-tools
+python3 ./rack-manifest-validator.py ../ -p MUS-X
