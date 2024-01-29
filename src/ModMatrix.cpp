@@ -440,7 +440,7 @@ struct ModMatrix : Module {
 
 			for (auto& out : outs)
 			{
-				//out->setChannels(channels);
+				out->setChannels(channels);
 			}
 
 			//
@@ -461,16 +461,6 @@ struct ModMatrix : Module {
 				}
 			}
 
-
-			// debug
-			{
-				outs[0]->setVoltage(controlKnobBaseValues[0]);
-				outs[1]->setVoltage(currentControlKnobValues[0]);
-				outs[2]->setVoltage(previousControlKnobValues[0]);
-				outs[3]->setVoltage(midiControlKnobValues[0]);
-				outs[4]->setVoltage(previousMidiControlKnobValues[0]);
-				outs[5]->setVoltage(midiControlKnobValues[0] - previousMidiControlKnobValues[0]);
-			}
 
 			// check if/which control button is pressed
 			size_t selectedControl = 0; // 0 means no button is pressed
@@ -573,7 +563,6 @@ struct ModMatrix : Module {
 		//
 		// calc matrix
 		//
-		/*
 		if (matrixDivider.process())
 		{
 			for (int c = 0; c < channels; c += 4) {
@@ -599,7 +588,6 @@ struct ModMatrix : Module {
 				}
 			}
 		}
-		*/
 	}
 
 	json_t* dataToJson() override {
