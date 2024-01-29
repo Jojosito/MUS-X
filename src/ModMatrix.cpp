@@ -289,7 +289,8 @@ struct ModMatrix : Module {
 	std::vector<Output*> outs;
 
 	std::vector<Param*> controlKnobs;
-	std::vector<float> controlKnobValues; // 'base' values of the control knobs when not controlling other rows
+	std::vector<float> controlKnobBaseValues; // 'base' values of the control knobs when not controlling other rows
+	std::vector<float> previousControlKnobValues;
 	std::vector<float> midiControlKnobValues;
 	std::vector<float> previousMidiControlKnobValues;
 	std::vector<Param*> controlSelectors;
@@ -309,8 +310,13 @@ struct ModMatrix : Module {
 		for (size_t j = 0; j < columns; j++)
 		{
 			configParam(CTRL1_PARAM + j, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(j+1), " %", 0.f, 100.f);
+			getParamQuantity(CTRL1_PARAM + j)->smoothEnabled = false;
+
 			controlKnobs.push_back(&params[CTRL1_PARAM + j]);
-			controlKnobValues.push_back(params[CTRL1_PARAM + j].getValue());
+			controlKnobBaseValues.push_back(params[CTRL1_PARAM + j].getValue());
+			previousControlKnobValues.push_back(params[CTRL1_PARAM + j].getValue());
+			midiControlKnobValues.push_back(-10);
+			previousMidiControlKnobValues.push_back(-10);
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -399,6 +405,21 @@ struct ModMatrix : Module {
 			//
 			// control
 			//
+			// relative control
+			for (size_t j = 0; j < columns; j++)
+			{
+				if (controlKnobs[j]->getValue() != previousControlKnobValues[j])
+				{
+					midiControlKnobValues[j] = controlKnobs[j]->getValue();
+					if (previousMidiControlKnobValues[j] < -9.)
+					{
+						// first control via MIDI
+						previousMidiControlKnobValues[j] = controlKnobs[j]->getValue();
+					}
+				}
+			}
+
+
 			// check if/which control button is pressed
 			size_t selectedControl = 0; // 0 means no button is pressed
 			for (size_t i = 0; i < rows; i++)
@@ -423,7 +444,9 @@ struct ModMatrix : Module {
 				for (size_t j = 0; j < columns; j++)
 				{
 					// set control knobs to values of row when control button is pressed
-					controlKnobs[j]->setValue(matrix[selectedControl-1][j]->getValue());
+					float value = matrix[selectedControl-1][j]->getValue();
+					controlKnobs[j]->setValue(value);
+					previousControlKnobValues[j] = value;
 				}
 			}
 			// control buttons are released
@@ -432,17 +455,30 @@ struct ModMatrix : Module {
 				// set control knobs to previous values when control buttons are released
 				for (size_t j = 0; j < columns; j++)
 				{
-					controlKnobs[j]->setValue(controlKnobValues[j]);
+					controlKnobs[j]->setValue(controlKnobBaseValues[j]);
+					previousControlKnobValues[j] = controlKnobBaseValues[j];
 				}
 			}
 
 
 			if (!selectedControl)
 			{
-				// update controlKnobValues
+				// update controlKnobBaseValues
 				for (size_t j = 0; j < columns; j++)
 				{
-					controlKnobValues[j] = controlKnobs[j]->getValue();
+					float newValue;
+					if (relative)
+					{
+						newValue = controlKnobBaseValues[j] + midiControlKnobValues[j] - previousMidiControlKnobValues[j];
+					}
+					else
+					{
+						newValue = controlKnobs[j]->getValue();
+					}
+					newValue = std::fmin(newValue, 1.);
+					newValue = std::fmax(newValue, bipolar ? -1. : 0.);
+					controlKnobs[j]->setValue(newValue);
+					controlKnobBaseValues[j] = newValue;
 				}
 			}
 			else
@@ -450,11 +486,30 @@ struct ModMatrix : Module {
 				// control selected rows
 				for (size_t j = 0; j < columns; j++)
 				{
-					matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
+					float newValue;
+					if (relative)
+					{
+						newValue = matrix[selectedControl-1][j]->getValue() + midiControlKnobValues[j] - previousMidiControlKnobValues[j];
+					}
+					else
+					{
+						newValue = controlKnobs[j]->getValue();
+					}
+					newValue = std::fmin(newValue, 1.);
+					newValue = std::fmax(newValue, bipolar ? -1. : 0.);
+					matrix[selectedControl-1][j]->setValue(newValue);
 				}
 			}
 
+
+			// update 'previous' values
 			prevSelectedControl = selectedControl;
+
+			for (size_t j = 0; j < columns; j++)
+			{
+				previousMidiControlKnobValues[j] = midiControlKnobValues[j];
+				previousControlKnobValues[j] = controlKnobs[j]->getValue();
+			}
 		}
 
 		//
@@ -472,7 +527,7 @@ struct ModMatrix : Module {
 						// loop over ins, multiply with params
 						float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) :
 								bipolar ? 5. : 10.;
-						val *= controlKnobValues[j];
+						val *= controlKnobBaseValues[j];
 
 						for (size_t i = 0; i < rows; i++)
 						{
