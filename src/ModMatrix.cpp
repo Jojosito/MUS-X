@@ -290,6 +290,7 @@ struct ModMatrix : Module {
 
 	std::vector<Param*> controlKnobs;
 	std::vector<float> controlKnobBaseValues; // 'base' values of the control knobs when not controlling other rows
+	std::vector<float> currentControlKnobValues;
 	std::vector<float> previousControlKnobValues;
 	std::vector<float> midiControlKnobValues;
 	std::vector<float> previousMidiControlKnobValues;
@@ -314,9 +315,10 @@ struct ModMatrix : Module {
 
 			controlKnobs.push_back(&params[CTRL1_PARAM + j]);
 			controlKnobBaseValues.push_back(params[CTRL1_PARAM + j].getValue());
+			currentControlKnobValues.push_back(params[CTRL1_PARAM + j].getValue());
 			previousControlKnobValues.push_back(params[CTRL1_PARAM + j].getValue());
-			midiControlKnobValues.push_back(-10);
-			previousMidiControlKnobValues.push_back(-10);
+			midiControlKnobValues.push_back(-2);
+			previousMidiControlKnobValues.push_back(-2);
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -383,7 +385,47 @@ struct ModMatrix : Module {
 		matrixDivider.setDivision(sampleRateReduction);
 	}
 
-	void process(const ProcessArgs& args) override {
+	void onReset(const ResetEvent& e) override
+	{
+		Module::onReset(e);
+		for (size_t j = 0; j < columns; j++)
+		{
+			controlKnobBaseValues[j] = 0.;
+			currentControlKnobValues[j] = 0.;
+			previousControlKnobValues[j] = 0.;
+			midiControlKnobValues[j] = -2;
+			previousMidiControlKnobValues[j] = -2;
+		}
+	}
+
+	void onAdd(const AddEvent& e) override
+	{
+		Module::onAdd(e);
+		for (size_t j = 0; j < columns; j++)
+		{
+			controlKnobBaseValues[j] =controlKnobs[j]->getValue();
+			currentControlKnobValues[j] = controlKnobs[j]->getValue();
+			previousControlKnobValues[j] = controlKnobs[j]->getValue();
+			midiControlKnobValues[j] = -2;
+			previousMidiControlKnobValues[j] = -2;
+		}
+	}
+
+	void onRandomize(const RandomizeEvent& e) override
+	{
+		Module::onRandomize(e);
+		for (size_t j = 0; j < columns; j++)
+		{
+			controlKnobBaseValues[j] =controlKnobs[j]->getValue();
+			currentControlKnobValues[j] = controlKnobs[j]->getValue();
+			previousControlKnobValues[j] = controlKnobs[j]->getValue();
+			midiControlKnobValues[j] = -2;
+			previousMidiControlKnobValues[j] = -2;
+		}
+	}
+
+	void process(const ProcessArgs& args) override
+	{
 		if (controlDivider.process())
 		{
 			//
@@ -398,9 +440,8 @@ struct ModMatrix : Module {
 
 			for (auto& out : outs)
 			{
-				out->setChannels(channels);
+				//out->setChannels(channels);
 			}
-
 
 			//
 			// control
@@ -408,24 +449,34 @@ struct ModMatrix : Module {
 			// relative control
 			for (size_t j = 0; j < columns; j++)
 			{
-				if (controlKnobs[j]->getValue() != previousControlKnobValues[j])
+				currentControlKnobValues[j] = controlKnobs[j]->getValue();
+				if (currentControlKnobValues[j] != previousControlKnobValues[j])
 				{
-					midiControlKnobValues[j] = controlKnobs[j]->getValue();
-					if (previousMidiControlKnobValues[j] < -9.)
+					midiControlKnobValues[j] = currentControlKnobValues[j];
+					if (previousMidiControlKnobValues[j] < -1.1)
 					{
 						// first control via MIDI
-						previousMidiControlKnobValues[j] = controlKnobs[j]->getValue();
+						previousMidiControlKnobValues[j] = currentControlKnobValues[j];
 					}
 				}
 			}
 
 
+			// debug
+			{
+				outs[0]->setVoltage(controlKnobBaseValues[0]);
+				outs[1]->setVoltage(currentControlKnobValues[0]);
+				outs[2]->setVoltage(previousControlKnobValues[0]);
+				outs[3]->setVoltage(midiControlKnobValues[0]);
+				outs[4]->setVoltage(previousMidiControlKnobValues[0]);
+				outs[5]->setVoltage(midiControlKnobValues[0] - previousMidiControlKnobValues[0]);
+			}
+
 			// check if/which control button is pressed
 			size_t selectedControl = 0; // 0 means no button is pressed
 			for (size_t i = 0; i < rows; i++)
 			{
-				Param* p = controlSelectors[i];
-				if (p->getValue())
+				if (controlSelectors[i]->getValue())
 				{
 					selectedControl = i+1;
 					break;
@@ -446,6 +497,7 @@ struct ModMatrix : Module {
 					// set control knobs to values of row when control button is pressed
 					float value = matrix[selectedControl-1][j]->getValue();
 					controlKnobs[j]->setValue(value);
+					currentControlKnobValues[j] = value;
 					previousControlKnobValues[j] = value;
 				}
 			}
@@ -456,6 +508,7 @@ struct ModMatrix : Module {
 				for (size_t j = 0; j < columns; j++)
 				{
 					controlKnobs[j]->setValue(controlKnobBaseValues[j]);
+					currentControlKnobValues[j] = controlKnobBaseValues[j];
 					previousControlKnobValues[j] = controlKnobBaseValues[j];
 				}
 			}
@@ -469,15 +522,17 @@ struct ModMatrix : Module {
 					float newValue;
 					if (relative)
 					{
-						newValue = controlKnobBaseValues[j] + midiControlKnobValues[j] - previousMidiControlKnobValues[j];
+						newValue = controlKnobBaseValues[j] + (midiControlKnobValues[j] - previousMidiControlKnobValues[j]);
 					}
 					else
 					{
-						newValue = controlKnobs[j]->getValue();
+						newValue = currentControlKnobValues[j];
 					}
 					newValue = std::fmin(newValue, 1.);
 					newValue = std::fmax(newValue, bipolar ? -1. : 0.);
+
 					controlKnobs[j]->setValue(newValue);
+					currentControlKnobValues[j] = newValue;
 					controlKnobBaseValues[j] = newValue;
 				}
 			}
@@ -493,10 +548,13 @@ struct ModMatrix : Module {
 					}
 					else
 					{
-						newValue = controlKnobs[j]->getValue();
+						newValue = currentControlKnobValues[j];
 					}
 					newValue = std::fmin(newValue, 1.);
 					newValue = std::fmax(newValue, bipolar ? -1. : 0.);
+
+					controlKnobs[j]->setValue(newValue);
+					currentControlKnobValues[j] = newValue;
 					matrix[selectedControl-1][j]->setValue(newValue);
 				}
 			}
@@ -508,13 +566,14 @@ struct ModMatrix : Module {
 			for (size_t j = 0; j < columns; j++)
 			{
 				previousMidiControlKnobValues[j] = midiControlKnobValues[j];
-				previousControlKnobValues[j] = controlKnobs[j]->getValue();
+				previousControlKnobValues[j] = currentControlKnobValues[j];
 			}
 		}
 
 		//
 		// calc matrix
 		//
+		/*
 		if (matrixDivider.process())
 		{
 			for (int c = 0; c < channels; c += 4) {
@@ -540,6 +599,7 @@ struct ModMatrix : Module {
 				}
 			}
 		}
+		*/
 	}
 
 	json_t* dataToJson() override {
@@ -560,18 +620,18 @@ struct ModMatrix : Module {
 		json_t* latchButtonsJ = json_object_get(rootJ, "latchButtons");
 		if (latchButtonsJ)
 		{
-			latchButtons = (json_boolean_value(latchButtonsJ));
+			latchButtons = json_boolean_value(latchButtonsJ);
 		}
 		json_t* bipolarJ = json_object_get(rootJ, "bipolar");
 		if (bipolarJ)
 		{
-			bipolar = (json_boolean_value(bipolarJ));
+			bipolar = json_boolean_value(bipolarJ);
 			setPolarity();
 		}
 		json_t* relativeJ = json_object_get(rootJ, "relative");
 		if (relativeJ)
 		{
-			relative = (json_boolean_value(relativeJ));
+			relative = json_boolean_value(relativeJ);
 			setPolarity();
 		}
 	}
