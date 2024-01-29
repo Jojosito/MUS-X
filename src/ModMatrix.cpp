@@ -290,7 +290,6 @@ struct ModMatrix : Module {
 
 	std::vector<Param*> controlKnobs;
 	std::vector<float> controlKnobValues; // 'base' values of the control knobs when not controlling other rows
-	std::vector<float> previousControlKnobValues; // previous values of the control knobs
 	std::vector<Param*> controlSelectors;
 	size_t prevSelectedControl = 0;
 
@@ -310,7 +309,6 @@ struct ModMatrix : Module {
 			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1), " %", 0.f, 100.f);
 			controlKnobs.push_back(&params[CTRL1_PARAM + i]);
 			controlKnobValues.push_back(params[CTRL1_PARAM + i].getValue());
-			previousControlKnobValues.push_back(params[CTRL1_PARAM + i].getValue());
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -422,15 +420,8 @@ struct ModMatrix : Module {
 			{
 				for (size_t i=0; i<columns; i++)
 				{
-					if (relative)
-					{
-						previousControlKnobValues[i] = controlKnobs[i]->getValue();
-					}
-					else
-					{
-						// set control knobs to values of row when control button is pressed
-						controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
-					}
+					// set control knobs to values of row when control button is pressed
+					controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
 				}
 			}
 			// control buttons are released
@@ -440,10 +431,6 @@ struct ModMatrix : Module {
 				for (size_t i=0; i<columns; i++)
 				{
 					controlKnobs[i]->setValue(controlKnobValues[i]);
-					if (relative)
-					{
-						previousControlKnobValues[i] = controlKnobValues[i];
-					}
 				}
 			}
 
@@ -453,13 +440,6 @@ struct ModMatrix : Module {
 				// update controlKnobValues
 				for (size_t i=0; i<columns; i++)
 				{
-					if (relative)
-					{
-						float newValue = controlKnobValues[i] + controlKnobs[i]->getValue() - previousControlKnobValues[i];
-						newValue = std::fmin(newValue, 1.);
-						newValue = std::fmax(newValue, bipolar ? -1. : 0.);
-						controlKnobs[i]->setValue(newValue);
-					}
 					controlKnobValues[i] = controlKnobs[i]->getValue();
 				}
 			}
@@ -468,30 +448,10 @@ struct ModMatrix : Module {
 				// control selected rows
 				for (size_t j=0; j<columns; j++)
 				{
-					float newValue;
-					if (relative)
-					{
-						newValue = matrix[selectedControl-1][j]->getValue() + controlKnobs[j]->getValue() - previousControlKnobValues[j];
-						newValue = std::fmin(newValue, 1.);
-						newValue = std::fmax(newValue, bipolar ? -1. : 0.);
-					}
-					else
-					{
-						newValue = controlKnobs[j]->getValue();
-					}
-					matrix[selectedControl-1][j]->setValue(newValue);
+					matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
 				}
 			}
 
-
-			// update previousControlKnobValues
-			if (selectedControl == prevSelectedControl)
-			{
-				for (size_t i=0; i<columns; i++)
-				{
-					previousControlKnobValues[i] = controlKnobs[i]->getValue();
-				}
-			}
 			prevSelectedControl = selectedControl;
 		}
 
