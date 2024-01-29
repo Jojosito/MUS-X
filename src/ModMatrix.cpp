@@ -289,13 +289,15 @@ struct ModMatrix : Module {
 	std::vector<Output*> outs;
 
 	std::vector<Param*> controlKnobs;
-	std::vector<float> controlKnobValues;
+	std::vector<float> controlKnobValues; // 'base' values of the control knobs when not controlling other rows
+	std::vector<float> previousControlKnobValues; // previous values of the control knobs
 	std::vector<Param*> controlSelectors;
 	size_t prevSelectedControl = 0;
 
 	int sampleRateReduction = 1;
 	bool latchButtons = false;
 	bool bipolar = true;
+	bool relative = false; // relative midi control mode
 
 	dsp::ClockDivider controlDivider;
 	dsp::ClockDivider matrixDivider;
@@ -308,6 +310,7 @@ struct ModMatrix : Module {
 			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1), " %", 0.f, 100.f);
 			controlKnobs.push_back(&params[CTRL1_PARAM + i]);
 			controlKnobValues.push_back(params[CTRL1_PARAM + i].getValue());
+			previousControlKnobValues.push_back(params[CTRL1_PARAM + i].getValue());
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -414,23 +417,35 @@ struct ModMatrix : Module {
 				lights[i].setBrightness(i == selectedControl-1);
 			}
 
+			// a control button is pressed
 			if (selectedControl && selectedControl != prevSelectedControl)
 			{
-				// set control knobs to values of row when control knob is pressed
 				for (size_t i=0; i<columns; i++)
 				{
-					controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
+					if (relative)
+					{
+						previousControlKnobValues[i] = controlKnobs[i]->getValue();
+					}
+					else
+					{
+						// set control knobs to values of row when control button is pressed
+						controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
+					}
 				}
 			}
+			// control buttons are released
 			else if (prevSelectedControl && !selectedControl)
 			{
-				// set control knobs to previous values when control buttons are de-pressed
+				// set control knobs to previous values when control buttons are released
 				for (size_t i=0; i<columns; i++)
 				{
 					controlKnobs[i]->setValue(controlKnobValues[i]);
+					if (relative)
+					{
+						previousControlKnobValues[i] = controlKnobValues[i];
+					}
 				}
 			}
-			prevSelectedControl = selectedControl;
 
 
 			if (!selectedControl)
@@ -438,6 +453,13 @@ struct ModMatrix : Module {
 				// update controlKnobValues
 				for (size_t i=0; i<columns; i++)
 				{
+					if (relative)
+					{
+						float newValue = controlKnobValues[i] + controlKnobs[i]->getValue() - previousControlKnobValues[i];
+						newValue = std::fmin(newValue, 1.);
+						newValue = std::fmax(newValue, bipolar ? -1. : 0.);
+						controlKnobs[i]->setValue(newValue);
+					}
 					controlKnobValues[i] = controlKnobs[i]->getValue();
 				}
 			}
@@ -446,9 +468,31 @@ struct ModMatrix : Module {
 				// control selected rows
 				for (size_t j=0; j<columns; j++)
 				{
-					matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
+					float newValue;
+					if (relative)
+					{
+						newValue = matrix[selectedControl-1][j]->getValue() + controlKnobs[j]->getValue() - previousControlKnobValues[j];
+						newValue = std::fmin(newValue, 1.);
+						newValue = std::fmax(newValue, bipolar ? -1. : 0.);
+					}
+					else
+					{
+						newValue = controlKnobs[j]->getValue();
+					}
+					matrix[selectedControl-1][j]->setValue(newValue);
 				}
 			}
+
+
+			// update previousControlKnobValues
+			if (selectedControl == prevSelectedControl)
+			{
+				for (size_t i=0; i<columns; i++)
+				{
+					previousControlKnobValues[i] = controlKnobs[i]->getValue();
+				}
+			}
+			prevSelectedControl = selectedControl;
 		}
 
 		//
@@ -486,6 +530,7 @@ struct ModMatrix : Module {
 		json_object_set_new(rootJ, "sampleRateReduction", json_integer(sampleRateReduction));
 		json_object_set_new(rootJ, "latchButtons", json_boolean(latchButtons));
 		json_object_set_new(rootJ, "bipolar", json_boolean(bipolar));
+		json_object_set_new(rootJ, "relative", json_boolean(relative));
 		return rootJ;
 	}
 
@@ -495,16 +540,22 @@ struct ModMatrix : Module {
 		{
 			setSampleRateReduction(json_integer_value(sampleRateReductionJ));
 		}
+		json_t* latchButtonsJ = json_object_get(rootJ, "latchButtons");
+		if (latchButtonsJ)
+		{
+			latchButtons = (json_boolean_value(latchButtonsJ));
+		}
 		json_t* bipolarJ = json_object_get(rootJ, "bipolar");
 		if (bipolarJ)
 		{
 			bipolar = (json_boolean_value(bipolarJ));
 			setPolarity();
 		}
-		json_t* latchButtonsJ = json_object_get(rootJ, "latchButtons");
-		if (latchButtonsJ)
+		json_t* relativeJ = json_object_get(rootJ, "relative");
+		if (relativeJ)
 		{
-			latchButtons = (json_boolean_value(latchButtonsJ));
+			relative = (json_boolean_value(relativeJ));
+			setPolarity();
 		}
 	}
 };
@@ -820,6 +871,15 @@ struct ModMatrixWidget : ModuleWidget {
 				{
 					param->onChange(c);
 				}
+			}
+		));
+
+		menu->addChild(createBoolMenuItem("Relative MIDI control mode", "",
+			[=]() {
+				return module->relative;
+			},
+			[=](int mode) {
+				module->relative = mode;
 			}
 		));
 	}
