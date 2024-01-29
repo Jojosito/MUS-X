@@ -290,6 +290,8 @@ struct ModMatrix : Module {
 
 	std::vector<Param*> controlKnobs;
 	std::vector<float> controlKnobValues; // 'base' values of the control knobs when not controlling other rows
+	std::vector<float> midiControlKnobValues;
+	std::vector<float> previousMidiControlKnobValues;
 	std::vector<Param*> controlSelectors;
 	size_t prevSelectedControl = 0;
 
@@ -304,11 +306,11 @@ struct ModMatrix : Module {
 	ModMatrix() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		for (size_t i = 0; i < columns; i++)
+		for (size_t j = 0; j < columns; j++)
 		{
-			configParam(CTRL1_PARAM + i, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(i+1), " %", 0.f, 100.f);
-			controlKnobs.push_back(&params[CTRL1_PARAM + i]);
-			controlKnobValues.push_back(params[CTRL1_PARAM + i].getValue());
+			configParam(CTRL1_PARAM + j, -1.f * bipolar, 1.f, 0.f, "Control " + std::to_string(j+1), " %", 0.f, 100.f);
+			controlKnobs.push_back(&params[CTRL1_PARAM + j]);
+			controlKnobValues.push_back(params[CTRL1_PARAM + j].getValue());
 		}
 
 		for (size_t i = 0; i < rows; i++)
@@ -335,10 +337,10 @@ struct ModMatrix : Module {
 			ins.push_back(&inputs[_1_INPUT + i]);
 		}
 
-		for (size_t i = 0; i < columns; i++)
+		for (size_t j = 0; j < columns; j++)
 		{
-			configOutput(_1_OUTPUT + i, "Mix " + std::to_string(i+1));
-			outs.push_back(&outputs[_1_OUTPUT + i]);
+			configOutput(_1_OUTPUT + j, "Mix " + std::to_string(j+1));
+			outs.push_back(&outputs[_1_OUTPUT + j]);
 		}
 
 		controlDivider.setDivision(1);
@@ -399,7 +401,7 @@ struct ModMatrix : Module {
 			//
 			// check if/which control button is pressed
 			size_t selectedControl = 0; // 0 means no button is pressed
-			for (size_t i=0; i<rows; i++)
+			for (size_t i = 0; i < rows; i++)
 			{
 				Param* p = controlSelectors[i];
 				if (p->getValue())
@@ -410,7 +412,7 @@ struct ModMatrix : Module {
 			}
 
 			// lights
-			for (size_t i=0; i<rows; i++)
+			for (size_t i = 0; i < rows; i++)
 			{
 				lights[i].setBrightness(i == selectedControl-1);
 			}
@@ -418,19 +420,19 @@ struct ModMatrix : Module {
 			// a control button is pressed
 			if (selectedControl && selectedControl != prevSelectedControl)
 			{
-				for (size_t i=0; i<columns; i++)
+				for (size_t j = 0; j < columns; j++)
 				{
 					// set control knobs to values of row when control button is pressed
-					controlKnobs[i]->setValue(matrix[selectedControl-1][i]->getValue());
+					controlKnobs[j]->setValue(matrix[selectedControl-1][j]->getValue());
 				}
 			}
 			// control buttons are released
 			else if (prevSelectedControl && !selectedControl)
 			{
 				// set control knobs to previous values when control buttons are released
-				for (size_t i=0; i<columns; i++)
+				for (size_t j = 0; j < columns; j++)
 				{
-					controlKnobs[i]->setValue(controlKnobValues[i]);
+					controlKnobs[j]->setValue(controlKnobValues[j]);
 				}
 			}
 
@@ -438,15 +440,15 @@ struct ModMatrix : Module {
 			if (!selectedControl)
 			{
 				// update controlKnobValues
-				for (size_t i=0; i<columns; i++)
+				for (size_t j = 0; j < columns; j++)
 				{
-					controlKnobValues[i] = controlKnobs[i]->getValue();
+					controlKnobValues[j] = controlKnobs[j]->getValue();
 				}
 			}
 			else
 			{
 				// control selected rows
-				for (size_t j=0; j<columns; j++)
+				for (size_t j = 0; j < columns; j++)
 				{
 					matrix[selectedControl-1][j]->setValue(controlKnobs[j]->getValue());
 				}
@@ -462,20 +464,20 @@ struct ModMatrix : Module {
 		{
 			for (int c = 0; c < channels; c += 4) {
 				// loop over outs
-				for (size_t iOut = 0; iOut < outs.size(); iOut++)
+				for (size_t j = 0; j < columns; j++)
 				{
-					Output* out = outs[iOut];
+					Output* out = outs[j];
 					if (out->isConnected())
 					{
 						// loop over ins, multiply with params
 						float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) :
 								bipolar ? 5. : 10.;
-						val *= controlKnobValues[iOut];
+						val *= controlKnobValues[j];
 
-						for (size_t iIn = 0; iIn < ins.size(); iIn++)
+						for (size_t i = 0; i < rows; i++)
 						{
-							Input* in = ins[iIn];
-							val += in->getPolyVoltageSimd<float_4>(c) * matrix[iIn][iOut]->getValue();
+							Input* in = ins[i];
+							val += in->getPolyVoltageSimd<float_4>(c) * matrix[i][j]->getValue();
 						}
 
 						out->setVoltageSimd(simd::clamp(val, -12.f, 12.f), c);
