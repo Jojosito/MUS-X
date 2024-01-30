@@ -2,16 +2,14 @@
 
 Modules for VCV Rack, with a focus on MIDI-controllable, analog poly-synths, and per-voice variance.
 
-## Modules
-
-### ADSR
+## ADSR
 ADSR envelope generator with exponential decay/release, built in velocity scaling and sustain CV.
 
 'Rnd' randomly scales the A, D, S and R parameters per channel. This simulates the behavior of old polysynths with analog envelopes, where each voice/envelope behaves slightly different due to component tolerances. The offsets are individually generated for each ADSR module, and stored with the patch.
 
 During the decay and release phase, a gate signal is output. This can e.g. be used to trigger another envelope generator, that shapes the sustain.
 
-### Delay
+## Delay
 A delay inspired by analog bucket-brigade delay pedals.
 
 * 'Time' adjusts the delay time. The range is determined by the 'BBD size' parameter.
@@ -32,7 +30,7 @@ A larger BBD size can give longer delay times, and a brighter delay without alia
 * If 'Inv R' is enabled, the right wet signal will be the inverted left wet signal. You can use this with a small BBD size (e.g. 512), no feedback, and delay time modulation to create a chorus effect.
 * 'Mix' adjusts the dry-wet balance.
 
-### Drift
+## Drift
 Drift generates subtle constant offset and drift.
 The 'Poly' input determines the polyphony channels of the output.
 * 'Const' adjusts the amount of a random (per voice) constant offset.
@@ -40,13 +38,13 @@ The 'Poly' input determines the polyphony channels of the output.
 * 'Drift' adjusts the amount of a random (per voice) drift.
 * 'Drift Rate' adjusts the frequency of the random drift.
 
-### Mod Matrix
+## Mod Matrix
 A polyphonic modulation matrix with 13 inputs and 16 outputs.
 It is fully MIDI-controllable with 16 knobs and 12 buttons.
 
 The outputs are clamped to ±12V.
 
-#### Usage
+### Usage
 The recommended usage is to assign up to 16 knobs of your MIDI controller to the 'Control' knobs in the first row, and up to 12 buttons of your MIDI controller to the 'Select' buttons in the right column.
 I recommend [stoermelder's 'MIDI-CAT'](https://library.vcvrack.com/Stoermelder-P1/MidiCat). 
 
@@ -58,7 +56,7 @@ Selecting a row by holding a button immediately changes the values of the 'Contr
 
 Once you release the button, the values of the 'Control' knobs revert back to their previous 'base' values.
 
-#### Context menu options
+### Context menu options
 * 'Reduce internal sample rate': The internal sample rate can be reduced. Since modulation signals are usually not audio rate, this can be used to save CPU time.
 * 'Latch buttons': The behavior of the buttons can be switched from momentary to latched (this is useful if you want to select the active row with a mouse click). Regardless of the mode, only one row can be selected for editing. The active row is indicated by a light.
 * 'Bipolar': The behavior of the knobs can be switched between bipolar (-100% to 100% range) and unipolar (0 to 100% range).
@@ -67,10 +65,10 @@ Once you release the button, the values of the 'Control' knobs revert back to th
     With 'Relative MIDI control mode' enabled, your physical knobs control the relative position, so you get no parameter jumps.
     Instead, it can happen that your physical knobs are at the end of their travel, but the on screen knob is not. In that case, you have to turn the physical knob back the whole way, and forth again. 
 
-### OnePole
+## OnePole
 A simple CV controllable 1-pole highpass and lowpass filter.
 
-### Oscillators
+## Oscillators
 A pair of analog-style oscillators.
 * 'Shape' blends from triangle to sawtooth to pulse wave.
 * 'PW' adjusts the phase of the triangle, and the pulse wave from 0% to 100% duty cycle.
@@ -87,7 +85,7 @@ There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' mo
 
 'Out' outputs the mix of oscillator 1, the sub-oscillator, oscillator 2 and the ring modulator. The output is soft-clipped to ±10V.
 
-#### Context menu options
+### Context menu options
 * 'Oversampling rate': The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled to reduce aliasing.
 This is especially useful for FM and sync sounds.
 With no oversampling, the oscillators alias a lot.
@@ -95,7 +93,7 @@ With no oversampling, the oscillators alias a lot.
 * 'LFO mode' lets you use the module as an LFO. It lowers the frequencies of the oscillators by 7 octaves, and internally disables oversampling and the DC blocker.
 An input of 0V gives a frequency of about 2 Hz.
 
-### Tune
+## Tune
 Tune by octaves, plus coarse and fine (1 semitone) tuning.
 
 The ranges can be adjusted in the context menu.
