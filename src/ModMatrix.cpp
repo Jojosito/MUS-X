@@ -262,6 +262,8 @@ struct ModMatrix : Module {
 		_14_OUTPUT,
 		_15_OUTPUT,
 		_16_OUTPUT,
+		_KNOB_BASE_VALUES_OUTPUT,
+		_KNOB_CURRENT_VALUES_OUTPUT,
 		OUTPUTS_LEN
 	};
 	enum LightId {
@@ -351,6 +353,9 @@ struct ModMatrix : Module {
 			outs.push_back(&outputs[_1_OUTPUT + j]);
 		}
 
+		configOutput(_KNOB_BASE_VALUES_OUTPUT, "Base control knob values");
+		configOutput(_KNOB_CURRENT_VALUES_OUTPUT, "Current control knob values");
+
 		controlDivider.setDivision(1);
 		matrixDivider.setDivision(1);
 	}
@@ -359,11 +364,11 @@ struct ModMatrix : Module {
 	{
 		if (bipolar)
 		{
-			configInput(_0_INPUT, "Signal 0 (normalled to 5V)");
+			configInput(_0_INPUT, "Control knob base values (normalled to 5V)");
 		}
 		else
 		{
-			configInput(_0_INPUT, "Signal 0 (normalled to 10V)");
+			configInput(_0_INPUT, "Control knob base values (normalled to 10V)");
 		}
 
 		for (size_t j = 0; j < columns; j++)
@@ -442,6 +447,9 @@ struct ModMatrix : Module {
 			{
 				out->setChannels(channels);
 			}
+
+			outputs[_KNOB_BASE_VALUES_OUTPUT].setChannels(columns);
+			outputs[_KNOB_CURRENT_VALUES_OUTPUT].setChannels(columns);
 
 			//
 			// control
@@ -560,6 +568,13 @@ struct ModMatrix : Module {
 			}
 		}
 
+		// knob values output
+		for (size_t j = 0; j < columns; j++)
+		{
+			outputs[_KNOB_BASE_VALUES_OUTPUT].setVoltage(controlKnobBaseValues[j] * (bipolar ? 5. : 10.), j);
+			outputs[_KNOB_CURRENT_VALUES_OUTPUT].setVoltage(currentControlKnobValues[j] * (bipolar ? 5. : 10.), j);
+		}
+
 		//
 		// calc matrix
 		//
@@ -573,7 +588,7 @@ struct ModMatrix : Module {
 					if (out->isConnected())
 					{
 						// loop over ins, multiply with params
-						float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltageSimd<float_4>(c) :
+						float_4 val = inputs[_0_INPUT].isConnected() ? inputs[_0_INPUT].getPolyVoltage(j) :
 								bipolar ? 5. : 10.;
 						val *= controlKnobBaseValues[j];
 
@@ -888,6 +903,9 @@ struct ModMatrixWidget : ModuleWidget {
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(120.554, 120.21)), module, ModMatrix::_14_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(128.575, 120.21)), module, ModMatrix::_15_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(136.596, 120.21)), module, ModMatrix::_16_OUTPUT));
+
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(144.617, 8.29)), module, ModMatrix::_KNOB_BASE_VALUES_OUTPUT));
+		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(152.638, 8.29)), module, ModMatrix::_KNOB_CURRENT_VALUES_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {

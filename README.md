@@ -48,13 +48,17 @@ The outputs are clamped to ±12V.
 The recommended usage is to assign up to 16 knobs of your MIDI controller to the 'Control' knobs in the first row, and up to 12 buttons of your MIDI controller to the 'Select' buttons in the right column.
 I recommend [stoermelder's 'MIDI-CAT'](https://library.vcvrack.com/Stoermelder-P1/MidiCat). 
 
-Connect modulation sources to the 'Signal' inputs (leave input 0 disconnected), and modulation destinations to the 'Mix' outputs. 
+Connect modulation sources to the 'Signal' inputs (leave the 'Control knob base values' input disconnected), and modulation destinations to the 'Mix' outputs. 
 
-When no buttons are pressed, the 'Control' knobs control the 'base' value from -5V to 5V (in bipolar mode), or 0V to 10V (in unipolar mode). The range of the base value can be changed by connecting the 'Signal 0' input.
+When no buttons are pressed, the 'Control' knobs control the 'base' value from -5V to 5V (in bipolar mode), or 0V to 10V (in unipolar mode). 
+The range of the base value can be changed for all columns, or for each of the 16 columns individually by connecting a 16-channel polyphonic input (e.g. from [stoermelder's 'AFFIX'](https://library.vcvrack.com/Stoermelder-P1/Affix)) to the 'Control knob base values' input.
 
 Selecting a row by holding a button immediately changes the values of the 'Control' knobs to the values of the selected row. You can then control the selected row of the modulation matrix with your MIDI controller knobs.
 
 Once you release the button, the values of the 'Control' knobs revert back to their previous 'base' values.
+
+There are two extra outputs to the right of the control knobs. 'Base control knob values' outputs the 16 base values of the control knobs via 16 polyphonic channels.
+'Current control knob values' outputs the 16 current values of the control knobs via 16 polyphonic channels. This can e.g. be used to feed back values to [MindMeld's 'PatchMaster'](https://library.vcvrack.com/MindMeldModular/PatchMaster) via [stoermelder's 'CV-Map'](https://library.vcvrack.com/Stoermelder-P1/CVMap)
 
 ### Context menu options
 * 'Reduce internal sample rate': The internal sample rate can be reduced. Since modulation signals are usually not audio rate, this can be used to save CPU time.
