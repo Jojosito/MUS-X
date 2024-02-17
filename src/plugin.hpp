@@ -12,7 +12,9 @@ namespace musx {
 extern Model* modelADSR;
 extern Model* modelDelay;
 extern Model* modelDrift;
+extern Model* modelModMatrix;
 extern Model* modelOnePole;
+extern Model* modelOnePoleLP;
 extern Model* modelOscillators;
 extern Model* modelTuner;
 

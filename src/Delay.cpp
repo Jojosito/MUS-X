@@ -196,13 +196,13 @@ struct Delay : Module {
 		if (params[INVERT_PARAM].getValue())
 		{
 			// chorus mode: feedback from delay line 1
-			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
+			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.3f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
 		}
 		else
 		{
 			// output of delay line 0 (l) is is input of delay line 1 (r)
-			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[1];
-			inMono[1] = (params[FEEDBACK_PARAM].getValue() + 0.1f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
+			inMono[0] += (params[FEEDBACK_PARAM].getValue() + 0.3f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[1];
+			inMono[1] = (params[FEEDBACK_PARAM].getValue() + 0.3f * inputs[FEEDBACK_CV_INPUT].getVoltageSum()) * lastOut[0];
 		}
 
 		// saturate
