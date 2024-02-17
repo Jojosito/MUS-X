@@ -65,6 +65,16 @@
       "manualUrl": "https://github.com/Jojosito/MUS-X#onepole"
     },
     {
+      "slug": "OnePoleLP",
+      "name": "OnePoleLP",
+      "description": "Simple one-pole lowpass filter.",
+      "tags": [
+        "Filter",
+        "Polyphonic"
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#onepoleLP"
+    },
+    {
       "slug": "Drift",
       "name": "Drift",
       "description": "Random constant offset and drift.",

@@ -72,6 +72,9 @@ There are two extra outputs to the right of the control knobs. 'Base control kno
 ## OnePole
 A simple CV controllable 1-pole highpass and lowpass filter.
 
+## OnePoleLP
+A simple CV controllable 1-pole lowpass filter.
+
 ## Oscillators
 A pair of analog-style oscillators.
 * 'Shape' blends from triangle to sawtooth to pulse wave.
