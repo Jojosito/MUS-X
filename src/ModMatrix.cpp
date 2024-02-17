@@ -436,7 +436,7 @@ struct ModMatrix : Module {
 			//
 			// channels
 			//
-			channels = std::max(1, inputs[_0_INPUT].getChannels());
+			channels = 0;
 
 			for (auto& in : ins)
 			{
