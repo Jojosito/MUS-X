@@ -49,7 +49,7 @@ struct LFO : Module {
 
 	LFO() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(SHAPE_PARAM, 0.f, 10.f, 0.f, "Shape");
+		configSwitch(SHAPE_PARAM, 0.f, 6.f, 0.f, "Shape", {"Sine", "Triangle", "Square", "Ramp", "Saw", "Sample & hold", "Warped"});
 		getParamQuantity(SHAPE_PARAM)->snapEnabled = true;
 		configParam(FREQ_PARAM, -octaveRange, octaveRange, 0.f, "Frequency", " Hz", 2., 2.);
 		configParam(AMP_PARAM, 0.f, 5.f, 5.f, "Amplitude", " V");
@@ -91,36 +91,47 @@ struct LFO : Module {
 
 				// frequencies, phase increments, factors etc
 				float_4 freq = 2. * dsp::exp2_taylor5(params[FREQ_PARAM].getValue() + inputs[FREQ_INPUT].getPolyVoltageSimd<float_4>(c));
-				int32_4 phaseInc = INT32_MAX / args.sampleRate * freq * sampleRateReduction * 2;
+				int32_4 phaseInc = INT32_MAX / args.sampleRate * freq * sampleRateReduction;
 
-				phasor[c/4] += phaseInc;
 				float_4 oldWave = wave[c/4];
 
 				switch((int)params[SHAPE_PARAM].getValue())
 				{
 					case 0:
 						// sine
+						phasor[c/4] += 2*phaseInc;
 						wave[c/4] = -1. * simd::sin((float_4)(phasor[c/4]/INT32_MAX)*M_PI);
 						break;
 					case 1:
 						// tri
+						phasor[c/4] += 2*phaseInc;
 						wave[c/4] = 2. * simd::ifelse(phasor[c/4] < 0, (float_4)(phasor[c/4]/INT32_MAX), -(float_4)(phasor[c/4]/INT32_MAX)) + 1.;
 						break;
 					case 2:
-						// pulse
+						// square
+						phasor[c/4] += 2*phaseInc;
 						wave[c/4] = 2. * (float_4)(phasor[c/4] > 0 * 2. - 1.) + 1.;
 						break;
 					case 3:
 						// ramp
+						phasor[c/4] += 2*phaseInc;
 						wave[c/4] = (float_4)(phasor[c/4]/INT32_MAX);
 						break;
 					case 4:
 						// saw
+						phasor[c/4] += 2*phaseInc;
 						wave[c/4] = -(float_4)(phasor[c/4]/INT32_MAX);
 						break;
 					case 5:
 						// s&h
-						wave[c/4] = simd::ifelse(lastPhasor > phasor[c/4], rack::random::get<float>() - 0.5f, oldWave);
+						phasor[c/4] += 4*phaseInc;
+						wave[c/4] = simd::ifelse(lastPhasor > phasor[c/4], 2. * rack::random::get<float>() - 1.f, oldWave);
+						break;
+					case 6:
+						// warped
+						phasor[c/4] += phaseInc;
+						wave[c/4] = 0.7*simd::sin((float_4)(phasor[c/4]/INT32_MAX)*M_PI);
+						wave[c/4] -= simd::sin((float_4)(2*phasor[c/4]/INT32_MAX)*M_PI + 0.4 * M_PI);
 						break;
 				}
 
