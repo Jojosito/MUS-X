@@ -28,7 +28,7 @@ struct LFO : Module {
 		LIGHTS_LEN
 	};
 
-	static constexpr int octaveRange = 5;
+	static constexpr int octaveRange = 7;
 	static constexpr float minFreq = 2 * std::pow(2, -octaveRange); // Hz
 	static constexpr float maxFreq = 2 * std::pow(2,  octaveRange); // Hz
 	float logMaxOverMin = std::log(maxFreq/minFreq); // log(maxFreq/minFreq)
@@ -40,6 +40,10 @@ struct LFO : Module {
 
 	// integers overflow, so phase resets automatically
 	int32_4 phasor[4] = {0};
+
+	float_4 wave[4] = {0}; // -1..1
+
+	float_4 reset[4] = {0};
 
 	dsp::ClockDivider divider;
 
@@ -77,41 +81,53 @@ struct LFO : Module {
 			outputs[OUT_OUTPUT].setChannels(channels);
 
 			for (int c = 0; c < channels; c += 4) {
+				int32_4 lastPhasor = phasor[c/4];
+
+				// reset
+				float_4 lastReset = reset[c/4];
+				reset[c/4] = params[RESET_PARAM].getValue() + inputs[RESET_INPUT].getPolyVoltageSimd<float_4>(c);
+
+				phasor[c/4] = simd::ifelse(reset[c/4] > lastReset + 0.5, -INT32_MAX, phasor[c/4]);
+
 				// frequencies, phase increments, factors etc
 				float_4 freq = 2. * dsp::exp2_taylor5(params[FREQ_PARAM].getValue() + inputs[FREQ_INPUT].getPolyVoltageSimd<float_4>(c));
 				int32_4 phaseInc = INT32_MAX / args.sampleRate * freq * sampleRateReduction * 2;
 
 				phasor[c/4] += phaseInc;
-				float_4 out = 0; // -1..1
+				float_4 oldWave = wave[c/4];
 
 				switch((int)params[SHAPE_PARAM].getValue())
 				{
 					case 0:
 						// sine
-						out = simd::sin((float_4)(phasor[c/4]/INT32_MAX)*M_PI);
+						wave[c/4] = -1. * simd::sin((float_4)(phasor[c/4]/INT32_MAX)*M_PI);
 						break;
 					case 1:
 						// tri
-						out = phasor[c/4]/INT32_MAX;
+						wave[c/4] = 2. * simd::ifelse(phasor[c/4] < 0, (float_4)(phasor[c/4]/INT32_MAX), -(float_4)(phasor[c/4]/INT32_MAX)) + 1.;
 						break;
 					case 2:
-						//
-						out = (float_4)phasor[c/4];
+						// pulse
+						wave[c/4] = 2. * (float_4)(phasor[c/4] > 0 * 2. - 1.) + 1.;
 						break;
 					case 3:
-						//
-						out = (float_4)(phasor[c/4]/INT32_MAX);
+						// ramp
+						wave[c/4] = (float_4)(phasor[c/4]/INT32_MAX);
 						break;
 					case 4:
-						//
-						out = freq;
+						// saw
+						wave[c/4] = -(float_4)(phasor[c/4]/INT32_MAX);
+						break;
+					case 5:
+						// s&h
+						wave[c/4] = simd::ifelse(lastPhasor > phasor[c/4], rack::random::get<float>() - 0.5f, oldWave);
 						break;
 				}
 
 				// unipolar/bipolar, amplitude
 				float offset = 1 - bipolar;
 				float_4 amp = params[AMP_PARAM].getValue() + inputs[AMP_INPUT].getPolyVoltageSimd<float_4>(c);
-				outputs[OUT_OUTPUT].setVoltageSimd(amp*(out + offset), c);
+				outputs[OUT_OUTPUT].setVoltageSimd(amp*(wave[c/4] + offset), c);
 			}
 
 		}
