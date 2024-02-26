@@ -28,8 +28,10 @@ struct LFO : Module {
 		LIGHTS_LEN
 	};
 
-	static constexpr float minFreq = 0.004f; // Hz
-	static constexpr float maxFreq = 1000.f; // Hz
+	static constexpr int octaveRange = 5;
+	static constexpr float minFreq = 2 * std::pow(2, -octaveRange); // Hz
+	static constexpr float maxFreq = 2 * std::pow(2,  octaveRange); // Hz
+	float logMaxOverMin = std::log(maxFreq/minFreq); // log(maxFreq/minFreq)
 
 	int channels = 1;
 
@@ -43,9 +45,10 @@ struct LFO : Module {
 
 	LFO() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(SHAPE_PARAM, 0.f, 1.f, 0.f, "Shape");
-		configParam(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency", " Hz", maxFreq/minFreq, minFreq);
-		configParam(AMP_PARAM, 0.f, 5.f, 0.f, "Amplitude", " V");
+		configParam(SHAPE_PARAM, 0.f, 10.f, 0.f, "Shape");
+		getParamQuantity(SHAPE_PARAM)->snapEnabled = true;
+		configParam(FREQ_PARAM, -octaveRange, octaveRange, 0.f, "Frequency", " Hz", 2., 2.);
+		configParam(AMP_PARAM, 0.f, 5.f, 5.f, "Amplitude", " V");
 		configButton(RESET_PARAM, "Reset phase");
 		configInput(FREQ_INPUT, "Frequency CV");
 		configInput(AMP_INPUT, "Amplitude CV");
@@ -72,6 +75,45 @@ struct LFO : Module {
 			channels = std::max(channels, inputs[RESET_INPUT].getChannels());
 
 			outputs[OUT_OUTPUT].setChannels(channels);
+
+			for (int c = 0; c < channels; c += 4) {
+				// frequencies, phase increments, factors etc
+				float_4 freq = 2. * dsp::exp2_taylor5(params[FREQ_PARAM].getValue() + inputs[FREQ_INPUT].getPolyVoltageSimd<float_4>(c));
+				int32_4 phaseInc = INT32_MAX / args.sampleRate * freq * sampleRateReduction * 2;
+
+				phasor[c/4] += phaseInc;
+				float_4 out = 0; // -1..1
+
+				switch((int)params[SHAPE_PARAM].getValue())
+				{
+					case 0:
+						// sine
+						out = simd::sin((float_4)(phasor[c/4]/INT32_MAX)*M_PI);
+						break;
+					case 1:
+						// tri
+						out = phasor[c/4]/INT32_MAX;
+						break;
+					case 2:
+						//
+						out = (float_4)phasor[c/4];
+						break;
+					case 3:
+						//
+						out = (float_4)(phasor[c/4]/INT32_MAX);
+						break;
+					case 4:
+						//
+						out = freq;
+						break;
+				}
+
+				// unipolar/bipolar, amplitude
+				float offset = 1 - bipolar;
+				float_4 amp = params[AMP_PARAM].getValue() + inputs[AMP_INPUT].getPolyVoltageSimd<float_4>(c);
+				outputs[OUT_OUTPUT].setVoltageSimd(amp*(out + offset), c);
+			}
+
 		}
 	}
 
