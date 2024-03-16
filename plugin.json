@@ -104,6 +104,15 @@
         "Polyphonic"
       ],
       "manualUrl": "https://github.com/Jojosito/MUS-X#lfo"
+    },
+    {
+      "slug": "Last",
+      "name": "Last",
+      "description": "Output the value of the last moved knob",
+      "tags": [
+        "Utility"
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#last"
     }
   ]
 }
