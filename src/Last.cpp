@@ -24,18 +24,15 @@ struct Last : Module {
 	};
 
 	float lastKnobValues[4] = {0};
+	float epsilon = 1e-6;
 	float out = 0;
 
 	Last() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 0.f, 10.f, 0.f, "A");
-		getParamQuantity(A_PARAM)->smoothEnabled = false;
-		configParam(B_PARAM, 0.f, 10.f, 0.f, "B");
-		getParamQuantity(B_PARAM)->smoothEnabled = false;
-		configParam(C_PARAM, 0.f, 10.f, 0.f, "C");
-		getParamQuantity(C_PARAM)->smoothEnabled = false;
-		configParam(D_PARAM, 0.f, 10.f, 0.f, "D");
-		getParamQuantity(D_PARAM)->smoothEnabled = false;
+		configParam(A_PARAM, 0.f, 10.f, 0.f, "A")->smoothEnabled = false;
+		configParam(B_PARAM, 0.f, 10.f, 0.f, "B")->smoothEnabled = false;
+		configParam(C_PARAM, 0.f, 10.f, 0.f, "C")->smoothEnabled = false;
+		configParam(D_PARAM, 0.f, 10.f, 0.f, "D")->smoothEnabled = false;
 		configOutput(OUT_OUTPUT, "Last value");
 	}
 
@@ -45,6 +42,7 @@ struct Last : Module {
 			if (params[i].getValue() != lastKnobValues[i])
 			{
 				out = params[i].getValue();
+				params[i].setValue(params[i].getValue() + epsilon);
 			}
 			lastKnobValues[i] = params[i].getValue();
 		}

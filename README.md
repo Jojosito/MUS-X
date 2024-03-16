@@ -42,7 +42,7 @@ The 'Poly' input determines the polyphony channels of the output.
 A utility module, which allows to map multiple sources to one destination. 
 
 VCVRack allows any knob to be mapped by one source. Mapping another source overwrites it.
-With this module, you can map up to 4 sources to the 4 knobs. The output is always the value from the knob that is currently moved, or has been moved last. 
+With this module, you can map up to 4 sources to the 4 knobs. The output is always the value from the knob that is currently moved, or has been moved or touched last. 
 The output can be used to map to another knob via [stoermelder's 'µMAP'](https://library.vcvrack.com/Stoermelder-P1/CVMapMicro) or [stoermelder's 'CV-MAP'](https://library.vcvrack.com/Stoermelder-P1/CVMap).
 
 ## LFO
