@@ -23,16 +23,33 @@ struct Last : Module {
 		LIGHTS_LEN
 	};
 
+	float lastKnobValues[4] = {0};
+	float out = 0;
+
 	Last() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 0.f, 1.f, 0.f, "A");
-		configParam(B_PARAM, 0.f, 1.f, 0.f, "B");
-		configParam(C_PARAM, 0.f, 1.f, 0.f, "C");
-		configParam(D_PARAM, 0.f, 1.f, 0.f, "D");
+		configParam(A_PARAM, 0.f, 10.f, 0.f, "A");
+		getParamQuantity(A_PARAM)->smoothEnabled = false;
+		configParam(B_PARAM, 0.f, 10.f, 0.f, "B");
+		getParamQuantity(B_PARAM)->smoothEnabled = false;
+		configParam(C_PARAM, 0.f, 10.f, 0.f, "C");
+		getParamQuantity(C_PARAM)->smoothEnabled = false;
+		configParam(D_PARAM, 0.f, 10.f, 0.f, "D");
+		getParamQuantity(D_PARAM)->smoothEnabled = false;
 		configOutput(OUT_OUTPUT, "Last value");
 	}
 
 	void process(const ProcessArgs& args) override {
+		for (size_t i = 0; i<4; ++i)
+		{
+			if (params[i].getValue() != lastKnobValues[i])
+			{
+				out = params[i].getValue();
+			}
+			lastKnobValues[i] = params[i].getValue();
+		}
+
+		outputs[OUT_OUTPUT].setVoltage(out);
 	}
 };
 
