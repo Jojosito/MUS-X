@@ -38,6 +38,13 @@ The 'Poly' input determines the polyphony channels of the output.
 * 'Drift' adjusts the amount of a random (per voice) drift.
 * 'Drift Rate' adjusts the frequency of the random drift.
 
+## LFO
+A polyphonic low frequency oscillator with CV-controllable frequency, amplitude and phase reset.
+
+### Context menu options
+* 'Reduce internal sample rate': The internal sample rate can be reduced. Since LFO signals are usually below audio rate, this can be used to save CPU time.
+* 'Bipolar': By default, the LFO is in bipolar mode. The signal is centered around 0V, and the amplitude can be adjusted from 0 to 5V. When unchecked, the LFO is in unipolar mode, the output voltage is between 0V and 10V.
+
 ## Mod Matrix
 A polyphonic modulation matrix with 13 inputs and 16 outputs.
 It is fully MIDI-controllable with 16 knobs and 12 buttons.
