@@ -4,6 +4,15 @@ namespace musx {
 
 using namespace rack;
 
+struct ParamQuantityIsSet : ParamQuantity {
+	bool valueSet = false;
+	void setValue(float value) override
+	{
+		ParamQuantity::setValue(value);
+		valueSet = true;
+	}
+};
+
 struct Last : Module {
 	enum ParamId {
 		A_PARAM,
@@ -24,30 +33,49 @@ struct Last : Module {
 	};
 
 	float lastKnobValues[4] = {0};
-	float epsilon = 1e-6;
 	float out = 0;
+
+	bool detectChangesToSameValue = false;
 
 	Last() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(A_PARAM, 0.f, 10.f, 0.f, "A")->smoothEnabled = false;
-		configParam(B_PARAM, 0.f, 10.f, 0.f, "B")->smoothEnabled = false;
-		configParam(C_PARAM, 0.f, 10.f, 0.f, "C")->smoothEnabled = false;
-		configParam(D_PARAM, 0.f, 10.f, 0.f, "D")->smoothEnabled = false;
+		configParam<ParamQuantityIsSet>(A_PARAM, 0.f, 10.f, 0.f, "A")->smoothEnabled = false;
+		configParam<ParamQuantityIsSet>(B_PARAM, 0.f, 10.f, 0.f, "B")->smoothEnabled = false;
+		configParam<ParamQuantityIsSet>(C_PARAM, 0.f, 10.f, 0.f, "C")->smoothEnabled = false;
+		configParam<ParamQuantityIsSet>(D_PARAM, 0.f, 10.f, 0.f, "D")->smoothEnabled = false;
 		configOutput(OUT_OUTPUT, "Last value");
 	}
 
 	void process(const ProcessArgs& args) override {
 		for (size_t i = 0; i<4; ++i)
 		{
-			if (params[i].getValue() != lastKnobValues[i])
+			if (detectChangesToSameValue && static_cast<ParamQuantityIsSet*>(paramQuantities[i])->valueSet)
+			{
+				static_cast<ParamQuantityIsSet*>(paramQuantities[i])->valueSet = false;
+				out = params[i].getValue();
+			}
+			else if (params[i].getValue() != lastKnobValues[i])
 			{
 				out = params[i].getValue();
-				params[i].setValue(params[i].getValue() + epsilon);
 			}
 			lastKnobValues[i] = params[i].getValue();
 		}
 
 		outputs[OUT_OUTPUT].setVoltage(out);
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "detectChangesToSameValue", json_boolean(detectChangesToSameValue));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* detectChangesToSameValueJ = json_object_get(rootJ, "detectChangesToSameValue");
+		if (detectChangesToSameValueJ)
+		{
+			detectChangesToSameValue = json_boolean_value(detectChangesToSameValueJ);
+		}
 	}
 };
 
@@ -68,6 +96,21 @@ struct LastWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 72.283)), module, Last::D_PARAM));
 
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, Last::OUT_OUTPUT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Last* module = getModule<Last>();
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createBoolMenuItem("Detect changes to same value", "",
+			[=]() {
+				return module->detectChangesToSameValue;
+			},
+			[=](int mode) {
+				module->detectChangesToSameValue = mode;
+			}
+		));
 	}
 };
 
