@@ -115,7 +115,6 @@ This is especially useful for FM and sync sounds.
 With no oversampling, the oscillators alias a lot.
 * 'DC blocker': FM and the ring modulator can create a DC offset. Therefore, a DC blocker is enabled by default, but can be disabled in the context menu.
 * 'LFO mode' lets you use the module as an LFO. It lowers the frequencies of the oscillators to 2 Hz @ 0V, and internally disables oversampling and the DC blocker.
-An input of 0V gives a frequency of about 2 Hz.
 
 ## Tune
 Tune by octaves, plus coarse and fine (1 semitone) tuning.
