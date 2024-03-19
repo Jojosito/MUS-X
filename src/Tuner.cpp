@@ -26,13 +26,17 @@ struct Tuner : Module {
 		LIGHTS_LEN
 	};
 
-	int octaveRange = 4;
-	bool snapOctaves = true;
+	// ranges must be max, snap must be off so that parameter values can be loaded correctly
+	// order of calls: 1. constructor   2. parameter values loaded   3. dataFromJson   4. process
+	int octaveRange = 7;
+	bool snapOctaves = false;
 	int semiRange = 12;
-	bool snapSemitones = true;
+	bool snapSemitones = false;
+	bool newModule = true;
 
 	Tuner() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+		setSnap();
 		configParam(FINE_PARAM, -1.f/12.f, 1.f/12.f, 0.f, "Fine tune", " cents", 0.f, 1200.f);
 
 		configInput(VOCT1_INPUT, "V/Oct");
@@ -41,22 +45,47 @@ struct Tuner : Module {
 
 		configOutput(VOCT_OUTPUT, "V/Oct");
 
-		setSnap();
 		configBypass(VOCT1_INPUT, VOCT_OUTPUT);
 	}
 
 	void setSnap()
 	{
+		float newValue = params[OCTAVE_PARAM].getValue();
+		newValue = std::min(newValue, (float)octaveRange);
+		newValue = std::max(newValue, -(float)octaveRange);
+		if (snapOctaves)
+		{
+			newValue = (float)(int)newValue;
+		}
 		configParam(OCTAVE_PARAM, -octaveRange, octaveRange, 0.f, "Octave");
 		getParamQuantity(OCTAVE_PARAM)->snapEnabled = snapOctaves;
 		getParamQuantity(OCTAVE_PARAM)->smoothEnabled = !snapOctaves;
+		params[OCTAVE_PARAM].setValue(newValue);
 
+		newValue = params[SEMI_PARAM].getValue();
+		newValue = std::min(newValue, (float)semiRange);
+		newValue = std::max(newValue, -(float)semiRange);
+		if (snapSemitones)
+		{
+			newValue = (float)(int)newValue;
+		}
 		configParam(SEMI_PARAM, -semiRange, semiRange, 0.f, "Coarse tune", " cents", 0.f, 100.f);
 		getParamQuantity(SEMI_PARAM)->snapEnabled = snapSemitones;
 		getParamQuantity(SEMI_PARAM)->smoothEnabled = !snapSemitones;
+		params[SEMI_PARAM].setValue(newValue);
 	}
 
 	void process(const ProcessArgs& args) override {
+		if (newModule)
+		{
+			// default values for new modules
+			newModule = false;
+			octaveRange = 4;
+			snapOctaves = true;
+			snapSemitones = true;
+			setSnap();
+		}
+
 		int channels = std::max(1, inputs[VOCT1_INPUT].getChannels());
 		channels = std::max(channels, inputs[VOCT2_INPUT].getChannels());
 		channels = std::max(channels, inputs[FINE_INPUT].getChannels());
@@ -102,6 +131,7 @@ struct Tuner : Module {
 		{
 			snapSemitones = json_boolean_value(snapSemitonesJ);
 		}
+		newModule = false;
 		setSnap();
 	}
 };

@@ -171,9 +171,9 @@ struct Oscillators : Module {
 			actualOversamplingRate = oversamplingRate;
 			if (lfoMode)
 			{
-				// bring frequency down 7 octaves, ca. 2 Hz @ 0V CV/Oct input
-				freq1 /= 128;
-				freq2 /= 128;
+				// bring frequency down to 2 Hz @ 0V CV/Oct input
+				freq1 *= 2. / dsp::FREQ_C4;
+				freq2 *= 2. / dsp::FREQ_C4;
 
 				actualOversamplingRate = 1;
 			}

@@ -12,6 +12,8 @@ namespace musx {
 extern Model* modelADSR;
 extern Model* modelDelay;
 extern Model* modelDrift;
+extern Model* modelLast;
+extern Model* modelLFO;
 extern Model* modelModMatrix;
 extern Model* modelOnePole;
 extern Model* modelOnePoleLP;

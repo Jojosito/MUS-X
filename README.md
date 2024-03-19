@@ -38,6 +38,23 @@ The 'Poly' input determines the polyphony channels of the output.
 * 'Drift' adjusts the amount of a random (per voice) drift.
 * 'Drift Rate' adjusts the frequency of the random drift.
 
+## Last
+A utility module, which allows to map multiple sources to one destination.
+
+VCVRack allows any knob to be mapped by one source. Mapping another source overwrites it.
+With this module, you can map up to 4 sources to the 4 knobs. The output is always the value from the knob that is currently moved, or has been moved last. 
+The output can be used to map to another knob via [stoermelder's 'µMAP'](https://library.vcvrack.com/Stoermelder-P1/CVMapMicro) or [stoermelder's 'CV-MAP'](https://library.vcvrack.com/Stoermelder-P1/CVMap).
+
+### Context menu options
+'Detect changes to same value': If a knob is set to the same value it already had (e.g. the value is 0, and the knob is double-clicked and set to its default value, which is also 0), the output will be updated.
+
+## LFO
+A polyphonic low frequency oscillator with CV-controllable frequency, amplitude and phase reset.
+
+### Context menu options
+* 'Reduce internal sample rate': The internal sample rate can be reduced. Since LFO signals are usually below audio rate, this can be used to save CPU time.
+* 'Bipolar': By default, the LFO is in bipolar mode. The signal is centered around 0V, and the amplitude can be adjusted from 0 to 5V. When unchecked, the LFO is in unipolar mode, the output voltage is between 0V and 10V.
+
 ## Mod Matrix
 A polyphonic modulation matrix with 13 inputs and 16 outputs.
 It is fully MIDI-controllable with 16 knobs and 12 buttons.
@@ -97,8 +114,7 @@ There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' mo
 This is especially useful for FM and sync sounds.
 With no oversampling, the oscillators alias a lot.
 * 'DC blocker': FM and the ring modulator can create a DC offset. Therefore, a DC blocker is enabled by default, but can be disabled in the context menu.
-* 'LFO mode' lets you use the module as an LFO. It lowers the frequencies of the oscillators by 7 octaves, and internally disables oversampling and the DC blocker.
-An input of 0V gives a frequency of about 2 Hz.
+* 'LFO mode' lets you use the module as an LFO. It lowers the frequencies of the oscillators to 2 Hz @ 0V, and internally disables oversampling and the DC blocker.
 
 ## Tune
 Tune by octaves, plus coarse and fine (1 semitone) tuning.

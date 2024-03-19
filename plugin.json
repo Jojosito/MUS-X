@@ -72,7 +72,7 @@
         "Filter",
         "Polyphonic"
       ],
-      "manualUrl": "https://github.com/Jojosito/MUS-X#onepoleLP"
+      "manualUrl": "https://github.com/Jojosito/MUS-X#onepolelp"
     },
     {
       "slug": "Drift",
@@ -94,6 +94,25 @@
         "Utility"
       ],
       "manualUrl": "https://github.com/Jojosito/MUS-X#mod-matrix"
+    },
+    {
+      "slug": "LFO",
+      "name": "LFO",
+      "description": "Low frequency oscillator",
+      "tags": [
+        "Low-frequency oscillator",
+        "Polyphonic"
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#lfo"
+    },
+    {
+      "slug": "Last",
+      "name": "Last",
+      "description": "Output the value of the last moved knob",
+      "tags": [
+        "Utility"
+      ],
+      "manualUrl": "https://github.com/Jojosito/MUS-X#last"
     }
   ]
 }
