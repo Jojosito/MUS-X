@@ -28,10 +28,10 @@ struct LFO : Module {
 		LIGHTS_LEN
 	};
 
-	static constexpr int octaveRange = 7;
-	static constexpr float minFreq = 2 * std::pow(2, -octaveRange); // Hz
-	static constexpr float maxFreq = 2 * std::pow(2,  octaveRange); // Hz
-	float logMaxOverMin = std::log(maxFreq/minFreq); // log(maxFreq/minFreq)
+	const int octaveRange = 10;
+	const float minFreq = 2 * std::pow(2, -octaveRange); // Hz
+	const float maxFreq = 2 * std::pow(2,  octaveRange); // Hz
+	const float logMaxOverMin = std::log(maxFreq/minFreq); // log(maxFreq/minFreq)
 
 	int channels = 1;
 
