@@ -43,6 +43,11 @@ struct TOnePole {
 		b = -x;
 	}
 
+	void copyCutoffFreq(TOnePole<T> other) {
+		a = other.a;
+		b = other.b;
+	}
+
 	void process(T x) {
 		in = x;
 		tmp = a*x - b*tmp;

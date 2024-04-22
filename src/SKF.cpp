@@ -28,7 +28,8 @@ struct SKF : Module {
 	};
 
 	const float minFreq = 20.f; // min freq [Hz]
-	const float base = 20000.f/minFreq; // max freq/min freq
+	const float maxFreq = 20000.f; // min freq [Hz]
+	const float base = maxFreq/minFreq; // max freq/min freq
 	const float logBase = std::log(base);
 
 	int channels = 1;
@@ -57,9 +58,9 @@ struct SKF : Module {
 			// set cutoff
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
-			frequency = simd::clamp(frequency, 1.f, args.sampleRate/2.1f);
+			frequency = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate/2.1f));
 			filter1[c/4].setCutoffFreq(frequency / args.sampleRate);
-			filter2[c/4].setCutoffFreq(frequency / args.sampleRate);
+			filter2[c/4].copyCutoffFreq(filter1[c/4]);
 
 			// resonance
 			float_4 feedback = 10. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
