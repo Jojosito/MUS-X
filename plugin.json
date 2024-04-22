@@ -113,6 +113,15 @@
         "Utility"
       ],
       "manualUrl": "https://github.com/Jojosito/MUS-X#last"
+    },
+    {
+      "slug": "SKF",
+      "name": "SKF",
+      "description": "A Sallen-Key Filter",
+      "tags": [
+        "Filter",
+        "Polyphonic"
+      ]
     }
   ]
 }
