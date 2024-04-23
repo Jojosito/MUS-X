@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "dsp/decimator.hpp"
 #include "dsp/filters.hpp"
 #include "dsp/functions.hpp"
 
@@ -33,6 +34,10 @@ struct SKF : Module {
 	const float base = maxFreq/minFreq; // max freq/min freq
 	const float logBase = std::log(base);
 
+	static const int maxOversamplingRate = 1024;
+	int oversamplingRate = 16;
+	HalfBandDecimatorCascade<float_4> decimator[4];
+
 	int channels = 1;
 
 	musx::TOnePole<float_4> filter1[4];
@@ -60,31 +65,58 @@ struct SKF : Module {
 			// set cutoff
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
-			frequency = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate/2.2f));
-			filter1[c/4].setCutoffFreq(frequency / args.sampleRate);
+			frequency = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 2.2f));
+			filter1[c/4].setCutoffFreq(frequency / args.sampleRate / oversamplingRate);
 			filter2[c/4].copyCutoffFreq(filter1[c/4]);
 
 			// resonance
 			float_4 feedback = 10. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
 
-			// filtering
-			switch ((int)params[TYPE_PARAM].getValue())
+
+			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
+
+			for (int i = 0; i < oversamplingRate; ++i)
 			{
-			case 0: // LP
-				filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
-				filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
-				outputs[OUT_OUTPUT].setVoltageSimd(filter2[c/4].lowpass(), c);
-				break;
-			case 1: // BP
-				filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
-				filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
-				outputs[OUT_OUTPUT].setVoltageSimd(filter2[c/4].highpass(), c);
-				break;
-			case 2: // HP
-				filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].lowpass()));
-				filter2[c/4].process(cheapSaturator(filter1[c/4].highpass()));
-				outputs[OUT_OUTPUT].setVoltageSimd(filter2[c/4].highpass(), c);
+
+				// filtering
+				switch ((int)params[TYPE_PARAM].getValue())
+				{
+				case 0: // LP
+					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
+					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
+					inBuffer[i] = filter2[c/4].lowpass();
+					break;
+				case 1: // BP
+					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
+					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
+					inBuffer[i] = filter2[c/4].highpass();
+					break;
+				case 2: // HP
+					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].lowpass()));
+					filter2[c/4].process(cheapSaturator(filter1[c/4].highpass()));
+					inBuffer[i] = filter2[c/4].highpass();
+				}
 			}
+
+			// downsampling
+			float_4 out = decimator[c/4].process(oversamplingRate);
+
+			outputs[OUT_OUTPUT].setVoltageSimd(out, c);
+		}
+	}
+
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* oversamplingRateJ = json_object_get(rootJ, "oversamplingRate");
+		if (oversamplingRateJ)
+		{
+			oversamplingRate = json_integer_value(oversamplingRateJ);
 		}
 	}
 };
@@ -110,6 +142,21 @@ struct SKFWidget : ModuleWidget {
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 96.375)), module, SKF::IN_INPUT));
 
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, SKF::OUT_OUTPUT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		SKF* module = getModule<SKF>();
+
+		menu->addChild(new MenuSeparator);
+
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x", "256x", "512x", "1024x"},
+			[=]() {
+				return log2(module->oversamplingRate);
+			},
+			[=](int mode) {
+				module->oversamplingRate = std::pow(2, mode);
+			}
+		));
 	}
 };
 
