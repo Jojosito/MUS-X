@@ -12,7 +12,7 @@ struct SKF : Module {
 	enum ParamId {
 		CUTOFF_PARAM,
 		RESONANCE_PARAM,
-		TYPE_PARAM,
+		MODE_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -47,7 +47,7 @@ struct SKF : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(TYPE_PARAM, 0, 2, 0, "Type", {"Lowpass", "Bandpass", "Highpass"});
+		configSwitch(MODE_PARAM, 0, 2, 0, "Mode", {"Lowpass", "Bandpass", "Highpass"});
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
 		configInput(RESONANCE_INPUT, "Resonance CV");
 		configInput(IN_INPUT, "Audio");
@@ -79,7 +79,7 @@ struct SKF : Module {
 			{
 
 				// filtering
-				switch ((int)params[TYPE_PARAM].getValue())
+				switch ((int)params[MODE_PARAM].getValue())
 				{
 				case 0: // LP
 					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
@@ -125,7 +125,7 @@ struct SKF : Module {
 struct SKFWidget : ModuleWidget {
 	SKFWidget(SKF* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/SKF.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/SKF.svg"), asset::plugin(pluginInstance, "res/SKF-dark.svg")));
 
 		addChild(createWidget<ThemedScrew>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
@@ -133,12 +133,13 @@ struct SKFWidget : ModuleWidget {
 		addChild(createWidget<ThemedScrew>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 16.062)), module, SKF::CUTOFF_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 48.188)), module, SKF::RESONANCE_PARAM));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 26.26)), module, SKF::CUTOFF_INPUT));
 
-		addParam(createParamCentered<NKK>(mm2px(Vec(7.62, 80.)), module, SKF::TYPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 44.52)), module, SKF::RESONANCE_PARAM));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 54.59)), module, SKF::RESONANCE_INPUT));
 
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 32.125)), module, SKF::CUTOFF_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 64.25)), module, SKF::RESONANCE_INPUT));
+		addParam(createParamCentered<NKK>(mm2px(Vec(7.62, 72.04)), module, SKF::MODE_PARAM));
+
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 96.375)), module, SKF::IN_INPUT));
 
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 112.438)), module, SKF::OUT_OUTPUT));
