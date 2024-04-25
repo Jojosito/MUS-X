@@ -65,8 +65,11 @@ struct SKF : Module {
 			// set cutoff
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
-			frequency = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 2.2f));
-			filter1[c/4].setCutoffFreq(frequency / args.sampleRate / oversamplingRate);
+			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 2.2f));
+			frequency /= args.sampleRate * oversamplingRate;
+			frequency  = (simd::exp(12.45 * frequency) - 1.) / 12.45; // prewarp. I fitted this, its not perfect, but good enough
+
+			filter1[c/4].setCutoffFreq(frequency);
 			filter2[c/4].copyCutoffFreq(filter1[c/4]);
 
 			// resonance
