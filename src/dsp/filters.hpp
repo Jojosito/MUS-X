@@ -69,6 +69,62 @@ struct TOnePole {
 	}
 };
 
+/**
+ * 1 pole zdf lowpass/highpass
+ */
+template <typename T = float>
+struct TOnePoleZDF {
+	T g = 0.f;
+	T x;
+	T y;
+	T z;
+
+	TOnePoleZDF() {
+		reset();
+	}
+
+	void reset() {
+		x = {0.f};
+		y = {0.f};
+		z = {0.f};
+	}
+
+	/** Sets the cutoff frequency.
+	`f` is the ratio between the cutoff frequency and sample rate, i.e. f = f_c / f_s
+	*/
+	void setCutoffFreq(T f) {
+		f = (simd::exp(12.45 * f) - 1.) / 12.45; // I fitted this, its not perfect, but good enough
+		f = M_PI * f;
+		g = f / (1. + f);
+	}
+
+	void copyCutoffFreq(TOnePoleZDF<T> other) {
+		g = other.g;
+	}
+
+	void process(T in) {
+		x = in;
+		T v = (x - z) * g;
+		y = v + z;
+		z = y + v;
+	}
+
+	inline T processLowpass(T in) {
+		process(in);
+		return y;
+	}
+
+	T lowpass()
+	{
+		return y;
+	}
+
+	T highpass()
+	{
+		return x - y;
+	}
+};
+
 
 /**
  * 4 pole lowpass

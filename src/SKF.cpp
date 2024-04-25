@@ -30,7 +30,7 @@ struct SKF : Module {
 	};
 
 	const float minFreq = 20.f; // min freq [Hz]
-	const float maxFreq = 20000.f; // max freq [Hz]
+	const float maxFreq = 20480.f; // max freq [Hz] // must be 10 octaves for 1V/Oct cutoff CV scaling to work!
 	const float base = maxFreq/minFreq; // max freq/min freq
 	const float logBase = std::log(base);
 
@@ -40,8 +40,8 @@ struct SKF : Module {
 
 	int channels = 1;
 
-	musx::TOnePole<float_4> filter1[4];
-	musx::TOnePole<float_4> filter2[4];
+	musx::TOnePoleZDF<float_4> filter1[4];
+	musx::TOnePoleZDF<float_4> filter2[4];
 
 	SKF() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
