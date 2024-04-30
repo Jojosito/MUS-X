@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include <math.hpp>
 #include "dsp/decimator.hpp"
 #include "dsp/filters.hpp"
 #include "dsp/functions.hpp"
@@ -43,6 +44,8 @@ struct SKF : Module {
 	musx::TOnePoleZDF<float_4> filter1[4];
 	musx::TOnePoleZDF<float_4> filter2[4];
 
+	float_4 prevInput[4] = {0};
+
 	SKF() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
@@ -80,26 +83,30 @@ struct SKF : Module {
 
 			for (int i = 0; i < oversamplingRate; ++i)
 			{
+				// linear interpolation for input
+				float_4 in = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i+1.f)/oversamplingRate);
 
 				// filtering
 				switch ((int)params[MODE_PARAM].getValue())
 				{
 				case 0: // LP
-					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
+					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].highpass()));
 					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
 					inBuffer[i] = filter2[c/4].lowpass();
 					break;
 				case 1: // BP
-					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].highpass()));
+					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].highpass()));
 					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
 					inBuffer[i] = filter2[c/4].highpass();
 					break;
 				case 2: // HP
-					filter1[c/4].process(inputs[IN_INPUT].getVoltageSimd<float_4>(c) + cheapSaturator(feedback * filter2[c/4].lowpass()));
+					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].lowpass()));
 					filter2[c/4].process(cheapSaturator(filter1[c/4].highpass()));
 					inBuffer[i] = filter2[c/4].highpass();
 				}
 			}
+
+			prevInput[c/4] = inputs[IN_INPUT].getVoltageSimd<float_4>(c);
 
 			// downsampling
 			float_4 out = decimator[c/4].process(oversamplingRate);

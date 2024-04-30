@@ -93,7 +93,6 @@ struct TOnePoleZDF {
 	`f` is the ratio between the cutoff frequency and sample rate, i.e. f = f_c / f_s
 	*/
 	void setCutoffFreq(T f) {
-		f = (simd::exp(12.45 * f) - 1.) / 12.45; // I fitted this, its not perfect, but good enough
 		f = M_PI * f;
 		g = f / (1. + f);
 	}
