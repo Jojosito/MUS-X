@@ -15,6 +15,7 @@ private:
 	// sample rates
 	int sampleRate;
 	int oversamplingRate = 1;
+	float oneOverSampleRateTimesOversamplingRate;
 
 	// parameters
 	float_4 osc1Freq[4] = {0};
@@ -38,6 +39,7 @@ public:
 	inline void setSampleRate(int sr)
 	{
 		sampleRate = sr;
+		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
 		for (int c = 0; c < 16; c += 4)
 		{
 			setFmAmount(fmUnscaled[c/4], c);
@@ -47,6 +49,7 @@ public:
 	inline void setOversamplingRate(int n)
 	{
 		oversamplingRate = n;
+		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
 		for (int c = 0; c < 16; c += 4)
 		{
 			setFmAmount(fmUnscaled[c/4], c);
@@ -147,14 +150,14 @@ public:
 	// calculate output, fill buffer with #oversamplingRate samples
 	void process(float_4* buffer, int c)
 	{
-		int32_4 phase1SubInc = INT32_MAX / sampleRate * osc1Freq[c/4] / oversamplingRate;
+		int32_4 phase1SubInc = INT32_MAX * osc1Freq[c/4] * oneOverSampleRateTimesOversamplingRate;
 		int32_4 phase1Inc = phase1SubInc + phase1SubInc;
 		float_4 tri1Amt = 2.f * simd::fmax(-osc1Shape[c/4], 0.f);  // [2, 0, 0]
 		float_4 sawSq1Amt = simd::fmin(1.f + osc1Shape[c/4], 1.f); // [0, 1, 1]
 		float_4 sq1Amt = simd::fmax(osc1Shape[c/4], 0.f);          // [0, 0, 1]
 		int32_4 phase1Offset = simd::ifelse(osc1PW[c/4] < 0, (-1.f - osc1PW[c/4]) * INT32_MAX, (1.f - osc1PW[c/4]) * INT32_MAX); // for pulse wave = saw + inverted saw with phaseshift
 
-		int32_4 phase2Inc = INT32_MAX / sampleRate * osc2Freq[c/4] / oversamplingRate * 2;
+		int32_4 phase2Inc = INT32_MAX * osc2Freq[c/4] * 2 * oneOverSampleRateTimesOversamplingRate;
 		float_4 tri2Amt = 2.f * simd::fmax(-osc2Shape[c/4], 0.f);
 		float_4 sawSq2Amt = simd::fmin(1.f + osc2Shape[c/4], 1.f);
 		float_4 sq2Amt = simd::fmax(osc2Shape[c/4], 0.f);
