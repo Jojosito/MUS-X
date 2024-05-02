@@ -51,8 +51,6 @@ struct Oscillators : Module {
 	OscillatorsBlock oscBlock;
 
 	static const int maxOversamplingRate = 1024;
-	static const int minFreq = 0.0001f; // min frequency of the oscillators in Hz
-	static const int maxFreq = 20000.f; // max frequency of the oscillators in Hz
 
 	bool lfoMode = false;
 
@@ -139,19 +137,17 @@ struct Oscillators : Module {
 			oscBlock.setRingmodVol(params[RINGMOD_PARAM].getValue() + 0.1f *inputs[RINGMOD_INPUT].getPolyVoltageSimd<float_4>(c), c);
 
 
-			// frequencies, phase increments, factors etc
-			float_4 freq1 = dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c));
-			float_4 freq2 = dsp::FREQ_C4 * dsp::exp2_taylor5(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c));
-
+			// frequencies
 			if (lfoMode)
 			{
-				// bring frequency down to 2 Hz @ 0V CV/Oct input
-				freq1 *= 2. / dsp::FREQ_C4;
-				freq2 *= 2. / dsp::FREQ_C4;
+				oscBlock.setOsc1FreqVOctLFO(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c), c);
+				oscBlock.setOsc2FreqVOctLFO(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c), c);
 			}
-
-			oscBlock.setOsc1Freq(simd::clamp(freq1, minFreq, maxFreq), c);
-			oscBlock.setOsc2Freq(simd::clamp(freq2, minFreq, maxFreq), c);
+			else
+			{
+				oscBlock.setOsc1FreqVOct(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c), c);
+				oscBlock.setOsc2FreqVOct(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c), c);
+			}
 
 
 			// calculate the oversampled oscillators

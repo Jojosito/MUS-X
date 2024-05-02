@@ -17,14 +17,18 @@ private:
 	int oversamplingRate = 1;
 	float oneOverSampleRateTimesOversamplingRate;
 
+	// freq limits
+	float minFreq = 0.0001f; // [Hz]
+	float maxFreq = 20000.f; // [Hz]
+
 	// parameters
-	float_4 osc1Freq[4] = {0};
+	float_4 osc1Freq[4] = {0}; // [Hz]
 	float_4 osc1Shape[4] = {0};
 	float_4 osc1PW[4] = {0};
 	float_4 osc1Vol[4] = {0};
 	float_4 osc1Subvol[4] = {0};
 
-	float_4 osc2Freq[4] = {0};
+	float_4 osc2Freq[4] = {0}; // [Hz]
 	float_4 osc2Shape[4] = {0};
 	float_4 osc2PW[4] = {0};
 	float_4 osc2Vol[4] = {0};
@@ -46,6 +50,7 @@ public:
 		}
 	}
 
+	// set oversampling factor
 	inline void setOversamplingRate(int n)
 	{
 		oversamplingRate = n;
@@ -56,10 +61,35 @@ public:
 		}
 	}
 
-	// set oscillator 1 frequency [Hz]
-	inline void setOsc1Freq(float_4 freq, int c)
+	// set oscillators minimum frequency [Hz]
+	void setMinFreq(float freq)
 	{
-		osc1Freq[c/4] = freq;
+		minFreq = freq;
+	}
+
+	// set oscillators maximum frequency [Hz]
+	void setMaxFreq(float freq)
+	{
+		maxFreq = freq;
+	}
+
+
+	// set oscillator 1 frequency in V/Oct. 0 V = C4 [V]
+	inline void setOsc1FreqVOct(float_4 freq, int c)
+	{
+		osc1Freq[c/4] = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(freq), minFreq, maxFreq);
+	}
+
+	// set oscillator 1 frequency in V/Oct. 0 V = 2 Hz [V]
+	inline void setOsc1FreqVOctLFO(float_4 freq, int c)
+	{
+		osc1Freq[c/4] = simd::clamp(2. * dsp::exp2_taylor5(freq), minFreq, maxFreq);
+	}
+
+	// set oscillator 1 frequency [Hz]
+	inline void setOsc1FreqHz(float_4 freq, int c)
+	{
+		osc1Freq[c/4] = simd::clamp(freq, minFreq, maxFreq);
 	}
 
 	// set oscillator 1 shape [-1..1]
@@ -89,10 +119,22 @@ public:
 	}
 
 
+	// set oscillator 2 frequency in V/Oct. 0 V = C4 [V]
+	inline void setOsc2FreqVOct(float_4 freq, int c)
+	{
+		osc2Freq[c/4] = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(freq), minFreq, maxFreq);
+	}
+
+	// set oscillator 2 frequency in V/Oct. 0 V = 2 Hz [V]
+	inline void setOsc2FreqVOctLFO(float_4 freq, int c)
+	{
+		osc2Freq[c/4] = simd::clamp(2. * dsp::exp2_taylor5(freq), minFreq, maxFreq);
+	}
+
 	// set oscillator 2 frequency [Hz]
 	inline void setOsc2Freq(float_4 freq, int c)
 	{
-		osc2Freq[c/4] = freq;
+		osc2Freq[c/4] = simd::clamp(freq, minFreq, maxFreq);
 	}
 
 	// set oscillator 2 shape [-1..1]
