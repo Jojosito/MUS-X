@@ -74,6 +74,17 @@ public:
 	}
 
 
+	// reset oscillator phases
+	inline void resetPhases()
+	{
+		for (int c = 0; c < 16; c += 4)
+		{
+			phasor1Sub[c/4] = 0.;
+			phasor2[c/4] = 0.;
+		}
+	}
+
+
 	// set oscillator 1 frequency in V/Oct. 0 V = C4 [V]
 	inline void setOsc1FreqVOct(float_4 freq, int c)
 	{
@@ -178,18 +189,10 @@ public:
 	}
 
 
-	// reset oscillator phases
-	inline void resetPhases()
-	{
-		for (int c = 0; c < 16; c += 4)
-		{
-			phasor1Sub[c/4] = 0.;
-			phasor2[c/4] = 0.;
-		}
-	}
-
-
 	// calculate output, fill buffer with #oversamplingRate samples
+	// output can have DC offset when using fm or ringmod
+	// output in NOT bound to +-10V. The individual components (osc1, subosc, osc2, ringmod) are within +-10V
+	// it is recommended to feed the output through a DC blocker and saturator
 	void process(float_4* buffer, int c)
 	{
 		int32_4 phase1SubInc = INT32_MAX * osc1Freq[c/4] * oneOverSampleRateTimesOversamplingRate;
