@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "../dsp/functions.hpp"
 
 namespace musx {
 
@@ -40,18 +41,19 @@ private:
 
 public:
 	// set sample rate [Hz]
-	inline void setSampleRate(int sr)
+	void setSampleRate(int sr)
 	{
 		sampleRate = sr;
 		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
 		for (int c = 0; c < 16; c += 4)
 		{
 			setFmAmount(fmUnscaled[c/4], c);
+
 		}
 	}
 
 	// set oversampling factor
-	inline void setOversamplingRate(int n)
+	void setOversamplingRate(int n)
 	{
 		oversamplingRate = n;
 		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
@@ -239,6 +241,99 @@ public:
 
 			buffer[i] = out;
 		}
+	}
+
+	void processWithPolyBlep(float_4* buffer, int c)
+	{
+		int32_4 phase1SubInc 	= INT32_MAX * osc1Freq[c/4] * oneOverSampleRateTimesOversamplingRate;
+		int32_4 phase1Inc 		= phase1SubInc + phase1SubInc;
+		float_4 tri1Amt 		= simd::fmax(-osc1Shape[c/4], 0.f);  		// [1, 0, 0]
+		float_4 sawSq1Amt 		= simd::fmin(1.f + osc1Shape[c/4], 1.f); 	// [0, 1, 1]
+		float_4 sq1Amt 			= simd::fmax(osc1Shape[c/4], 0.f);          // [0, 0, 1]
+		int32_4 phase1Offset 	= simd::ifelse(osc1PW[c/4] < 0, (-1.f - osc1PW[c/4]) * INT32_MAX, (1.f - osc1PW[c/4]) * INT32_MAX); // for pulse wave = saw + inverted saw with phaseshift
+
+		int32_4 phase2Inc 		= INT32_MAX * osc2Freq[c/4] * 2 * oneOverSampleRateTimesOversamplingRate;
+		float_4 tri2Amt 		= simd::fmax(-osc2Shape[c/4], 0.f);
+		float_4 sawSq2Amt 		= simd::fmin(1.f + osc2Shape[c/4], 1.f);
+		float_4 sq2Amt 			= simd::fmax(osc2Shape[c/4], 0.f);
+		int32_4 phase2Offset 	= simd::ifelse(osc2PW[c/4] < 0, (-1.f - osc2PW[c/4]) * INT32_MAX, (1.f - osc2PW[c/4]) * INT32_MAX); // for pulse wave
+
+		// calculate the oversampled oscillators and mix
+		for (int i = 0; i < oversamplingRate; ++i)
+		{
+			// phasors for subosc 1 and osc 1
+			phasor1Sub[c/4] += phase1SubInc;
+			int32_4 phasor1 = phasor1Sub[c/4] + phasor1Sub[c/4];
+			int32_4 phasor1Offset = phasor1 + phase1Offset;
+
+			// osc 1 waveform
+			int32_4 tri1 = 2 * (simd::ifelse(phasor1Offset < 0, phasor1Offset, -phasor1Offset) + INT32_MAX/2); // +-INT32_MAX
+			float_4 wave1 = tri1Amt * blamp(tri1, oversamplingRate * phase1Inc); // +-INT32_MAX
+			wave1 += sawSq1Amt * (blep(phasor1Offset, oversamplingRate * phase1Inc) * sq1Amt - 1.f * blep(phasor1, oversamplingRate * phase1Inc)); // +-INT32_MAX
+
+			// osc 1 suboscillator
+			float_4 sub1 = 1.f * (blep(phasor1Sub[c/4] + INT32_MAX, oversamplingRate * phase1SubInc)) - 1.f * blep(phasor1Sub[c/4], oversamplingRate * phase1SubInc); // +-INT32_MAX
+
+			// phasor for osc 2
+			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * wave1);
+			phasor2[c/4] += phase2IncWithFm;
+
+			// sync / reset phasor2 ?
+			// TODO fractional reset
+			phasor2[c/4] -= (sync[c/4] & (phasor1 + phase1Inc < phasor1)) * (phasor2[c/4] + INT32_MAX);
+			int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
+
+			// osc 2 waveform
+			int32_4 tri2 = 2 * (simd::ifelse(phasor2Offset < 0, phasor2Offset, -phasor2Offset) + INT32_MAX/2); // +-INT32_MAX
+			float_4 wave2 = tri2Amt * blamp(tri2, phase2IncWithFm); // +-INT32_MAX
+			wave2 += sawSq2Amt * (blep(phasor2Offset, phase2IncWithFm) * sq2Amt - 1.f * blep(phasor2[c/4], phase2IncWithFm)); // +-INT32_MAX
+
+			// mix
+			float_4 out = osc1Subvol[c/4] * sub1 + osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmodVol[c/4] * wave1 * wave2; // +-5V each
+
+			buffer[i] = out;
+		}
+	}
+
+private:
+	/**
+	 * polyBLEP for a ramp wave [-INT32_MAX..INT32_MAX]
+	 */
+	int32_4 blep(float_4 ramp, float_4 deltaY)
+	{
+		float_4 thresholdY = INT32_MAX - deltaY;
+		float_4 rampWithBlep = ramp/INT32_MAX; // [-1..1]
+
+		// step is less than deltaY ahead
+		float_4 x = (ramp - INT32_MAX) / deltaY; // [-1..0]
+		rampWithBlep -= simd::ifelse(ramp > thresholdY, x*x+x+x+1., 0);
+
+		// step was less than deltaY ago
+		x = (ramp + INT32_MAX) / deltaY; // [0..1]
+		rampWithBlep -= simd::ifelse(ramp < -thresholdY, x+x-x*x-1., 0);
+
+		return rampWithBlep * INT32_MAX;
+	}
+
+	/**
+	 * polyBLAMP for a triangle wave [-INT32_MAX..INT32_MAX]
+	 */
+	int32_4 blamp(float_4 tri, float_4 deltaY)
+	{
+		float_4 thresholdY = INT32_MAX - deltaY;
+		float_4 triWithBlamp = tri/INT32_MAX; // [-1..1]
+
+		float_4 factor = 0.5 * deltaY / INT32_MAX;
+
+		// bottom of triangle
+		float_4 x = (tri + INT32_MAX) / deltaY; // [1..0..1]
+		triWithBlamp += simd::ifelse(tri < -thresholdY, factor*(x-1)*(x-1), 0);
+
+		// top of triangle
+		x = (tri - INT32_MAX) / deltaY; // [-1..0..-1]
+		triWithBlamp -= simd::ifelse(tri > thresholdY, factor*(x+1)*(x+1), 0);
+
+		return triWithBlamp * INT32_MAX;
 	}
 };
 

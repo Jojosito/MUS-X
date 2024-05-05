@@ -2,7 +2,6 @@
 #include "blocks/OscillatorsBlock.hpp"
 #include "dsp/decimator.hpp"
 #include "dsp/filters.hpp"
-#include "dsp/functions.hpp"
 
 namespace musx {
 
@@ -55,8 +54,8 @@ struct Oscillators : Module {
 	bool lfoMode = false;
 
 	int sampleRate = 48000;
-	int oversamplingRate = 16;
-	int actualOversamplingRate = 16;
+	int oversamplingRate = 8;
+	int actualOversamplingRate = oversamplingRate;
 
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
@@ -65,7 +64,10 @@ struct Oscillators : Module {
 	bool dcBlock = true;
 	musx::TOnePole<float_4> dcBlocker[4];
 
+	bool antiAliasing = true;
+
 	dsp::ClockDivider lightDivider;
+
 
 	Oscillators() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -152,7 +154,15 @@ struct Oscillators : Module {
 
 			// calculate the oversampled oscillators
 			float_4* inBuffer = decimator[c/4].getInputArray(actualOversamplingRate);
-			oscBlock.process(inBuffer, c);
+
+			if (antiAliasing)
+			{
+				oscBlock.processWithPolyBlep(inBuffer, c);
+			}
+			else
+			{
+				oscBlock.process(inBuffer, c);
+			}
 
 			// dc blocker and saturator
 			bool calcDcBlock = dcBlock && !lfoMode;
@@ -184,6 +194,7 @@ struct Oscillators : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
+		json_object_set_new(rootJ, "antiAliasing", json_boolean(antiAliasing));
 		json_object_set_new(rootJ, "dcBlock", json_boolean(dcBlock));
 		json_object_set_new(rootJ, "lfoMode", json_boolean(lfoMode));
 		return rootJ;
@@ -194,6 +205,11 @@ struct Oscillators : Module {
 		if (oversamplingRateJ)
 		{
 			setOversamplingRate(json_integer_value(oversamplingRateJ));
+		}
+		json_t* antiAliasingJ = json_object_get(rootJ, "antiAliasing");
+		if (antiAliasingJ)
+		{
+			antiAliasing = (json_boolean_value(antiAliasingJ));
 		}
 		json_t* dcBlockJ = json_object_get(rootJ, "dcBlock");
 		if (dcBlockJ)
@@ -257,6 +273,15 @@ struct OscillatorsWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->setOversamplingRate(std::pow(2, mode));
+			}
+		));
+
+		menu->addChild(createBoolMenuItem("Anti-aliasing (polyBLEP & polyBLAMP)", "",
+			[=]() {
+				return module->antiAliasing;
+			},
+			[=](int mode) {
+				module->antiAliasing = mode;
 			}
 		));
 

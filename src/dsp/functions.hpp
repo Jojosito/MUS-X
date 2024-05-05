@@ -28,4 +28,23 @@ inline float_4 cheapSaturator(float_4 x)
 	return x - 1.f/675.f * x*x*x;
 }
 
+/** Limits the derivative of the output by a slew rate, in units/tick. */
+template <typename T = float>
+struct TSlewLimiter {
+	T out = 0.f;
+	T slew = 0.f;
+
+	void reset() {
+		out = 0.f;
+	}
+
+	void setMaxSlew(T slew) {
+		this->slew = slew;
+	}
+	T process(T in) {
+		out = simd::clamp(in, out - slew, out + slew);
+		return out;
+	}
+};
+
 }
