@@ -157,7 +157,7 @@ struct Oscillators : Module {
 
 			if (antiAliasing)
 			{
-				oscBlock.processWithPolyBlep(inBuffer, c);
+				oscBlock.processBandlimited(inBuffer, c);
 			}
 			else
 			{
