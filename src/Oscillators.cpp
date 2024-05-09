@@ -47,15 +47,15 @@ struct Oscillators : Module {
 		LIGHTS_LEN
 	};
 
-	OscillatorsBlock oscBlock;
+	static const size_t maxOversamplingRate = 1024;
 
-	static const int maxOversamplingRate = 1024;
+	OscillatorsBlock<maxOversamplingRate> oscBlock;
 
 	bool lfoMode = false;
 
-	int sampleRate = 48000;
-	int oversamplingRate = 8;
-	int actualOversamplingRate = oversamplingRate;
+	size_t sampleRate = 48000;
+	size_t oversamplingRate = 8;
+	size_t actualOversamplingRate = oversamplingRate;
 
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
@@ -104,7 +104,7 @@ struct Oscillators : Module {
 		setOversamplingRate(oversamplingRate);
 	}
 
-	void setOversamplingRate(int arg)
+	void setOversamplingRate(size_t arg)
 	{
 		oversamplingRate = arg;
 
@@ -166,7 +166,7 @@ struct Oscillators : Module {
 
 			// dc blocker and saturator
 			bool calcDcBlock = dcBlock && !lfoMode;
-			for (int i = 0; i < actualOversamplingRate; ++i)
+			for (size_t i = 0; i < actualOversamplingRate; ++i)
 			{
 				// DC blocker
 				if (calcDcBlock)
@@ -269,10 +269,10 @@ struct OscillatorsWidget : ModuleWidget {
 
 		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x", "256x", "512x", "1024x"},
 			[=]() {
-				return log2(module->oversamplingRate);
+				return log2((int)module->oversamplingRate);
 			},
 			[=](int mode) {
-				module->setOversamplingRate(std::pow(2, mode));
+				module->setOversamplingRate((size_t)std::pow(2, mode));
 			}
 		));
 
