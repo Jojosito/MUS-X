@@ -289,7 +289,6 @@ public:
 			float_4 out = 0;
 
 			// phasors and bleps for subosc 1
-			phasor1Sub[c/4] += phase1SubInc;
 
 			// phasors and bleps for osc 1
 			int32_4 phasor1 = phasor1Sub[c/4] + phasor1Sub[c/4];
@@ -318,7 +317,7 @@ public:
 					wave1 += -sawSq1Amt * phasor1; // +-INT32_MAX
 				}
 
-				osc1Blep[c/4].insertBlep(float_4(INT32_MAX - phasor1) / (oversamplingRate * phase1Inc), -sawSq1Amt * INT32_MAX/2, oversamplingRate);
+				osc1Blep[c/4].insertBlep(float_4(INT32_MAX - phasor1) / (oversamplingRate * phase1Inc), sawSq1Amt * INT32_MAX, oversamplingRate);
 			}
 
 			if (calcSub)
@@ -332,6 +331,7 @@ public:
 				out += osc1Subvol[c/4] * sub1;
 			}
 
+			phasor1Sub[c/4] += phase1SubInc;
 
 			//
 			// osc 2
@@ -386,13 +386,14 @@ public:
 			}
 
 			// apply bleps
-			wave1 += osc1Blep[c/4].process(oversamplingRate);
+			wave2 = wave1; // test
+			wave1 = osc1Blep[c/4].process();
 //			wave2 += osc2Blep[c/4].process();
 
 			out += osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmodVol[c/4] * wave1 * wave2; // +-5V each
 
 			buffer[i] = out;
-//			buffer[i] = osc1Blep[c/4].process(oversamplingRate) / INT32_MAX;
+//			buffer[i] = osc1Blep[c/4].process();
 
 			// bookkeeping
 			phasor1Old[c/4] = phasor1;
