@@ -289,19 +289,18 @@ public:
 			float_4 wave2 = 0;
 			float_4 out = 0;
 
-			// phasors and bleps for subosc 1
 
-			// phasors and bleps for osc 1
+			// phasors for osc 1
 			int32_4 phasor1 = phasor1Sub[c/4] + phasor1Sub[c/4];
 			int32_4 phasor1Offset = phasor1 + phase1Offset;
 
 			if (calcTri1)
 			{
-				// triangle and blamp
 				float_4 tri1 = -2 * simd::abs(phasor1Offset) + INT32_MAX; // +-INT32_MAX
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
+				// TODO does not work when freq > f_s/4
 				osc1Blep[c/4].insertBlamp(
 						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2.*phase1Inc),
 						simd::sgn((float_4)phasor1Offset) * tri1Amt * phase1Inc,
@@ -313,10 +312,10 @@ public:
 			{
 				if (calcSq1)
 				{
-					wave1 += sawSq1Amt * (sq1Amt * phasor1Offset - 1. * phasor1); // +-INT32_MAX
+					wave1 += sawSq1Amt * (sq1Amt * phasor1Offset - 1.f * phasor1); // +-INT32_MAX
 
 					osc1Blep[c/4].insertBlep(
-							float_4(INT32_MAX - phasor1Offset) / (1. * oversamplingRate * phase1Inc),
+							float_4(INT32_MAX - phasor1Offset) / (1.f * oversamplingRate * phase1Inc),
 							-sawSq1Amt * sq1Amt * INT32_MAX,
 							oversamplingRate);
 				}
@@ -326,7 +325,7 @@ public:
 				}
 
 				osc1Blep[c/4].insertBlep(
-						float_4(INT32_MAX - phasor1) / (1. * oversamplingRate * phase1Inc),
+						float_4(INT32_MAX - phasor1) / (1.f * oversamplingRate * phase1Inc),
 						sawSq1Amt * INT32_MAX,
 						oversamplingRate);
 			}
@@ -338,7 +337,7 @@ public:
 				float_4 sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
 				oscSubBlep[c/4].insertBlep(
-						float_4(INT32_MAX - phasor1Sub[c/4]) / (1. * oversamplingRate * phase1SubInc),
+						float_4(INT32_MAX - phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
 						INT32_MAX,
 						oversamplingRate);
 
@@ -356,17 +355,17 @@ public:
 			// osc 2
 			//
 
-			// phasor for osc 2
+			// phasors for osc 2
 			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * wave1);
 			if (calcSync)
 			{
 				int32_4 doSync = sync[c/4] & (phasor1Old[c/4] > phasor1);
 				if (simd::movemask(doSync > 0))
 				{
-					float_4 fractionalSyncTime = 1. - 1.*phasor1 / phase1Inc; // [0..1]
+					float_4 fractionalSyncTime = 1.f - 1.f*phasor1 / phase1Inc; // [0..1]
 
 					phasor2[c/4] = simd::ifelse(doSync,
-							INT32_MIN + (1. - fractionalSyncTime) * phase2IncWithFm,
+							INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm,
 							phasor2[c/4] + phase2IncWithFm);
 				}
 				else
@@ -383,7 +382,6 @@ public:
 
 			if (calcTri2)
 			{
-				// triangle and blamp
 				float_4 tri2 = -2 * simd::abs(phasor2Offset) + INT32_MAX; // +-INT32_MAX
 
 				wave2 += tri2Amt * tri2; // +-INT32_MAX
@@ -393,7 +391,7 @@ public:
 			{
 				if (calcSq2)
 				{
-					wave2 += sawSq2Amt * (phasor2Offset * sq2Amt - 1.f * phasor2[c/4]); // +-INT32_MAX
+					wave2 += sawSq2Amt * (sq2Amt * phasor2Offset - 1.f * phasor2[c/4]); // +-INT32_MAX
 				}
 				else
 				{
