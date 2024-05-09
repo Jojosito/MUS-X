@@ -10,10 +10,12 @@ using simd::int32_4;
  * O max oversampling
  */
 template <size_t O = 1, typename T = float_4>
-struct BlepGenerator {
+class BlepGenerator {
+private:
 	T buffer[2*O] = {};
 	size_t pos;
 
+public:
 	BlepGenerator()
 	{
 		static_assert(O>0 && ((O & (O-1)) == 0), "O must be power of 2");
@@ -41,8 +43,8 @@ struct BlepGenerator {
 
 		for (size_t i = 0; i < 2 * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask & (x <  0), scale * (x + x + x*x + 1.), 0);
-			buffer[index] += simd::ifelse(mask & (x >= 0), scale * (x + x - x*x - 1.), 0);
+			buffer[index] += simd::ifelse(mask & (x <  0), scale * blepFunctionPreStep(x), 0);
+			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blepFunctionPostStep(x), 0);
 
 			index = (index + 1) & (2 * O - 1); // advance and wrap index
 			x += 1. / oversampling;
@@ -50,15 +52,37 @@ struct BlepGenerator {
 	}
 
 	/**
-	 * Insert blamp at fractional sample time t [0..L/2], with scale
+	 * Insert blamp at fractional (non-oversampled) sample time t [0..1]
+	 * scale > 0 for ramp from - to +
+	 * scale < 0 for ramp from + to -
+	 * scale = 0.5 for ramp from gradient -1 to 1
+	 * inserts 2*oversampling samples
 	 */
 	void insertBlamp(T t, T scale, size_t oversampling = 1)
 	{
-		// TODO
+		T mask = (t > 1. - 1. / oversampling) & (t < 1);
+
+		if (!simd::movemask(mask))
+		{
+			return;
+		}
+
+		T x = -t; // [-1..0]
+
+		size_t index = pos;
+
+		for (size_t i = 0; i < 2 * oversampling; i++)
+		{
+			buffer[index] += simd::ifelse(mask & (x <  0), scale * blampFunctionPreRamp(x), 0);
+			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blampFunctionPostRamp(x), 0);
+
+			index = (index + 1) & (2 * O - 1); // advance and wrap index
+			x += 1. / oversampling;
+		}
 	}
 
 	/**
-	 * call once per sample
+	 * call once per (over)sample
 	 */
 	T process()
 	{
@@ -68,6 +92,26 @@ struct BlepGenerator {
 		return value;
 	}
 
+private:
+	inline T blepFunctionPreStep(T x)
+	{
+		return x + x + x*x + 1.;
+	}
+
+	inline T blepFunctionPostStep(T x)
+	{
+		return x + x - x*x - 1.;
+	}
+
+	inline T blampFunctionPreRamp(T x)
+	{
+		return (x+1)*(x+1);
+	}
+
+	inline T blampFunctionPostRamp(T x)
+	{
+		return (x-1)*(x-1);
+	}
 };
 
 

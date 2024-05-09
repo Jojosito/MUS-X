@@ -47,6 +47,7 @@ private:
 
 	// blep generators
 	BlepGenerator<O, float_4> osc1Blep[4];
+	BlepGenerator<O, float_4> oscSubBlep[4];
 	BlepGenerator<1, float_4> osc2Blep[4];
 
 public:
@@ -299,36 +300,54 @@ public:
 				// triangle and blamp
 				float_4 tri1 = -2 * simd::abs(phasor1Offset) + INT32_MAX; // +-INT32_MAX
 
-				//osc1Blep[c/4].insertBlamp((INT32_MAX - (phasor1Offset + phasor1Offset)) / (2.*phase1Inc), simd::sgn((float_4)phasor1Offset) * tri1Amt * INT32_MAX, oversamplingRate);
-
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
+
+				osc1Blep[c/4].insertBlamp(
+						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2.*phase1Inc),
+						simd::sgn((float_4)phasor1Offset) * tri1Amt * phase1Inc,
+						oversamplingRate);
+
 			}
 
 			if (calcSawSq1)
 			{
 				if (calcSq1)
 				{
-					wave1 += sawSq1Amt * (phasor1Offset * sq1Amt - 1.f * phasor1); // +-INT32_MAX
+					wave1 += sawSq1Amt * (sq1Amt * phasor1Offset - 1. * phasor1); // +-INT32_MAX
 
-					//osc1Blep[c/4].insertBlep(float_4(INT32_MAX - phasor1Offset) / phase1Inc, sawSq1Amt * sq1Amt * INT32_MAX, oversamplingRate);
+					osc1Blep[c/4].insertBlep(
+							float_4(INT32_MAX - phasor1Offset) / (1. * oversamplingRate * phase1Inc),
+							-sawSq1Amt * sq1Amt * INT32_MAX,
+							oversamplingRate);
 				}
 				else
 				{
 					wave1 += -sawSq1Amt * phasor1; // +-INT32_MAX
 				}
 
-				osc1Blep[c/4].insertBlep(float_4(INT32_MAX - phasor1) / (oversamplingRate * phase1Inc), sawSq1Amt * INT32_MAX, oversamplingRate);
+				osc1Blep[c/4].insertBlep(
+						float_4(INT32_MAX - phasor1) / (1. * oversamplingRate * phase1Inc),
+						sawSq1Amt * INT32_MAX,
+						oversamplingRate);
 			}
 
 			if (calcSub)
 			{
-				float_4 phasor1SubBlep = blep(phasor1Sub[c/4], oversamplingRate * phase1SubInc);
 				int32_4 phasor1SubOffset = phasor1Sub[c/4] + INT32_MAX;
-				float_4 phasor1SubOffsetBlep = blep(phasor1SubOffset, oversamplingRate * phase1SubInc);
 
-				float_4 sub1 = 1.f * ((float_4)phasor1SubOffset + phasor1SubOffsetBlep) - 1.f * ((float_4)phasor1Sub[c/4] + phasor1SubBlep); // +-INT32_MAX
+				float_4 sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
-				out += osc1Subvol[c/4] * sub1;
+				oscSubBlep[c/4].insertBlep(
+						float_4(INT32_MAX - phasor1Sub[c/4]) / (1. * oversamplingRate * phase1SubInc),
+						INT32_MAX,
+						oversamplingRate);
+
+				oscSubBlep[c/4].insertBlep(
+						float_4(INT32_MAX - phasor1SubOffset) / (1. * oversamplingRate * phase1SubInc),
+						-INT32_MAX,
+						oversamplingRate);
+
+				out += osc1Subvol[c/4] * (sub1 + oscSubBlep[c/4].process());
 			}
 
 			phasor1Sub[c/4] += phase1SubInc;
@@ -366,17 +385,14 @@ public:
 			{
 				// triangle and blamp
 				float_4 tri2 = -2 * simd::abs(phasor2Offset) + INT32_MAX; // +-INT32_MAX
-				float_4 tri2Blamp = blamp(tri2, phase2IncWithFm);
 
-				wave2 += tri2Amt * (tri2 + tri2Blamp); // +-INT32_MAX
+				wave2 += tri2Amt * tri2; // +-INT32_MAX
 			}
 
 			if (calcSawSq2)
 			{
-				//float_4 phasor2Blep = blep(phasor2[c/4], phase2IncWithFm);
 				if (calcSq2)
 				{
-					//float_4 phasor2OffsetBlep = blep(phasor2Offset, phase2IncWithFm);
 					wave2 += sawSq2Amt * (phasor2Offset * sq2Amt - 1.f * phasor2[c/4]); // +-INT32_MAX
 				}
 				else
@@ -386,90 +402,18 @@ public:
 			}
 
 			// apply bleps
-			wave2 = wave1; // test
-			wave1 = osc1Blep[c/4].process();
+			wave1 += osc1Blep[c/4].process();
 //			wave2 += osc2Blep[c/4].process();
 
 			out += osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmodVol[c/4] * wave1 * wave2; // +-5V each
 
 			buffer[i] = out;
-//			buffer[i] = osc1Blep[c/4].process();
 
 			// bookkeeping
 			phasor1Old[c/4] = phasor1;
 		}
 	}
 
-private:
-	/**
-	 * polyBLEP for a ramp wave [-INT32_MAX..INT32_MAX]
-	 */
-	float_4 blep(float_4 ramp, float_4 deltaY)
-	{
-		float_4 thresholdY = INT32_MAX - deltaY;
-		float_4 blep = 0;
-
-		// step is less than deltaY ahead
-		float_4 x = (ramp - INT32_MAX) / deltaY; // [-1..0]
-		blep -= simd::ifelse(ramp > thresholdY, x*x+x+x+1., 0);
-
-		// step was less than deltaY ago
-		x = (ramp + INT32_MAX) / deltaY; // [0..1]
-		blep -= simd::ifelse(ramp < -thresholdY, x+x-x*x-1., 0);
-
-		return blep * INT32_MAX;
-	}
-
-	/**
-	 * polyBLEP (only pre-step) for a ramp wave [-INT32_MAX..INT32_MAX]
-	 */
-	float_4 blepPre(float_4 ramp, float_4 deltaY)
-	{
-		float_4 thresholdY = INT32_MAX - deltaY;
-		float_4 blep = 0;
-
-		// step is less than deltaY ahead
-		float_4 x = (ramp - INT32_MAX) / deltaY; // [-1..0]
-		blep -= simd::ifelse(ramp > thresholdY, x*x+x+x+1., 0);
-
-		return blep * INT32_MAX;
-	}
-
-	/**
-	 * polyBLEP (only post-step) for a ramp wave [-INT32_MAX..INT32_MAX]
-	 */
-	float_4 blepPost(float_4 ramp, float_4 deltaY)
-	{
-		float_4 thresholdY = INT32_MAX - deltaY;
-		float_4 blep = 0;
-
-		// step was less than deltaY ago
-		float_4 x = (ramp + INT32_MAX) / deltaY; // [0..1]
-		blep -= simd::ifelse(ramp < -thresholdY, x+x-x*x-1., 0);
-
-		return blep * INT32_MAX;
-	}
-
-	/**
-	 * polyBLAMP for a triangle wave [-INT32_MAX..INT32_MAX]
-	 */
-	float_4 blamp(float_4 tri, float_4 deltaY)
-	{
-		float_4 thresholdY = INT32_MAX - deltaY;
-		float_4 blamp = 0;
-
-		float_4 factor = 0.5 * deltaY / INT32_MAX;
-
-		// bottom of triangle
-		float_4 x = (tri + INT32_MAX) / deltaY; // [1..0..1]
-		blamp += simd::ifelse(tri < -thresholdY, factor*(x-1)*(x-1), 0);
-
-		// top of triangle
-		x = (tri - INT32_MAX) / deltaY; // [-1..0..-1]
-		blamp -= simd::ifelse(tri > thresholdY, factor*(x+1)*(x+1), 0);
-
-		return blamp * INT32_MAX;
-	}
 };
 
 }
