@@ -43,8 +43,8 @@ public:
 
 		for (size_t i = 0; i < 2 * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask & (x <  0), scale * blepFunctionPreStep(x), 0);
-			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blepFunctionPostStep(x), 0);
+			buffer[index] += simd::ifelse(mask & (x <  0), -scale * blepFunction(-x), 0);
+			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blepFunction(x), 0);
 
 			index = (index + 1) & (2 * O - 1); // advance and wrap index
 			x += 1. / oversampling;
@@ -73,8 +73,8 @@ public:
 
 		for (size_t i = 0; i < 2 * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask & (x <  0), scale * blampFunctionPreRamp(x), 0);
-			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blampFunctionPostRamp(x), 0);
+			buffer[index] += simd::ifelse(mask & (x <  0), scale * blampFunction(-x), 0);
+			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blampFunction(x), 0);
 
 			index = (index + 1) & (2 * O - 1); // advance and wrap index
 			x += 1. / oversampling;
@@ -93,22 +93,18 @@ public:
 	}
 
 private:
-	inline T blepFunctionPreStep(T x)
-	{
-		return x + x + x*x + 1.;
-	}
 
-	inline T blepFunctionPostStep(T x)
+	inline T blepFunction(T x)
 	{
+		// from https://www.kvraudio.com/forum/viewtopic.php?p=5923465#p5923465
+		//T x2 = x*x;
+		//return 4.36023 * x2*x2*x2*x - 13.5038 * x2*x2*x2 + 11.5128 * x2*x2*x + 3.25094 * x2*x2 - 7.83529 * x2*x + 0.2393 * x2 + 2.97566 * x - 0.99986;
+
+		// standard quadratic polyBlep
 		return x + x - x*x - 1.;
 	}
 
-	inline T blampFunctionPreRamp(T x)
-	{
-		return (x+1)*(x+1);
-	}
-
-	inline T blampFunctionPostRamp(T x)
+	inline T blampFunction(T x)
 	{
 		return (x-1)*(x-1);
 	}
