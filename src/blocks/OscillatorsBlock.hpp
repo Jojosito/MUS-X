@@ -22,6 +22,7 @@ private:
 	// sample rates
 	int sampleRate;
 	int oversamplingRate = 1;
+	int oversamplingRateForTriBlamp = 1;
 	float oneOverSampleRateTimesOversamplingRate;
 
 	// freq limits
@@ -47,6 +48,7 @@ private:
 
 	// blep generators
 	BlepGenerator<O, float_4> osc1Blep[4];
+	BlepGenerator<O, float_4> osc1Blamp[4];
 	BlepGenerator<O, float_4> oscSubBlep[4];
 	BlepGenerator<1, float_4> osc2Blep[4];
 
@@ -65,12 +67,17 @@ public:
 	// set oversampling factor
 	void setOversamplingRate(int n)
 	{
-		oversamplingRate = n;
+		oversamplingRate = std::min(O, size_t(n));
 		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
 		for (int c = 0; c < 16; c += 4)
 		{
 			setFmAmount(fmUnscaled[c/4], c);
 		}
+
+		// if freq > f_s/4, blamps overlap! -> sounds awful
+		// -> use half oversampling rate for triangle blamps, so at least with >= 2x oversampling, blamps work up to fs_2
+		// (still sounds awful for freq > f_s/4 with 1x oversampling
+		oversamplingRateForTriBlamp = oversamplingRate > 1 ? oversamplingRate / 2 : oversamplingRate;
 	}
 
 	// set oscillators minimum frequency [Hz]
@@ -300,12 +307,10 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
-				// TODO does not work when freq > f_s/4
-				osc1Blep[c/4].insertBlamp(
-						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2.*phase1Inc),
+				osc1Blamp[c/4].insertBlamp(
+						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRateForTriBlamp * 2.*phase1Inc),
 						simd::sgn((float_4)phasor1Offset) * tri1Amt * phase1Inc,
-						oversamplingRate);
-
+						oversamplingRateForTriBlamp);
 			}
 
 			if (calcSawSq1)
@@ -351,15 +356,19 @@ public:
 
 			phasor1Sub[c/4] += phase1SubInc;
 
+			// apply bleps
+			wave1 += osc1Blep[c/4].process();
+			wave1 += osc1Blamp[c/4].process();
+
 			//
 			// osc 2
 			//
 
 			// phasors for osc 2
-			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * wave1);
+			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * wave1); // can be negative!
 			if (calcSync)
 			{
-				int32_4 doSync = sync[c/4] & (phasor1Old[c/4] > phasor1);
+				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
 				if (simd::movemask(doSync > 0))
 				{
 					float_4 fractionalSyncTime = 1.f - 1.f*phasor1 / phase1Inc; // [0..1]
@@ -399,16 +408,19 @@ public:
 				}
 			}
 
+			phasor2[c/4] += phase2IncWithFm;
+
 			// apply bleps
-			wave1 += osc1Blep[c/4].process();
 //			wave2 += osc2Blep[c/4].process();
+
+
 
 			out += osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmodVol[c/4] * wave1 * wave2; // +-5V each
 
 			buffer[i] = out;
 
 			// bookkeeping
-			phasor1Old[c/4] = phasor1;
+			//phasor1Old[c/4] = phasor1;
 		}
 	}
 
