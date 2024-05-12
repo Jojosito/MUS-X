@@ -366,9 +366,11 @@ public:
 
 			// phasors for osc 2
 			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * wave1); // can be negative!
+			float_4 phase2IncSign = simd::sgn(float_4(phase2IncWithFm)); // -1 or 1
+
 			if (calcSync)
 			{
-				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
+				float_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
 				if (simd::movemask(doSync > 0))
 				{
 					// TODO
@@ -378,7 +380,7 @@ public:
 
 					phase2IncWithFm = simd::ifelse(doSync,
 //							phaseAfterSync - phasor2[c/4],
-							phasor2[c/4],
+							-phasor2[c/4],
 							phase2IncWithFm);
 
 
@@ -410,7 +412,7 @@ public:
 
 					osc2Blep[c/4].insertBlep(
 							float_4(INT32_MAX - phasor2Offset) / (1.f * phase2IncWithFm),
-							-sawSq2Amt * sq2Amt * INT32_MAX);
+							phase2IncSign * -sawSq2Amt * sq2Amt * INT32_MAX);
 				}
 				else
 				{
@@ -419,13 +421,14 @@ public:
 
 				osc2Blep[c/4].insertBlep(
 						float_4(INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm),
-						sawSq2Amt * INT32_MAX);
+						phase2IncSign * sawSq2Amt * INT32_MAX);
 			}
 
 			phasor2[c/4] += phase2IncWithFm;
 
 			// apply bleps
 			wave2 += osc2Blep[c/4].process();
+
 
 			// mix
 			out += osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmodVol[c/4] * wave1 * wave2; // +-5V each
