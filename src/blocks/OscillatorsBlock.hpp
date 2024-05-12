@@ -371,38 +371,24 @@ public:
 			if (calcSync)
 			{
 				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
-//				if (simd::movemask(doSync > 0))
-//				{
-					// TODO
-//					float_4 fractionalSyncTime = float_4(INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
-
-//					int32_4 phaseAfterSync = INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm;
-
-				for (size_t i=0; i<4; i++)
+				if (simd::movemask(doSync > 0))
 				{
-					if (doSync[i])
+					// we deal with sync by adjusting phase2IncWithFm
+					// therefore wave2 is automatically bandlimited with the bleps
+
+					float_4 fractionalSyncTime = float_4(INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
+					int32_4 phaseAfterSync = INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm;
+
+					// must be in extra loop, because we need integer arithmetic here!
+					// simd::ifelse uses float_4 !!!
+					for (size_t i=0; i<4; i++)
 					{
-						phase2IncWithFm[i] = INT32_MIN - phasor2[c/4][i];
+						if (doSync[i])
+						{
+							phase2IncWithFm[i] = INT32_MIN - phasor2[c/4][i] + phaseAfterSync[i];
+						}
 					}
 				}
-
-//					phase2IncWithFm = simd::ifelse((float_4)doSync,
-////							phaseAfterSync - phasor2[c/4],
-//							INT32_MIN - phasor2[c/4],
-//							phase2IncWithFm);
-
-//					phasor2[c/4] = simd::ifelse((float_4)doSync,
-////							phaseAfterSync - phasor2[c/4],
-//							INT32_MIN,
-//							phasor2[c/4]);
-
-
-//					phase2IncWithFm += doSync & (INT32_MAX - phase2IncWithFm);
-
-//					osc2Blep[c/4].insertBlep(
-//							fractionalSyncTime,
-//							doSync * sawSq2Amt * INT32_MAX);
-//				}
 			}
 
 
