@@ -370,24 +370,39 @@ public:
 
 			if (calcSync)
 			{
-				float_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
-				if (simd::movemask(doSync > 0))
-				{
+				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
+//				if (simd::movemask(doSync > 0))
+//				{
 					// TODO
-					float_4 fractionalSyncTime = float_4(INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
+//					float_4 fractionalSyncTime = float_4(INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
 
-					int32_4 phaseAfterSync = INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm;
+//					int32_4 phaseAfterSync = INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm;
 
-					phase2IncWithFm = simd::ifelse(doSync,
-//							phaseAfterSync - phasor2[c/4],
-							-phasor2[c/4],
-							phase2IncWithFm);
+				for (size_t i=0; i<4; i++)
+				{
+					if (doSync[i])
+					{
+						phase2IncWithFm[i] = INT32_MIN - phasor2[c/4][i];
+					}
+				}
 
+//					phase2IncWithFm = simd::ifelse((float_4)doSync,
+////							phaseAfterSync - phasor2[c/4],
+//							INT32_MIN - phasor2[c/4],
+//							phase2IncWithFm);
+
+//					phasor2[c/4] = simd::ifelse((float_4)doSync,
+////							phaseAfterSync - phasor2[c/4],
+//							INT32_MIN,
+//							phasor2[c/4]);
+
+
+//					phase2IncWithFm += doSync & (INT32_MAX - phase2IncWithFm);
 
 //					osc2Blep[c/4].insertBlep(
 //							fractionalSyncTime,
 //							doSync * sawSq2Amt * INT32_MAX);
-				}
+//				}
 			}
 
 
