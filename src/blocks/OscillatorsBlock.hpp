@@ -22,7 +22,6 @@ private:
 	// sample rates
 	int sampleRate;
 	int oversamplingRate = 1;
-	int oversamplingRateForTriBlamp = 1;
 	float oneOverSampleRateTimesOversamplingRate;
 
 	// freq limits
@@ -48,7 +47,6 @@ private:
 
 	// blep generators
 	BlepGenerator<O, float_4> osc1Blep[4];
-	BlepGenerator<O, float_4> osc1Blamp[4];
 	BlepGenerator<O, float_4> oscSubBlep[4];
 	BlepGenerator<1, float_4> osc2Blep[4];
 
@@ -73,11 +71,6 @@ public:
 		{
 			setFmAmount(fmUnscaled[c/4], c);
 		}
-
-		// if freq > f_s/4, blamps overlap! -> sounds awful
-		// -> use half oversampling rate for triangle blamps, so at least with >= 2x oversampling, blamps work up to fs_2
-		// (still sounds awful for freq > f_s/4 with 1x oversampling
-		oversamplingRateForTriBlamp = oversamplingRate > 1 ? oversamplingRate / 2 : oversamplingRate;
 	}
 
 	// set oscillators minimum frequency [Hz]
@@ -307,10 +300,10 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
-				osc1Blamp[c/4].insertBlamp(
-						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRateForTriBlamp * 2.*phase1Inc),
+				osc1Blep[c/4].insertBlamp(
+						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2*phase1Inc),
 						simd::sgn((float_4)phasor1Offset) * tri1Amt * phase1Inc,
-						oversamplingRateForTriBlamp);
+						oversamplingRate);
 			}
 
 			if (calcSawSq1)
@@ -358,7 +351,6 @@ public:
 
 			// apply bleps
 			wave1 += osc1Blep[c/4].process();
-			wave1 += osc1Blamp[c/4].process();
 
 			//
 			// osc 2
@@ -401,7 +393,7 @@ public:
 				wave2 += tri2Amt * tri2; // +-INT32_MAX
 
 				osc2Blep[c/4].insertBlamp(
-						float_4(INT32_MAX - (phasor2Offset + phasor2Offset + INT32_MAX)) / (2.*phase2IncWithFm),
+						float_4(INT32_MAX - (phasor2Offset + phasor2Offset + INT32_MAX)) / (2*phase2IncWithFm),
 						simd::sgn((float_4)phasor2Offset) * tri2Amt * phase2IncWithFm);
 			}
 

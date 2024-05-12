@@ -113,6 +113,7 @@ There are two 'V/Oct' inputs, one for each oscillator. You can use the 'Tune' mo
 * 'Oversampling rate': The oscillators use a naive implementation, which is quite CPU friendly, and can therefore be massively oversampled to reduce aliasing.
 This is especially useful for FM and sync sounds.
 With no oversampling, the oscillators alias a lot.
+* 'Anti-aliasing': Apply additional anti-aliasing (with polyBLEPs and polyBLAMPs). This option greatly reduces aliasing, and does not need much additional CPU time. It also works well with sync and FM.
 * 'DC blocker': FM and the ring modulator can create a DC offset. Therefore, a DC blocker is enabled by default, but can be disabled in the context menu.
 * 'LFO mode' lets you use the module as an LFO. It lowers the frequencies of the oscillators to 2 Hz @ 0V, and internally disables oversampling and the DC blocker.
 

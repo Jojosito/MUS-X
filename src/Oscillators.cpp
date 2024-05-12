@@ -114,12 +114,17 @@ struct Oscillators : Module {
 		}
 	}
 
+	void setLfoMode(int mode)
+	{
+		lfoMode = mode;
+		actualOversamplingRate = lfoMode? 1 : oversamplingRate;
+	}
+
 	void process(const ProcessArgs& args) override {
 		channels = std::max(1, inputs[OSC1VOCT_INPUT].getChannels());
 		channels = std::max(channels, inputs[OSC2VOCT_INPUT].getChannels());
 		outputs[OUT_OUTPUT].setChannels(channels);
 
-		actualOversamplingRate = lfoMode? 1 : oversamplingRate;
 		oscBlock.setOversamplingRate(actualOversamplingRate);
 
 		for (int c = 0; c < channels; c += 4) {
@@ -276,7 +281,7 @@ struct OscillatorsWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createBoolMenuItem("Anti-aliasing (polyBLEP & polyBLAMP)", "",
+		menu->addChild(createBoolMenuItem("Anti-aliasing", "",
 			[=]() {
 				return module->antiAliasing;
 			},
@@ -301,7 +306,7 @@ struct OscillatorsWidget : ModuleWidget {
 				return module->lfoMode;
 			},
 			[=](int mode) {
-				module->lfoMode = mode;
+				module->setLfoMode(mode);
 			}
 		));
 	}
