@@ -386,7 +386,7 @@ public:
 					{
 						if (doSync[i])
 						{
-							phase2IncWithFm[i] = INT32_MIN - phasor2[c/4][i] + phaseAfterSync[i];
+							phase2IncWithFm[i] = -phasor2[c/4][i] + phaseAfterSync[i];
 						}
 					}
 				}
@@ -430,11 +430,6 @@ public:
 
 			// apply bleps
 			prevWave2[c/4] += osc2Blep[c/4].process();
-
-
-			// test
-			prevWave1[c/4] = phasor2[c/4];
-			prevWave2[c/4] = phase2IncWithFm;
 
 
 			// mix
