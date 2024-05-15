@@ -107,6 +107,7 @@ struct Oscillators : Module {
 	void setOversamplingRate(size_t arg)
 	{
 		oversamplingRate = arg;
+		setLfoMode(lfoMode); // refresh actualOversamplingRate
 
 		for (int c = 0; c < 16; c += 4) {
 			decimator[c/4].reset();
