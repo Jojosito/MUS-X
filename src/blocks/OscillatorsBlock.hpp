@@ -46,9 +46,18 @@ private:
 	float_4 ringmodVol[4] = {0};
 
 	// blep generators
-	BlepGenerator<O, float_4> osc1Blep[4];
-	BlepGenerator<O, float_4> oscSubBlep[4];
-	BlepGenerator<1, float_4> osc2Blep[4];
+	static constexpr size_t blepSize = 4;
+	BlepGenerator<O, blepSize, float_4> osc1Blep[4];
+	BlepGenerator<O, blepSize, float_4> oscSubBlep[4];
+	BlepGenerator<1, blepSize, float_4> osc2Blep[4];
+
+	// buffer for applying 4-point blep
+	size_t bufferReadIndex = 0;
+	size_t bufferWriteIndex = oversamplingRate;
+	float_4 prevSub1[4][O] = {0};
+	float_4 prevWave1[4][O] = {0};
+	float_4 prevWave2[4] = {0};
+
 
 public:
 	// set sample rate [Hz]
@@ -285,6 +294,7 @@ public:
 		// calculate the oversampled oscillators and mix
 		for (int i = 0; i < oversamplingRate; ++i)
 		{
+			float_4 sub1 = 0;
 			float_4 wave1 = 0;
 			float_4 wave2 = 0;
 			float_4 out = 0;
@@ -332,7 +342,7 @@ public:
 			{
 				int32_4 phasor1SubOffset = phasor1Sub[c/4] + INT32_MAX;
 
-				float_4 sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
+				sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
 				oscSubBlep[c/4].insertBlep(
 						float_4(INT32_MAX - phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
@@ -344,20 +354,21 @@ public:
 						-INT32_MAX,
 						oversamplingRate);
 
-				out += osc1Subvol[c/4] * (sub1 + oscSubBlep[c/4].process());
+				out += osc1Subvol[c/4] * (prevSub1[c/4][bufferReadIndex] + oscSubBlep[c/4].process());
 			}
 
 			phasor1Sub[c/4] += phase1SubInc;
 
 			// apply bleps
-			wave1 += osc1Blep[c/4].process();
+			prevWave1[c/4][bufferReadIndex] += osc1Blep[c/4].process();
+
 
 			//
 			// osc 2
 			//
 
 			// phasors for osc 2
-			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * wave1); // can be negative!
+			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * prevWave1[c/4][bufferReadIndex]); // can be negative!
 			float_4 phase2IncSign = simd::sgn(float_4(phase2IncWithFm)); // -1 or 1
 
 			if (calcSync)
@@ -377,7 +388,7 @@ public:
 					{
 						if (doSync[i])
 						{
-							phase2IncWithFm[i] = INT32_MIN - phasor2[c/4][i] + phaseAfterSync[i];
+							phase2IncWithFm[i] = -phasor2[c/4][i] + phaseAfterSync[i];
 						}
 					}
 				}
@@ -420,11 +431,21 @@ public:
 			phasor2[c/4] += phase2IncWithFm;
 
 			// apply bleps
-			wave2 += osc2Blep[c/4].process();
+			prevWave2[c/4] += osc2Blep[c/4].process();
 
 
 			// mix
-			out += osc1Vol[c/4] * wave1 + osc2Vol[c/4] * wave2 + ringmodVol[c/4] * wave1 * wave2; // +-5V each
+			out += osc1Vol[c/4] * prevWave1[c/4][bufferReadIndex] +
+					osc2Vol[c/4] * prevWave2[c/4] +
+					ringmodVol[c/4] * prevWave1[c/4][bufferReadIndex] * prevWave2[c/4]; // +-5V each
+
+			// buffers
+			prevSub1[c/4][bufferWriteIndex] = sub1;
+			prevWave1[c/4][bufferWriteIndex] = wave1;
+			prevWave2[c/4] = wave2;
+
+			bufferReadIndex = (bufferReadIndex + 1) & (oversamplingRate - 1);
+			bufferWriteIndex = (bufferReadIndex + oversamplingRate) & (oversamplingRate - 1);
 
 			buffer[i] = out;
 		}
