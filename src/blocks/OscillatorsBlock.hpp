@@ -315,10 +315,10 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
-				// TODO does not work over fs/4, does not seem to work at all with oversamplingRate > 1
+				// TODO does not work over fs/4
 				osc1Blep[c/4].insertBlamp(
 						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2*phase1Inc),
-						simd::sgn(-tri1) * tri1Amt * phase1Inc,
+						simd::sgn(float_4(phasor1Offset)) * tri1Amt * phase1Inc,
 						oversamplingRate);
 			}
 
@@ -412,7 +412,7 @@ public:
 				// TODO does not work over oversamplingRate*fs/4
 				osc2Blep[c/4].insertBlamp(
 						float_4(INT32_MAX - (phasor2Offset + phasor2Offset + INT32_MAX)) / (2*phase2IncWithFm),
-						simd::sgn(-tri2) * tri2Amt * phase2IncWithFm);
+						simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm);
 			}
 
 			if (calcSawSq2)

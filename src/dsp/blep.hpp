@@ -74,8 +74,8 @@ public:
 
 		for (size_t i = 0; i < L * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask & (x <  0), scale * blepFunction(-x), 0);
-			buffer[index] += simd::ifelse(mask & (x >= 0), scale * blepFunction(x), 0);
+			buffer[index] += simd::ifelse(mask & (x <  0), oversampling * scale * blepFunction(-x), 0);
+			buffer[index] += simd::ifelse(mask & (x >= 0), oversampling * scale * blepFunction(x), 0);
 
 			index = (index + 1) & (L * O - 1); // advance and wrap index
 			x += 2. / (oversampling * L);
