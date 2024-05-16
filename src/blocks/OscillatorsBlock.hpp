@@ -291,6 +291,11 @@ public:
 		int calcSawSq2 = simd::movemask(sawSq2Amt > 0);
 		int calcSq2 = simd::movemask(sq2Amt > 0);
 
+		float_4 limitedFmAmount = simd::fmin(
+				fmUnscaled[c/4],
+				((maxFreq - osc2Freq[c/4]) / osc1Freq[c/4] - 1.));
+		limitedFmAmount *= 0.125/oversamplingRate;
+
 		// calculate the oversampled oscillators and mix
 		for (int i = 0; i < oversamplingRate; ++i)
 		{
@@ -310,9 +315,10 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
+				// TODO does not work over fs/4, does not seem to work at all with oversamplingRate > 1
 				osc1Blep[c/4].insertBlamp(
 						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2*phase1Inc),
-						simd::sgn((float_4)phasor1Offset) * tri1Amt * phase1Inc,
+						simd::sgn(-tri1) * tri1Amt * phase1Inc,
 						oversamplingRate);
 			}
 
@@ -368,7 +374,7 @@ public:
 			//
 
 			// phasors for osc 2
-			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * prevWave1[c/4][bufferReadIndex]); // can be negative!
+			int32_4 phase2IncWithFm = phase2Inc + int32_4(limitedFmAmount * prevWave1[c/4][bufferReadIndex]); // can be negative!
 			float_4 phase2IncSign = simd::sgn(float_4(phase2IncWithFm)); // -1 or 1
 
 			if (calcSync)
@@ -403,9 +409,10 @@ public:
 
 				wave2 += tri2Amt * tri2; // +-INT32_MAX
 
+				// TODO does not work over oversamplingRate*fs/4
 				osc2Blep[c/4].insertBlamp(
 						float_4(INT32_MAX - (phasor2Offset + phasor2Offset + INT32_MAX)) / (2*phase2IncWithFm),
-						simd::sgn((float_4)phasor2Offset) * tri2Amt * phase2IncWithFm);
+						simd::sgn(-tri2) * tri2Amt * phase2IncWithFm);
 			}
 
 			if (calcSawSq2)
