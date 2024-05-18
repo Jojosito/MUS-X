@@ -110,18 +110,21 @@ public:
 	inline void setOsc1FreqVOct(float_4 freq, int c)
 	{
 		osc1Freq[c/4] = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(freq), minFreq, maxFreq);
+		setFmAmount(fmUnscaled[c/4], c);
 	}
 
 	// set oscillator 1 frequency in V/Oct. 0 V = 2 Hz [V]
 	inline void setOsc1FreqVOctLFO(float_4 freq, int c)
 	{
 		osc1Freq[c/4] = simd::clamp(2. * dsp::exp2_taylor5(freq), minFreq, maxFreq);
+		setFmAmount(fmUnscaled[c/4], c);
 	}
 
 	// set oscillator 1 frequency [Hz]
 	inline void setOsc1FreqHz(float_4 freq, int c)
 	{
 		osc1Freq[c/4] = simd::clamp(freq, minFreq, maxFreq);
+		setFmAmount(fmUnscaled[c/4], c);
 	}
 
 	// set oscillator 1 shape [-1..1]
@@ -167,6 +170,7 @@ public:
 	inline void setOsc2Freq(float_4 freq, int c)
 	{
 		osc2Freq[c/4] = simd::clamp(freq, minFreq, maxFreq);
+		setFmAmount(fmUnscaled[c/4], c);
 	}
 
 	// set oscillator 2 shape [-1..1]
@@ -199,7 +203,16 @@ public:
 	inline void setFmAmount(float_4 fm, int c)
 	{
 		fmUnscaled[c/4] = simd::clamp(fm, 0.f, 1.f);
-		fmAmt[c/4] = fmUnscaled[c/4] * fmUnscaled[c/4] * 0.5f / oversamplingRate * 48000 / sampleRate; // scale
+
+		// use adapted carsons rule to limit FM amount
+		// value 7000. is chosen so that
+		// osc 2 fm'ed frequency stays below nyquist (oversamplingRate*sampleRate/2.)
+		float_4 maxFm = simd::fmax(
+				((oversamplingRate*sampleRate/2. - osc2Freq[c/4]) / 2. - osc1Freq[c/4]) / 7000.,
+				0.f);
+		fmAmt[c/4] = simd::fmin(fmUnscaled[c/4] * fmUnscaled[c/4], maxFm);
+
+		fmAmt[c/4] = fmAmt[c/4] * 0.5f / oversamplingRate * 48000 / sampleRate; // scale
 	}
 
 	// set ringmodulator volume [0..1]
@@ -291,10 +304,6 @@ public:
 		int calcSawSq2 = simd::movemask(sawSq2Amt > 0);
 		int calcSq2 = simd::movemask(sq2Amt > 0);
 
-		float_4 limitedFmAmount = simd::fmin(
-				fmUnscaled[c/4],
-				((maxFreq - osc2Freq[c/4]) / osc1Freq[c/4] - 1.));
-		limitedFmAmount *= 0.125/oversamplingRate;
 
 		// calculate the oversampled oscillators and mix
 		for (int i = 0; i < oversamplingRate; ++i)
@@ -304,6 +313,10 @@ public:
 			float_4 wave2 = 0;
 			float_4 out = 0;
 
+
+			//
+			// osc 1 ============================================================================================================
+			//
 
 			// phasors for osc 1
 			int32_4 phasor1 = phasor1Sub[c/4] + phasor1Sub[c/4];
@@ -315,9 +328,8 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
-				// TODO does not work over fs/4
 				osc1Blep[c/4].insertBlamp(
-						float_4(INT32_MAX - (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2*phase1Inc),
+						(1.f * INT32_MAX - 1.f * (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2.f * phase1Inc),
 						simd::sgn(float_4(phasor1Offset)) * tri1Amt * phase1Inc,
 						oversamplingRate);
 			}
@@ -329,7 +341,7 @@ public:
 					wave1 += sawSq1Amt * (sq1Amt * phasor1Offset - 1.f * phasor1); // +-INT32_MAX
 
 					osc1Blep[c/4].insertBlep(
-							float_4(INT32_MAX - phasor1Offset) / (1.f * oversamplingRate * phase1Inc),
+							(1.f * INT32_MAX - 1.f * phasor1Offset) / (1.f * oversamplingRate * phase1Inc),
 							-sawSq1Amt * sq1Amt * INT32_MAX,
 							oversamplingRate);
 				}
@@ -339,7 +351,7 @@ public:
 				}
 
 				osc1Blep[c/4].insertBlep(
-						float_4(INT32_MAX - phasor1) / (1.f * oversamplingRate * phase1Inc),
+						(1.f * INT32_MAX - 1.f * phasor1) / (1.f * oversamplingRate * phase1Inc),
 						sawSq1Amt * INT32_MAX,
 						oversamplingRate);
 			}
@@ -351,12 +363,12 @@ public:
 				sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
 				oscSubBlep[c/4].insertBlep(
-						float_4(INT32_MAX - phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
+						(1.f * INT32_MAX - 1.f * phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
 						INT32_MAX,
 						oversamplingRate);
 
 				oscSubBlep[c/4].insertBlep(
-						float_4(INT32_MAX - phasor1SubOffset) / (1. * oversamplingRate * phase1SubInc),
+						(1.f * INT32_MAX - 1.f * phasor1SubOffset) / (1.f * oversamplingRate * phase1SubInc),
 						-INT32_MAX,
 						oversamplingRate);
 
@@ -370,13 +382,14 @@ public:
 
 
 			//
-			// osc 2
+			// osc 2 ============================================================================================================
 			//
 
 			// phasors for osc 2
-			int32_4 phase2IncWithFm = phase2Inc + int32_4(limitedFmAmount * prevWave1[c/4][bufferReadIndex]); // can be negative!
-			float_4 phase2IncSign = simd::sgn(float_4(phase2IncWithFm)); // -1 or 1
+			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * prevWave1[c/4][bufferReadIndex]); // can be negative!
+			float_4 phase2IncForBlep(phase2IncWithFm);
 
+			float_4 blep2Scale = simd::sgn(float_4(phase2IncWithFm)) * INT32_MAX; // [-INT32_MAX, INT32_MAX]
 			if (calcSync)
 			{
 				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
@@ -385,7 +398,7 @@ public:
 					// we deal with sync by adjusting phase2IncWithFm
 					// therefore wave2 is automatically bandlimited with the bleps
 
-					float_4 fractionalSyncTime = float_4(INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
+					float_4 fractionalSyncTime = (1.f * INT32_MAX - 1.f * phasor1) / (1.f * phase1Inc); // [0..1]
 					int32_4 phaseAfterSync = INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm;
 
 					// must be in extra loop, because we need integer arithmetic here!
@@ -394,48 +407,26 @@ public:
 					{
 						if (doSync[i])
 						{
+							blep2Scale[i] = 1. * phasor2[c/4][i] + fractionalSyncTime[i] * phase2IncWithFm[i] + 1.*INT32_MAX; // [-INT32_MAX..0]
+
 							phase2IncWithFm[i] = -phasor2[c/4][i] + phaseAfterSync[i];
+
+							phase2IncForBlep[i] = (float)phase2IncWithFm[i];
+							phase2IncForBlep[i] += (phase2IncWithFm[i] < 0) * 2.f * INT32_MAX;
 						}
 					}
 				}
 			}
 
 
-			int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
-
-			if (calcTri2)
-			{
-				float_4 tri2 = -2 * simd::abs(phasor2Offset) + INT32_MAX; // +-INT32_MAX
-
-				wave2 += tri2Amt * tri2; // +-INT32_MAX
-
-				// TODO does not work over oversamplingRate*fs/4
-				osc2Blep[c/4].insertBlamp(
-						float_4(INT32_MAX - (phasor2Offset + phasor2Offset + INT32_MAX)) / (2*phase2IncWithFm),
-						simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm);
-			}
-
-			if (calcSawSq2)
-			{
-				if (calcSq2)
-				{
-					wave2 += sawSq2Amt * (sq2Amt * phasor2Offset - 1.f * phasor2[c/4]); // +-INT32_MAX
-
-					osc2Blep[c/4].insertBlep(
-							float_4(INT32_MAX - phasor2Offset) / (1.f * phase2IncWithFm),
-							phase2IncSign * -sawSq2Amt * sq2Amt * INT32_MAX);
-				}
-				else
-				{
-					wave2 += -sawSq2Amt * phasor2[c/4]; // +-INT32_MAX
-				}
-
-				osc2Blep[c/4].insertBlep(
-						float_4(INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm),
-						phase2IncSign * sawSq2Amt * INT32_MAX);
-			}
-
-			phasor2[c/4] += phase2IncWithFm;
+			calcOsc2(phase2Offset,
+					phase2IncWithFm,
+					calcTri2, tri2Amt,
+					calcSawSq2, sawSq2Amt,
+					calcSq2, sq2Amt,
+					blep2Scale,
+					wave2,
+					c);
 
 			// apply bleps
 			prevWave2[c/4] += osc2Blep[c/4].process();
@@ -456,6 +447,52 @@ public:
 
 			buffer[i] = out;
 		}
+	}
+
+private:
+	void calcOsc2(int32_4 phase2Offset,
+			int32_4 phase2IncWithFm,
+			int calcTri2, float_4 tri2Amt,
+			int calcSawSq2, float_4 sawSq2Amt,
+			int calcSq2, float_4 sq2Amt,
+			float_4 blep2Scale,
+			float_4& wave2,
+			int c)
+	{
+		int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
+
+		if (calcTri2)
+		{
+			float_4 tri2 = -2 * simd::abs(phasor2Offset) + INT32_MAX; // +-INT32_MAX
+
+			wave2 += tri2Amt * tri2; // +-INT32_MAX
+
+			osc2Blep[c/4].insertBlamp(
+					(1.f * INT32_MAX - 1.f * (phasor2Offset + phasor2Offset + INT32_MAX)) / (2.f * phase2IncWithFm),
+					simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm);
+		}
+
+		if (calcSawSq2)
+		{
+			if (calcSq2)
+			{
+				wave2 += sawSq2Amt * (sq2Amt * phasor2Offset - 1.f * phasor2[c/4]); // +-INT32_MAX
+
+				osc2Blep[c/4].insertBlep(
+						(1.f * INT32_MAX - 1.f * phasor2Offset) / (1.f * phase2IncWithFm),
+						blep2Scale * -sawSq2Amt * sq2Amt);
+			}
+			else
+			{
+				wave2 += -sawSq2Amt * phasor2[c/4]; // +-INT32_MAX
+			}
+
+			osc2Blep[c/4].insertBlep(
+					(1.f * INT32_MAX - 1.f * phasor2[c/4]) / (1.f * phase2IncWithFm),
+					blep2Scale * sawSq2Amt);
+		}
+
+		phasor2[c/4] += phase2IncWithFm;
 	}
 
 };
