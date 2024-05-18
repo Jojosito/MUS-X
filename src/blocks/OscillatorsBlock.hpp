@@ -387,7 +387,6 @@ public:
 
 			// phasors for osc 2
 			int32_4 phase2IncWithFm = phase2Inc + int32_4(fmAmt[c/4] * prevWave1[c/4][bufferReadIndex]); // can be negative!
-			float_4 phase2IncForBlep(phase2IncWithFm);
 
 			float_4 blep2Scale = simd::sgn(float_4(phase2IncWithFm)) * INT32_MAX; // [-INT32_MAX, INT32_MAX]
 			if (calcSync)
@@ -395,38 +394,76 @@ public:
 				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
 				if (simd::movemask(doSync > 0))
 				{
-					// we deal with sync by adjusting phase2IncWithFm
-					// therefore wave2 is automatically bandlimited with the bleps
-
 					float_4 fractionalSyncTime = (1.f * INT32_MAX - 1.f * phasor1) / (1.f * phase1Inc); // [0..1]
-					int32_4 phaseAfterSync = INT32_MIN + (1.f - fractionalSyncTime) * phase2IncWithFm;
+					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.f);
 
-					// must be in extra loop, because we need integer arithmetic here!
-					// simd::ifelse uses float_4 !!!
-					for (size_t i=0; i<4; i++)
-					{
-						if (doSync[i])
-						{
-							blep2Scale[i] = 1. * phasor2[c/4][i] + fractionalSyncTime[i] * phase2IncWithFm[i] + 1.*INT32_MAX; // [-INT32_MAX..0]
+					// calc osc2 up to the sync time
+					float_4 wave2BeforeSync = 0.f;
+					calcOsc2(phase2Offset,
+							fractionalSyncTime * phase2IncWithFm,
+							calcTri2, tri2Amt,
+							calcSawSq2, sawSq2Amt,
+							calcSq2, sq2Amt,
+							blep2Scale,
+							wave2BeforeSync,
+							c);
 
-							phase2IncWithFm[i] = -phasor2[c/4][i] + phaseAfterSync[i];
+					// sync -> reset phasor2 to INT32_MIN
+					phasor2[c/4] = simd::ifelse(doSync, INT32_MIN, phasor2[c/4]);
 
-							phase2IncForBlep[i] = (float)phase2IncWithFm[i];
-							phase2IncForBlep[i] += (phase2IncWithFm[i] < 0) * 2.f * INT32_MAX;
-						}
-					}
+					// calc osc2 right after sync
+					float_4 wave2AfterSync = 0.f;
+					calcOsc2(phase2Offset,
+							0,
+							calcTri2, tri2Amt,
+							calcSawSq2, sawSq2Amt,
+							calcSq2, sq2Amt,
+							0.f,
+							wave2AfterSync,
+							c);
+
+					// insert blep for sync
+					// TODO seems to be 1 sample late!
+					osc2Blep[c/4].insertBlep(
+							fractionalSyncTime,
+							0.5 * (wave2AfterSync - wave2BeforeSync));
+
+					// calc osc2 up to sample end
+					calcOsc2(phase2Offset,
+							(1.f - fractionalSyncTime) * phase2IncWithFm,
+							calcTri2, tri2Amt,
+							calcSawSq2, sawSq2Amt,
+							calcSq2, sq2Amt,
+							blep2Scale,
+							wave2,
+							c);
+				}
+				else
+				{
+					// calc osc2 nornally
+					calcOsc2(phase2Offset,
+							phase2IncWithFm,
+							calcTri2, tri2Amt,
+							calcSawSq2, sawSq2Amt,
+							calcSq2, sq2Amt,
+							blep2Scale,
+							wave2,
+							c);
 				}
 			}
+			else
+			{
+				// calc osc2 nornally
+				calcOsc2(phase2Offset,
+						phase2IncWithFm,
+						calcTri2, tri2Amt,
+						calcSawSq2, sawSq2Amt,
+						calcSq2, sq2Amt,
+						blep2Scale,
+						wave2,
+						c);
+			}
 
-
-			calcOsc2(phase2Offset,
-					phase2IncWithFm,
-					calcTri2, tri2Amt,
-					calcSawSq2, sawSq2Amt,
-					calcSq2, sq2Amt,
-					blep2Scale,
-					wave2,
-					c);
 
 			// apply bleps
 			prevWave2[c/4] += osc2Blep[c/4].process();
