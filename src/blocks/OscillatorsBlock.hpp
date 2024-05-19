@@ -413,8 +413,10 @@ public:
 							c,
 							0., fractionalSyncTime);
 
-					// sync? -> reset phasor2 to INT32_MIN
-					phasor2[c/4] = simd::ifelse(doSync, INT32_MIN, phasor2[c/4]);
+					// sync? -> reset phasor2
+					phasor2[c/4] = simd::ifelse(doSync,
+							simd::ifelse(blep2Scale > 0, INT32_MIN, INT32_MAX),
+							phasor2[c/4]);
 
 					// calc osc2 right after sync for blep scale
 					float_4 wave2AfterSync = 0.f;
@@ -429,7 +431,6 @@ public:
 							fractionalSyncTime, fractionalSyncTime);
 
 					// insert blep for sync
-					// TODO seems to be 1 sample late!
 					osc2Blep[c/4].insertBlep(
 							fractionalSyncTime,
 							0.5 * (wave2AfterSync - wave2));
@@ -526,7 +527,7 @@ private:
 				wave2 += sawSq2Amt * (sq2Amt * phasor2Offset - 1.f * phasor2[c/4]); // +-INT32_MAX
 
 				osc2Blep[c/4].insertBlep(
-						(1.f * INT32_MAX - 1.f * phasor2Offset) / (1.f * phase2IncWithFm),
+						(INT32_MAX - phasor2Offset) / (1.f * phase2IncWithFm),
 						blep2Scale * -sawSq2Amt * sq2Amt,
 						1, minTime, maxTime);
 			}
@@ -536,7 +537,7 @@ private:
 			}
 
 			osc2Blep[c/4].insertBlep(
-					minTime + (1.f * INT32_MAX - 1.f * phasor2[c/4]) / (1.f * phase2IncWithFm),
+					minTime + (INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm),
 					blep2Scale * sawSq2Amt,
 					1, minTime, maxTime);
 		}
