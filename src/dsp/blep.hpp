@@ -30,9 +30,9 @@ public:
 	 * inserts L*oversampling samples
 	 * if L == 4, there will be a delay of one sample
 	 */
-	void insertBlep(T t, T scale = 1, size_t oversampling = 1)
+	void insertBlep(T t, T scale = 1, size_t oversampling = 1, T minTime = 0., T maxTime = 1.)
 	{
-		T mask = (t > 1. - 1. / oversampling) & (t < 1);
+		T mask = (t > minTime) & (t < maxTime);
 		if (!simd::movemask(mask))
 		{
 			return;
@@ -60,9 +60,9 @@ public:
 	 * inserts L*oversampling samples
 	 * if L == 4, there will be a delay of one sample
 	 */
-	void insertBlamp(T t, T scale, size_t oversampling = 1)
+	void insertBlamp(T t, T scale = 1, size_t oversampling = 1, T minTime = 0., T maxTime = 1.)
 	{
-		T mask = (t > 1. - 1. / oversampling) & (t < 1);
+		T mask = (t > minTime) & (t < maxTime);
 		if (!simd::movemask(mask))
 		{
 			return;
