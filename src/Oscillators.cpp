@@ -181,7 +181,7 @@ struct Oscillators : Module {
 					inBuffer[i] = dcBlocker[c/4].highpass();
 				}
 
-				// saturator +-10V
+				// saturator +-13V
 				if (antiAliasing)
 				{
 					inBuffer[i] = saturator[c/4].processBandlimited(inBuffer[i]);
