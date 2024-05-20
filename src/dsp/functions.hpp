@@ -31,17 +31,21 @@ inline float_4 cheapSaturator(float_4 x)
 }
 
 /** Antiderivative-antialiased saturator */
-// y_max = +-13
+// y_max = +-scale
+
 class AntialiasedCheapSaturator {
 private:
-	float_4 x = 0;
-	float_4 epsilon = 1.e-3;
+	static constexpr float epsilon = 1.e-3; // good balance between antialising and stability & noise
+	static constexpr float scale = 13.1713; // deviation from 10*tanh(x/10) < 0.317 in [-23..23]
+	float_4 x = 0; // previous input value
 
+	// saturation function
 	float_4 f(float_4 x)
 	{
 		return x * (simd::fabs(x) + 2.) / simd::pow(simd::fabs(x) + 1., 2);
 	}
 
+	// antiderivative of the saturation function
 	float_4 F(float_4 x)
 	{
 		x = simd::fabs(x) + 1.;
@@ -49,18 +53,13 @@ private:
 	}
 
 public:
-	void setEpsilon(float_4 e)
-	{
-		epsilon = e;
-	}
-
 	float_4 processBandlimited(float_4 in)
 	{
 		in /= 20.;
 		float_4 bandlimited = (F(in) - F(x)) / (in - x);
 		float_4 fallback = f(in);
 
-		float_4 ret = 13. * simd::ifelse(simd::fabs(in - x) < epsilon,
+		float_4 ret = scale * simd::ifelse(simd::fabs(in - x) < epsilon,
 				fallback,
 				bandlimited);
 
@@ -72,7 +71,7 @@ public:
 	float_4 process(float_4 in)
 	{
 		in /= 20.;
-		return 10. * f(in);
+		return scale * f(in);
 	}
 };
 

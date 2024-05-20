@@ -32,7 +32,8 @@ Testing Oscillator:
 	- check if anti-aliasing works!
 	
 - sync
-	- osc2 freq < osc1 freq AND osc2 freq > osc2 freq
+	- osc2 freq < osc1 freq       AND   osc2 freq > osc2 freq
+	- osc2 freq = osc1 freq * N   AND   osc2 freq = osc2 freq / N
 	- check if waveform is correct (check all waveforms!)
 	- check if anti-aliasing works!
 	
