@@ -1,5 +1,6 @@
 #include "plugin.hpp"
 #include "../dsp/blep.hpp"
+#include "../dsp/filters.hpp"
 #include "../dsp/functions.hpp"
 
 namespace musx {
@@ -58,17 +59,15 @@ private:
 	float_4 prevWave1[4][O] = {0};
 	float_4 prevWave2[4] = {0};
 
+	musx::TOnePoleZDF<float_4> lowpass[4];
+
 
 public:
 	// set sample rate [Hz]
 	void setSampleRate(int sr)
 	{
 		sampleRate = sr;
-		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
-		for (int c = 0; c < 16; c += 4)
-		{
-			setFmAmount(fmUnscaled[c/4], c);
-		}
+		setOversamplingRate(oversamplingRate);
 	}
 
 	// set oversampling factor
@@ -76,8 +75,10 @@ public:
 	{
 		oversamplingRate = std::min(O, size_t(n));
 		oneOverSampleRateTimesOversamplingRate = 1. / (sampleRate * oversamplingRate);
+
 		for (int c = 0; c < 16; c += 4)
 		{
+			lowpass[c/4].setCutoffFreq(14000. / (sampleRate * oversamplingRate));
 			setFmAmount(fmUnscaled[c/4], c);
 		}
 	}
@@ -205,8 +206,8 @@ public:
 		fmUnscaled[c/4] = simd::clamp(fm, 0.f, 1.f);
 
 		// use adapted carsons rule to limit FM amount
-		// value 7000. is chosen so that
-		// osc 2 fm'ed frequency stays below nyquist (oversamplingRate*sampleRate/2.)
+		// value 7000 is chosen so that
+		// osc 2 fm'ed fundamental frequency stays below nyquist (oversamplingRate*sampleRate/2.)
 		float_4 maxFm = simd::fmax(
 				((oversamplingRate*sampleRate/2. - osc2Freq[c/4]) / 2. - osc1Freq[c/4]) / 7000.,
 				0.f);
@@ -479,13 +480,21 @@ public:
 
 
 			// apply bleps
-			prevWave2[c/4] += osc2Blep[c/4].process();
+			float_4 wave2forMix = prevWave2[c/4]  + osc2Blep[c/4].process();
+
+			// lowpass osc2
+			if (oversamplingRate > 1)
+			{
+				// with oversampling > 1, osc1 sounds a bit duller than osc2 due to the blep being applied over 4*oversampling samples
+				// -> lowpass osc2, will also help to reduce ringmod-aliasing and subsequent saturator aliasing a bit
+				wave2forMix = lowpass[c/4].processLowpass(wave2forMix);
+			}
 
 
 			// mix
 			out += osc1Vol[c/4] * prevWave1[c/4][bufferReadIndex] +
-					osc2Vol[c/4] * prevWave2[c/4] +
-					ringmodVol[c/4] * prevWave1[c/4][bufferReadIndex] * prevWave2[c/4]; // +-5V each
+					osc2Vol[c/4] * wave2forMix +
+					ringmodVol[c/4] * prevWave1[c/4][bufferReadIndex] * wave2forMix; // +-5V each
 
 			// buffers
 			prevSub1[c/4][bufferWriteIndex] = sub1;

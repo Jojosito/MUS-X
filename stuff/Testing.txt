@@ -37,5 +37,5 @@ Testing Oscillator:
 	- check if anti-aliasing works!
 	
 - FM
-	- check if anti-aliasing works with negative frequencies: tune osc1 down, osc2 medium, fm amount up
-	- check with sync
+	- check if anti-aliasing works with negative frequencies: tune osc1 down, osc2 medium, fm amount up (check all waveforms!)
+	- check if sync anti-aliasing works with negative frequencies (check all waveforms!)

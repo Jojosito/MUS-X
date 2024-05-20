@@ -1,3 +1,5 @@
+#pragma once
+
 #include <rack.hpp>
 
 namespace musx {
@@ -106,6 +108,13 @@ struct TOnePoleZDF {
 		T v = (x - z) * g;
 		y = v + z;
 		z = y + v;
+	}
+
+	// process, but don't update internal state z
+	void processDry(T in) {
+		x = in;
+		T v = (x - z) * g;
+		y = v + z;
 	}
 
 	inline T processLowpass(T in) {
