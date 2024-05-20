@@ -63,6 +63,7 @@ struct Oscillators : Module {
 
 	bool dcBlock = true;
 	musx::TOnePole<float_4> dcBlocker[4];
+	AntialiasedCheapSaturator saturator[4];
 
 	bool antiAliasing = true;
 
@@ -108,6 +109,7 @@ struct Oscillators : Module {
 	{
 		oversamplingRate = arg;
 		setLfoMode(lfoMode); // refresh actualOversamplingRate
+		oscBlock.setOversamplingRate(actualOversamplingRate);
 
 		for (int c = 0; c < 16; c += 4) {
 			decimator[c/4].reset();
@@ -125,8 +127,6 @@ struct Oscillators : Module {
 		channels = std::max(1, inputs[OSC1VOCT_INPUT].getChannels());
 		channels = std::max(channels, inputs[OSC2VOCT_INPUT].getChannels());
 		outputs[OUT_OUTPUT].setChannels(channels);
-
-		oscBlock.setOversamplingRate(actualOversamplingRate);
 
 		for (int c = 0; c < channels; c += 4) {
 
@@ -182,7 +182,14 @@ struct Oscillators : Module {
 				}
 
 				// saturator +-10V
-				inBuffer[i] = musx::cheapSaturator(inBuffer[i]);
+				if (antiAliasing)
+				{
+					inBuffer[i] = saturator[c/4].processBandlimited(inBuffer[i]);
+				}
+				else
+				{
+					inBuffer[i] = saturator[c/4].process(inBuffer[i]);
+				}
 			}
 
 			// downsampling

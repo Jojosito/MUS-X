@@ -1,3 +1,5 @@
+#pragma once
+
 #include <rack.hpp>
 
 namespace musx {
