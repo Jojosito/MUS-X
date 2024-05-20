@@ -400,8 +400,9 @@ public:
 				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
 				if (simd::movemask(doSync > 0))
 				{
-					float_4 fractionalSyncTime = (1.f * INT32_MAX - 1.f * phasor1) / (1.f * phase1Inc); // [0..1]
+					float_4 fractionalSyncTime = (INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
 					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.f);
+					fractionalSyncTime = simd::ifelse(doSync, fractionalSyncTime, 1.f); // get rid of some numerical errors
 
 					// calc osc2 and bleps from sample begin to fractionalSyncTime
 					calcOsc2(phase2Offset,
@@ -412,7 +413,7 @@ public:
 							blep2Scale,
 							wave2,
 							c,
-							0., fractionalSyncTime);
+							0.f, fractionalSyncTime);
 
 					// calc osc2 wave right before sync for blep scale
 					float_4 wave2BeforeSync = 0.f;
@@ -450,7 +451,7 @@ public:
 							calcSq2, sq2Amt,
 							blep2Scale,
 							c,
-							fractionalSyncTime, 1.);
+							fractionalSyncTime, 1.f);
 				}
 				else
 				{
@@ -480,7 +481,7 @@ public:
 
 
 			// apply bleps
-			float_4 wave2forMix = prevWave2[c/4]  + osc2Blep[c/4].process();
+			float_4 wave2forMix = prevWave2[c/4] + osc2Blep[c/4].process();
 
 			// lowpass osc2
 			if (oversamplingRate > 1)
