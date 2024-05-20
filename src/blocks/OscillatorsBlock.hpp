@@ -342,7 +342,7 @@ public:
 					wave1 += sawSq1Amt * (sq1Amt * phasor1Offset - 1.f * phasor1); // +-INT32_MAX
 
 					osc1Blep[c/4].insertBlep(
-							(1.f * INT32_MAX - 1.f * phasor1Offset) / (1.f * oversamplingRate * phase1Inc),
+							(INT32_MAX - phasor1Offset) / (1.f * oversamplingRate * phase1Inc),
 							-sawSq1Amt * sq1Amt * INT32_MAX,
 							oversamplingRate,
 							1. - 1. / oversamplingRate);
@@ -353,7 +353,7 @@ public:
 				}
 
 				osc1Blep[c/4].insertBlep(
-						(1.f * INT32_MAX - 1.f * phasor1) / (1.f * oversamplingRate * phase1Inc),
+						(INT32_MAX - phasor1) / (1.f * oversamplingRate * phase1Inc),
 						sawSq1Amt * INT32_MAX,
 						oversamplingRate,
 						1. - 1. / oversamplingRate);
@@ -366,13 +366,13 @@ public:
 				sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
 				oscSubBlep[c/4].insertBlep(
-						(1.f * INT32_MAX - 1.f * phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
+						(INT32_MAX - phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
 						INT32_MAX,
 						oversamplingRate,
 						1. - 1. / oversamplingRate);
 
 				oscSubBlep[c/4].insertBlep(
-						(1.f * INT32_MAX - 1.f * phasor1SubOffset) / (1.f * oversamplingRate * phase1SubInc),
+						(INT32_MAX - phasor1SubOffset) / (1.f * oversamplingRate * phase1SubInc),
 						-INT32_MAX,
 						oversamplingRate,
 						1. - 1. / oversamplingRate);
@@ -402,7 +402,7 @@ public:
 					float_4 fractionalSyncTime = (1.f * INT32_MAX - 1.f * phasor1) / (1.f * phase1Inc); // [0..1]
 					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.f);
 
-					// calc osc2 from sample begin to fractionalSyncTime
+					// calc osc2 and bleps from sample begin to fractionalSyncTime
 					calcOsc2(phase2Offset,
 							phase2IncWithFm,
 							calcTri2, tri2Amt,
@@ -413,36 +413,41 @@ public:
 							c,
 							0., fractionalSyncTime);
 
+					// calc osc2 wave right before sync for blep scale
+					float_4 wave2BeforeSync = 0.f;
+					calcOsc2Wave(phase2Offset,
+							calcTri2, tri2Amt,
+							calcSawSq2, sawSq2Amt,
+							calcSq2, sq2Amt,
+							wave2BeforeSync,
+							c);
+
 					// sync? -> reset phasor2
 					phasor2[c/4] = simd::ifelse(doSync,
 							simd::ifelse(blep2Scale > 0, INT32_MIN, INT32_MAX),
 							phasor2[c/4]);
 
-					// calc osc2 right after sync for blep scale
+					// calc osc2 wave right after sync for blep scale
 					float_4 wave2AfterSync = 0.f;
-					calcOsc2(phase2Offset,
-							0,
+					calcOsc2Wave(phase2Offset,
 							calcTri2, tri2Amt,
 							calcSawSq2, sawSq2Amt,
 							calcSq2, sq2Amt,
-							0.f,
 							wave2AfterSync,
-							c,
-							fractionalSyncTime, fractionalSyncTime);
+							c);
 
 					// insert blep for sync
 					osc2Blep[c/4].insertBlep(
 							fractionalSyncTime,
-							0.5 * (wave2AfterSync - wave2));
+							0.5 * (wave2AfterSync - wave2BeforeSync));
 
-					// calc osc2 from fractionalSyncTime to sample end
-					calcOsc2(phase2Offset,
+					// calc osc2 bleps from fractionalSyncTime to sample end
+					calcOsc2Bleps(phase2Offset,
 							phase2IncWithFm,
 							calcTri2, tri2Amt,
 							calcSawSq2, sawSq2Amt,
 							calcSq2, sq2Amt,
 							blep2Scale,
-							wave2AfterSync, // dummy
 							c,
 							fractionalSyncTime, 1.);
 				}
@@ -495,6 +500,12 @@ public:
 	}
 
 private:
+
+	/**
+	 * calc wave2 at beginning of sample,
+	 * insert bleps and blamp
+	 * advance phasor2 by phase2IncWithFm (fractional if minTime or maxTime are set)
+	 */
 	void calcOsc2(int32_4 phase2Offset,
 			int32_4 phase2IncWithFm,
 			int calcTri2, float_4 tri2Amt,
@@ -536,6 +547,80 @@ private:
 				wave2 += -sawSq2Amt * phasor2[c/4]; // +-INT32_MAX
 			}
 
+			osc2Blep[c/4].insertBlep(
+					minTime + (INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm),
+					blep2Scale * sawSq2Amt,
+					1, minTime, maxTime);
+		}
+
+		phasor2[c/4] += (maxTime - minTime) * phase2IncWithFm;
+	}
+
+	/**
+	 * calc wave2 at beginning of sample
+	 */
+	void calcOsc2Wave(int32_4 phase2Offset,
+			int calcTri2, float_4 tri2Amt,
+			int calcSawSq2, float_4 sawSq2Amt,
+			int calcSq2, float_4 sq2Amt,
+			float_4& wave2,
+			int c)
+	{
+		int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
+
+		if (calcTri2)
+		{
+			float_4 tri2 = -2 * simd::abs(phasor2Offset) + INT32_MAX; // +-INT32_MAX
+
+			wave2 += tri2Amt * tri2; // +-INT32_MAX
+		}
+
+		if (calcSawSq2)
+		{
+			if (calcSq2)
+			{
+				wave2 += sawSq2Amt * (sq2Amt * phasor2Offset - 1.f * phasor2[c/4]); // +-INT32_MAX
+			}
+			else
+			{
+				wave2 += -sawSq2Amt * phasor2[c/4]; // +-INT32_MAX
+			}
+		}
+	}
+
+	/**
+	 * insert bleps and blamp
+	 * advance phasor2 by phase2IncWithFm (fractional if minTime or maxTime are set)
+	 */
+	void calcOsc2Bleps(int32_4 phase2Offset,
+			int32_4 phase2IncWithFm,
+			int calcTri2, float_4 tri2Amt,
+			int calcSawSq2, float_4 sawSq2Amt,
+			int calcSq2, float_4 sq2Amt,
+			float_4 blep2Scale,
+			int c,
+			float_4 minTime = 0.,
+			float_4 maxTime = 1.)
+	{
+		int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
+
+		if (calcTri2)
+		{
+			osc2Blep[c/4].insertBlamp(
+					(1.f * INT32_MAX - 1.f * (phasor2Offset + phasor2Offset + INT32_MAX)) / (2.f * phase2IncWithFm),
+					simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm,
+					1, minTime, maxTime);
+		}
+
+		if (calcSawSq2)
+		{
+			if (calcSq2)
+			{
+				osc2Blep[c/4].insertBlep(
+						(INT32_MAX - phasor2Offset) / (1.f * phase2IncWithFm),
+						blep2Scale * -sawSq2Amt * sq2Amt,
+						1, minTime, maxTime);
+			}
 			osc2Blep[c/4].insertBlep(
 					minTime + (INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm),
 					blep2Scale * sawSq2Amt,
