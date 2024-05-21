@@ -41,7 +41,7 @@ private:
 	float_4 osc2PW[4] = {0};
 	float_4 osc2Vol[4] = {0};
 
-	int32_4 sync[4];
+	float_4 sync[4];
 	float_4 fmUnscaled[4] = {0};
 	float_4 fmAmt[4] = {0};
 	float_4 ringmodVol[4] = {0};
@@ -195,7 +195,7 @@ public:
 
 
 	// set if oscillator 2 should be synced to oscillator 1 [0, 1]
-	inline void setSync(int32_4 s, int c)
+	inline void setSync(float_4 s, int c)
 	{
 		sync[c/4] = simd::round(clamp(s, 0.f, 1.f));
 	}
@@ -261,7 +261,7 @@ public:
 			phasor2[c/4] += phase2Inc + int32_4(fmAmt[c/4] * wave1);
 
 			// sync / reset phasor2 ?
-			phasor2[c/4] = simd::ifelse(sync[c/4] & (phasor1Old[c/4] > phasor1), INT32_MIN, phasor2[c/4]);
+			phasor2[c/4] = simd::ifelse(sync[c/4] * (phasor1Old[c/4] > phasor1), INT32_MIN, phasor2[c/4]);
 			phasor1Old[c/4] = phasor1;
 			int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
 
@@ -397,12 +397,12 @@ public:
 			float_4 blep2Scale = simd::sgn(float_4(phase2IncWithFm)) * INT32_MAX; // [-INT32_MAX, INT32_MAX]
 			if (calcSync)
 			{
-				int32_4 doSync = sync[c/4] & (phasor1 + phase1Inc < phasor1);
+				float_4 doSync = simd::ifelse(sync[c/4] * (phasor1 + phase1Inc < phasor1), 1.f, 0.f);
 				if (simd::movemask(doSync > 0))
 				{
 					float_4 fractionalSyncTime = (INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
-					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.f);
-					fractionalSyncTime = simd::ifelse(doSync, fractionalSyncTime, 1.f); // get rid of some numerical errors
+					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.1f);
+//					fractionalSyncTime = simd::ifelse(doSync, fractionalSyncTime, 1.f); // get rid of some numerical errors
 
 					// calc osc2 and bleps from sample begin to fractionalSyncTime
 					calcOsc2(phase2Offset,
@@ -479,9 +479,12 @@ public:
 						c);
 			}
 
-
 			// apply bleps
-			float_4 wave2forMix = prevWave2[c/4] + osc2Blep[c/4].process();
+			//float_4 wave2forMix = prevWave2[c/4] + osc2Blep[c/4].process();
+
+			//test
+			float_4 wave2forMix = prevWave2[c/4];
+			prevWave1[c/4][bufferReadIndex] = osc2Blep[c/4].process();
 
 			// lowpass osc2
 			if (oversamplingRate > 1)
