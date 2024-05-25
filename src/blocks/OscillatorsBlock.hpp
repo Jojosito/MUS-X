@@ -418,7 +418,7 @@ public:
 							blep2Scale,
 							wave2,
 							c,
-							0.f, fractionalSyncTime);
+							0.f, fractionalSyncTime + 0.0001f); // when osc2 freq = N * osc1 freq, it can happen that the phase rolls over here, but no blep is inserted due to numerical inaccuracies; add a small number to maxTime to avoid the issue!
 
 					// calc osc2 wave right before sync for blep scale
 					float_4 wave2BeforeSync = 0.f;
@@ -430,9 +430,9 @@ public:
 							c);
 
 					// syncMask? -> reset phasor2
-					phasor2[c/4] = simd::ifelse(doSyncMask,
-							simd::ifelse(blep2Scale > 0.f, INT32_MIN, INT32_MAX),
-							phasor2[c/4]);
+					phasor2[c/4] += *(int32_4*)&doSyncMask & -phasor2[c/4] + INT32_MIN; // reset to INT32_MIN
+					int32_4 scaleMask = phase2IncWithFm < 0;
+					phasor2[c/4] += scaleMask & -1; // roll over to INT32_MAX if phase2IncWithFm < 0
 
 					// calc osc2 wave right after sync for blep scale
 					float_4 wave2AfterSync = 0.f;
@@ -485,11 +485,7 @@ public:
 			}
 
 			// apply bleps
-//			float_4 wave2forMix = prevWave2[c/4] + osc2Blep[c/4].process();
-
-			//test
-			float_4 wave2forMix = prevWave2[c/4];
-			prevWave1[c/4][bufferReadIndex] = osc2Blep[c/4].process();
+			float_4 wave2forMix = prevWave2[c/4] + osc2Blep[c/4].process();
 
 			// lowpass osc2
 			if (oversamplingRate > 1)
