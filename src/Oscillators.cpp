@@ -188,7 +188,7 @@ struct Oscillators : Module {
 				}
 				else
 				{
-					inBuffer[i] = saturator[c/4].process(inBuffer[i]);
+					inBuffer[i] = saturator[c/4].processNonBandlimited(inBuffer[i]);
 				}
 			}
 

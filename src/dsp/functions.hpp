@@ -32,7 +32,6 @@ inline float_4 cheapSaturator(float_4 x)
 
 /** Antiderivative-antialiased saturator */
 // y_max = +-scale
-
 class AntialiasedCheapSaturator {
 private:
 	static constexpr float epsilon = 1.e-3; // good balance between antialising and stability & noise
@@ -57,7 +56,7 @@ public:
 	{
 		in /= 20.;
 		float_4 bandlimited = (F(in) - F(x)) / (in - x);
-		float_4 fallback = f(in);
+		float_4 fallback = 0.5f * (f(in) + f(x));
 
 		float_4 ret = scale * simd::ifelse(simd::fabs(in - x) < epsilon,
 				fallback,
@@ -68,7 +67,7 @@ public:
 		return ret;
 	}
 
-	float_4 process(float_4 in)
+	float_4 processNonBandlimited(float_4 in)
 	{
 		in /= 20.;
 		return scale * f(in);
