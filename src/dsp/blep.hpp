@@ -15,7 +15,7 @@ template <size_t O = 1, size_t L = 2, typename T = float_4>
 class BlepGenerator {
 private:
 	T buffer[L * O] = {};
-	size_t pos;
+	size_t pos = 0;
 
 public:
 	BlepGenerator()

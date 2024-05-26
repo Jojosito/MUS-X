@@ -23,7 +23,7 @@ private:
 	int32_4 phasor2[4] = {0};
 
 	// sample rates
-	int sampleRate;
+	int sampleRate = 48000;
 	int oversamplingRate = 1;
 	float oneOverSampleRateTimesOversamplingRate;
 
@@ -32,13 +32,13 @@ private:
 	float maxFreq = 20000.f; // [Hz]
 
 	// parameters
-	float_4 osc1Freq[4] = {0}; // [Hz]
+	float_4 osc1Freq[4] = {440.}; // [Hz]
 	float_4 osc1Shape[4] = {0};
 	float_4 osc1PW[4] = {0};
 	float_4 osc1Vol[4] = {0};
 	float_4 osc1Subvol[4] = {0};
 
-	float_4 osc2Freq[4] = {0}; // [Hz]
+	float_4 osc2Freq[4] = {440.}; // [Hz]
 	float_4 osc2Shape[4] = {0};
 	float_4 osc2PW[4] = {0};
 	float_4 osc2Vol[4] = {0};
