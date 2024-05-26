@@ -79,6 +79,9 @@ struct Delay : Module {
 	// DC block
 	musx::TOnePole<float_4> dcBlocker;
 
+	musx::AntialiasedCheapSaturator inSaturator;
+	musx::AntialiasedCheapSaturator outSaturator;
+
 	dsp::ClockDivider lightDivider;
 	dsp::ClockDivider knobDivider;
 
@@ -206,7 +209,7 @@ struct Delay : Module {
 		}
 
 		// saturate
-		inMono = musx::tanh(inMono / 10.f) * 10.f; // +-10V
+		inMono = inSaturator.process(inMono);
 
 		// compressor
 		inMono = compander.compress(inMono);
@@ -269,7 +272,8 @@ struct Delay : Module {
 		out = compander.expand(out);
 
 		// saturate
-		out = musx::tanh(out / 10.f) * 10.f; // +-10V
+		out = outSaturator.process(out);
+
 
 		lastOut = out;
 

@@ -35,7 +35,8 @@ inline float_4 cheapSaturator(float_4 x)
 class AntialiasedCheapSaturator {
 private:
 	static constexpr float epsilon = 1.e-3; // good balance between antialising and stability & noise
-	static constexpr float scale = 13.1713; // deviation from 10*tanh(x/10) < 0.317 in [-23..23]
+	//static constexpr float scale = 13.1713; // deviation from 10*tanh(x/10) < 0.317 in [-23..23]
+	static constexpr float scale = 10.; // limit output to +-10V
 	float_4 x = 0; // previous input value
 
 	// saturation function
@@ -52,6 +53,11 @@ private:
 	}
 
 public:
+	float_4 process(float_4 in)
+	{
+		return processBandlimited(in);
+	}
+
 	float_4 processBandlimited(float_4 in)
 	{
 		in /= 20.;

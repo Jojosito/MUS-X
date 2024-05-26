@@ -63,7 +63,7 @@ struct Oscillators : Module {
 
 	bool dcBlock = true;
 	musx::TOnePole<float_4> dcBlocker[4];
-	AntialiasedCheapSaturator saturator[4];
+	musx::AntialiasedCheapSaturator saturator[4];
 
 	bool antiAliasing = true;
 
