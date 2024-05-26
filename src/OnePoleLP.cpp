@@ -30,7 +30,7 @@ struct OnePoleLP : Module {
 
 	int channels = 1;
 
-	musx::TOnePole<float_4> lowpass[4];
+	musx::TOnePoleZDF<float_4> lowpass[4];
 
 	dsp::ClockDivider cvDivider;
 
