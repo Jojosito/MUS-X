@@ -304,4 +304,36 @@ struct TSVF {
 	}
 };
 
+
+/**
+ * 4th order biquad filters to filter out high frequency content between modules
+ */
+template <typename T = float>
+struct AliasReductionFilter
+{
+	dsp::TBiquadFilter<T> filter1;
+	dsp::TBiquadFilter<T> filter2;
+
+	AliasReductionFilter()
+	{
+		setParameters(0.25);
+	}
+
+	/**
+	f: normalized frequency (cutoff frequency / sample rate), must be less than 0.5
+	Q: quality factor
+	*/
+	void setParameters(float f, float Q = 0.75f)
+	{
+		f = clamp(f, 0.f, 0.5f);
+		filter1.setParameters(dsp::TBiquadFilter<float_4>::LOWPASS, f, Q, 1.f);
+		filter2.setParameters(dsp::TBiquadFilter<float_4>::LOWPASS, f, Q, 1.f);
+	}
+
+	T process(T in)
+	{
+		return filter2.process(filter1.process(in));
+	}
+};
+
 }
