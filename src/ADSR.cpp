@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "blocks/ADSRBlock.hpp"
 
 namespace musx {
 
@@ -32,27 +33,7 @@ struct ADSR : Module {
 		LIGHTS_LEN
 	};
 
-	enum Stage {
-		STAGE_A = 0,
-		STAGE_DS = 1,
-		STAGE_R = 2
-	};
-
-
-	static constexpr float MIN_TIME = 5e-4f;
-	static constexpr float MAX_TIME = 20.f;
-	static constexpr float LAMBDA_BASE = MAX_TIME / MIN_TIME;
-	static constexpr float ATT_TARGET = 1.2f;
-
 	int channels = 1;
-	float_4 gate[4] = {};
-	float_4 attacking[4] = {};
-	float_4 env[4] = {};
-	dsp::TSchmittTrigger<float_4> trigger[4];
-	float_4 attackLambda[4] = {};
-	float_4 decayLambda[4] = {};
-	float_4 releaseLambda[4] = {};
-	float_4 sustain[4] = {};
 
 	float lastAttackParam = -1.f;
 	float lastDecayParam = -1.f;
@@ -63,6 +44,12 @@ struct ADSR : Module {
 	float_4 randomD[4] = {};
 	float_4 randomS[4] = {};
 	float_4 randomR[4] = {};
+
+	static constexpr float MIN_TIME = 5e-4f;
+	static constexpr float MAX_TIME = 20.f;
+	static constexpr float LAMBDA_BASE = MAX_TIME / MIN_TIME;
+	static constexpr float ATT_TARGET = 1.2f;
+	musx::ADSRBlock adsrBlock = musx::ADSRBlock(MIN_TIME, MAX_TIME, ATT_TARGET);
 
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -124,54 +111,28 @@ struct ADSR : Module {
 			lastRandParam = params[RANDSCALE_PARAM].getValue();
 
 			for (int c = 0; c < channels; c += 4) {
-				attackLambda[c/4] = simd::pow(LAMBDA_BASE, -lastAttackParam) / MIN_TIME;
-				attackLambda[c/4] *= 1 + lastRandParam * randomA[c/4];
-
-				decayLambda[c/4] = simd::pow(LAMBDA_BASE, -lastDecayParam) / MIN_TIME;
-				decayLambda[c/4] *= 1 + lastRandParam * randomD[c/4];
-
-				releaseLambda[c/4] = simd::pow(LAMBDA_BASE, -lastReleaseParam) / MIN_TIME;
-				releaseLambda[c/4] *= 1 + lastRandParam * randomR[c/4];
+				adsrBlock.setAttackTime(lastAttackParam * (1 + lastRandParam * randomA[c/4]), c);
+				adsrBlock.setDecayTime(lastDecayParam * (1 + lastRandParam * randomD[c/4]), c);
+				adsrBlock.setReleaseTime(lastReleaseParam * (1 + lastRandParam * randomR[c/4]), c);
 			}
 		}
 
 
 		for (int c = 0; c < channels; c += 4) {
-			this->sustain[c/4] = simd::clamp(params[S_PARAM].getValue() +
-					inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) * 0.1f * params[SUSMOD_PARAM].getValue(),
-					0.f, 1.f);
-			this->sustain[c/4] *= 1 + lastRandParam * randomS[c/4];
+			adsrBlock.setSustainLevel(
+					(params[S_PARAM].getValue() + inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) * 0.1f * params[SUSMOD_PARAM].getValue())
+					* (1 + lastRandParam * randomS[c/4]),
+					c);
 
-			// Gate
-			float_4 oldGate = gate[c/4];
-			gate[c/4] = inputs[GATE_INPUT].getVoltageSimd<float_4>(c) >= 1.f;
-			attacking[c/4] |= (gate[c/4] & ~oldGate);
-
-			// Retrigger
-			float_4 triggered = trigger[c/4].process(inputs[RETRIG_INPUT].getPolyVoltageSimd<float_4>(c));
-			attacking[c/4] |= triggered;
-
-			// Turn off attacking state if gate is LOW
-			attacking[c/4] &= gate[c/4];
-
-			// Get target and lambda for exponential decay
-			float_4 target = simd::ifelse(attacking[c/4], ATT_TARGET, simd::ifelse(gate[c/4], sustain[c/4], 0.f));
-			float_4 lambda = simd::ifelse(attacking[c/4], attackLambda[c/4], simd::ifelse(gate[c/4], decayLambda[c/4], releaseLambda[c/4]));
-
-			// Adjust env
-			env[c/4] += (target - env[c/4]) * lambda * args.sampleTime;
-
-			// Turn off attacking state if envelope is HIGH
-			attacking[c/4] &= (env[c/4] < 1.f);
-
-			// velocity
-			float_4 velScaling = 1.f - params[VELSCALE_PARAM].getValue() +
-					0.1f*inputs[VEL_INPUT].getPolyVoltageSimd<float_4>(c) * params[VELSCALE_PARAM].getValue();
+			adsrBlock.setVelocityScaling(params[VELSCALE_PARAM].getValue(), c);
+			adsrBlock.setVelocity(inputs[VEL_INPUT].getVoltageSimd<float_4>(c), c);
+			adsrBlock.setGate(inputs[GATE_INPUT].getVoltageSimd<float_4>(c), c);
+			adsrBlock.setRetrigger(inputs[RETRIG_INPUT].getVoltageSimd<float_4>(c), c);
 
 			// Set output
-			outputs[ENV_OUTPUT].setVoltageSimd(10.f * velScaling * env[c/4], c);
+			outputs[ENV_OUTPUT].setVoltageSimd(adsrBlock.process(args.sampleTime, c), c);
 
-			outputs[SGATE_OUTPUT].setVoltageSimd(simd::ifelse((gate[c/4] & ~attacking[c/4]), 10.f, 0.f), c);
+			outputs[SGATE_OUTPUT].setVoltageSimd(adsrBlock.getDecaySustainGate(c), c);
 		}
 
 	}
