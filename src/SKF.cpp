@@ -36,10 +36,12 @@ struct SKF : Module {
 	const float logBase = std::log(base);
 
 	static const int maxOversamplingRate = 64;
-	int oversamplingRate = 8;
+	int oversamplingRate = 4;
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
-	int iterations = 1;
+	int iterations = 2;
+	musx::AntialiasedCheapSaturator saturator1[4];
+	musx::AntialiasedCheapSaturator saturator2[4];
 
 	int channels = 1;
 
@@ -72,6 +74,7 @@ struct SKF : Module {
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
 			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 2.2f));
 			frequency /= args.sampleRate * oversamplingRate;
+			// TODO fit again
 			frequency  = (simd::exp(12.45 * frequency) - 1.) / 12.45; // prewarp. I fitted this, its not perfect, but good enough
 
 			filter1[c/4].setCutoffFreq(frequency);
@@ -95,31 +98,31 @@ struct SKF : Module {
 				case 0: // LP
 					for (int i=0; i<iterations; i++)
 					{
-						filter1[c/4].processDry(in + cheapSaturator(feedback * filter2[c/4].highpass()));
-						filter2[c/4].processDry(cheapSaturator(filter1[c/4].lowpass()));
+						filter1[c/4].processDry(in + saturator1[c/4].processNonBandlimited(feedback * filter2[c/4].highpass()));
+						filter2[c/4].processDry(saturator2[c/4].processNonBandlimited(filter1[c/4].lowpass()));
 					}
-					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].highpass()));
-					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
+					filter1[c/4].process(in + saturator1[c/4].process(feedback * filter2[c/4].highpass()));
+					filter2[c/4].process(saturator2[c/4].process(filter1[c/4].lowpass()));
 					inBuffer[i] = filter2[c/4].lowpass();
 					break;
 				case 1: // BP
 					for (int i=0; i<iterations; i++)
 					{
-						filter1[c/4].processDry(in + cheapSaturator(feedback * filter2[c/4].highpass()));
-						filter2[c/4].processDry(cheapSaturator(filter1[c/4].lowpass()));
+						filter1[c/4].processDry(in + saturator1[c/4].processNonBandlimited(feedback * filter2[c/4].highpass()));
+						filter2[c/4].processDry(saturator2[c/4].processNonBandlimited(filter1[c/4].lowpass()));
 					}
-					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].highpass()));
-					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
+					filter1[c/4].process(in + saturator1[c/4].process(feedback * filter2[c/4].highpass()));
+					filter2[c/4].process(saturator2[c/4].process(filter1[c/4].lowpass()));
 					inBuffer[i] = filter2[c/4].highpass();
 					break;
 				case 2: // HP
 					for (int i=0; i<iterations; i++)
 					{
-						filter1[c/4].processDry(in + cheapSaturator(feedback * filter2[c/4].lowpass()));
-						filter2[c/4].processDry(cheapSaturator(filter1[c/4].highpass()));
+						filter1[c/4].processDry(in + saturator1[c/4].processNonBandlimited(feedback * filter2[c/4].lowpass()));
+						filter2[c/4].processDry(saturator2[c/4].processNonBandlimited(filter1[c/4].highpass()));
 					}
-					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].lowpass()));
-					filter2[c/4].process(cheapSaturator(filter1[c/4].highpass()));
+					filter1[c/4].process(in + saturator1[c/4].process(feedback * filter2[c/4].lowpass()));
+					filter2[c/4].process(saturator2[c/4].process(filter1[c/4].highpass()));
 					inBuffer[i] = filter2[c/4].highpass();
 				}
 			}
@@ -178,7 +181,7 @@ struct SKFWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x", "256x", "512x", "1024x"},
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x", "16x", "32x", "64x"},
 			[=]() {
 				return log2(module->oversamplingRate);
 			},
@@ -187,7 +190,7 @@ struct SKFWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createIndexSubmenuItem("iterations", {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+		menu->addChild(createIndexSubmenuItem("iterations", {"0", "1", "2", "3", "4", "5"},
 			[=]() {
 				return module->iterations;
 			},
