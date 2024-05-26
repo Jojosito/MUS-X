@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import sys
 
 originalSampleRate = 48000 #Hz
-oversampling = 2**10
+#originalSampleRate = 44100 #Hz
+oversampling = 2**3
 
-targetStopBandAttenuation = -90 #dB
+targetStopBandAttenuation = -60 #dB
 
 doPlot = False
 
@@ -21,7 +22,7 @@ totalCostEstimation = 0.
 
 while oversampling > 1:
 	if oversampling == 2 :
-		passband = 21000
+		passband = 20000
 		print('pass band range: 0 - ' + str(passband))
 
 	sampleRate = int(originalSampleRate * oversampling)
@@ -78,7 +79,7 @@ while oversampling > 1:
 			plt.xlabel('Frequency [Hz]')
 			plt.title('Frequency response ' + str(oversampling) + "x -> " + str(int(oversampling/2)))
 			plt.grid(which='both', linestyle='-', color='grey')
-			plt.xticks([24000, 48000, 96000, 192000, 348000, 696000, 1392000, 2784000, 5568000, 11136000], ["24k", "48k", "96k", "192k", "348k", "696k", "1392k", "2784k", "5568k", "11136k"])
+			plt.xticks([20000, 24000, 48000, 96000, 192000, 348000, 696000, 1392000, 2784000, 5568000, 11136000], ["20k", "24k", "48k", "96k", "192k", "348k", "696k", "1392k", "2784k", "5568k", "11136k"])
 			#plt.xticks([24000, 48000], ["24k", "48k"])
 			plt.show()
 			
