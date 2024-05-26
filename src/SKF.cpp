@@ -35,9 +35,11 @@ struct SKF : Module {
 	const float base = maxFreq/minFreq; // max freq/min freq
 	const float logBase = std::log(base);
 
-	static const int maxOversamplingRate = 1024;
-	int oversamplingRate = 16;
+	static const int maxOversamplingRate = 64;
+	int oversamplingRate = 8;
 	HalfBandDecimatorCascade<float_4> decimator[4];
+
+	int iterations = 1;
 
 	int channels = 1;
 
@@ -76,7 +78,7 @@ struct SKF : Module {
 			filter2[c/4].copyCutoffFreq(filter1[c/4]);
 
 			// resonance
-			float_4 feedback = 10. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
+			float_4 feedback = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
 
 
 			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
@@ -84,22 +86,38 @@ struct SKF : Module {
 			for (int i = 0; i < oversamplingRate; ++i)
 			{
 				// linear interpolation for input
+				// TODO proper upsampling with halfband filters!!! !
 				float_4 in = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i+1.f)/oversamplingRate);
 
 				// filtering
 				switch ((int)params[MODE_PARAM].getValue())
 				{
 				case 0: // LP
+					for (int i=0; i<iterations; i++)
+					{
+						filter1[c/4].processDry(in + cheapSaturator(feedback * filter2[c/4].highpass()));
+						filter2[c/4].processDry(cheapSaturator(filter1[c/4].lowpass()));
+					}
 					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].highpass()));
 					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
 					inBuffer[i] = filter2[c/4].lowpass();
 					break;
 				case 1: // BP
+					for (int i=0; i<iterations; i++)
+					{
+						filter1[c/4].processDry(in + cheapSaturator(feedback * filter2[c/4].highpass()));
+						filter2[c/4].processDry(cheapSaturator(filter1[c/4].lowpass()));
+					}
 					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].highpass()));
 					filter2[c/4].process(cheapSaturator(filter1[c/4].lowpass()));
 					inBuffer[i] = filter2[c/4].highpass();
 					break;
 				case 2: // HP
+					for (int i=0; i<iterations; i++)
+					{
+						filter1[c/4].processDry(in + cheapSaturator(feedback * filter2[c/4].lowpass()));
+						filter2[c/4].processDry(cheapSaturator(filter1[c/4].highpass()));
+					}
 					filter1[c/4].process(in + cheapSaturator(feedback * filter2[c/4].lowpass()));
 					filter2[c/4].process(cheapSaturator(filter1[c/4].highpass()));
 					inBuffer[i] = filter2[c/4].highpass();
@@ -166,6 +184,15 @@ struct SKFWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->oversamplingRate = std::pow(2, mode);
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("iterations", {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+			[=]() {
+				return module->iterations;
+			},
+			[=](int mode) {
+				module->iterations = mode;
 			}
 		));
 	}
