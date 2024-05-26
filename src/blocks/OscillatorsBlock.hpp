@@ -3,8 +3,6 @@
 #include "../dsp/filters.hpp"
 #include "../dsp/functions.hpp"
 
-#include <iostream>
-
 namespace musx {
 
 using namespace rack;

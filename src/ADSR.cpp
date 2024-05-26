@@ -111,9 +111,12 @@ struct ADSR : Module {
 			lastRandParam = params[RANDSCALE_PARAM].getValue();
 
 			for (int c = 0; c < channels; c += 4) {
-				adsrBlock.setAttackTime(lastAttackParam * (1 + lastRandParam * randomA[c/4]), c);
-				adsrBlock.setDecayTime(lastDecayParam * (1 + lastRandParam * randomD[c/4]), c);
-				adsrBlock.setReleaseTime(lastReleaseParam * (1 + lastRandParam * randomR[c/4]), c);
+				adsrBlock.setAttackTime(lastAttackParam, c);
+				adsrBlock.multAttackLambda(1.f + lastRandParam * randomA[c/4], c);
+				adsrBlock.setDecayTime(lastDecayParam, c);
+				adsrBlock.multDecayLambda(1.f + lastRandParam * randomD[c/4], c);
+				adsrBlock.setReleaseTime(lastReleaseParam, c);
+				adsrBlock.multReleaseLambda(1.f + lastRandParam * randomR[c/4], c);
 			}
 		}
 
@@ -121,7 +124,7 @@ struct ADSR : Module {
 		for (int c = 0; c < channels; c += 4) {
 			adsrBlock.setSustainLevel(
 					(params[S_PARAM].getValue() + inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) * 0.1f * params[SUSMOD_PARAM].getValue())
-					* (1 + lastRandParam * randomS[c/4]),
+					* (1.f + lastRandParam * randomS[c/4]),
 					c);
 
 			adsrBlock.setVelocityScaling(params[VELSCALE_PARAM].getValue(), c);

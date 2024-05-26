@@ -38,10 +38,20 @@ public:
 		attackLambda[c/4] = simd::exp(-t * logLambdaBase) / minTime;
 	}
 
+	void multAttackLambda(float_4 mult, int c)
+	{
+		attackLambda[c/4] *= mult;
+	}
+
 	// [s]
 	void setDecayTime(float_4 t, int c)
 	{
 		decayLambda[c/4] = simd::exp(-t * logLambdaBase) / minTime;
+	}
+
+	void multDecayLambda(float_4 mult, int c)
+	{
+		decayLambda[c/4] *= mult;
 	}
 
 	// [0..1]
@@ -54,6 +64,11 @@ public:
 	void setReleaseTime(float_4 t, int c)
 	{
 		releaseLambda[c/4] = simd::exp(-t * logLambdaBase) / minTime;
+	}
+
+	void multReleaseLambda(float_4 mult, int c)
+	{
+		releaseLambda[c/4] *= mult;
 	}
 
 	// [0..1]
