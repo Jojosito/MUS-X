@@ -16,11 +16,10 @@ struct BipolarColorParamQuantity : ParamQuantity
 
 class RoundBlackKnobWithArc : public RoundBlackKnob {
 private:
-	static constexpr float arcThickness = 1.75f;
+	static constexpr float arcThickness = 2.f;
 	static constexpr float TOP_ANGLE = 3.0f / 2.0f * M_PI;
 
 public:
-
 	void draw(const DrawArgs& args) override
 	{
 		RoundBlackKnob::draw(args);
@@ -32,36 +31,59 @@ public:
 			return;
 		}
 
-		if (paramQuantity->disabled)
+		drawBg(args, nvgRGB(32, 32, 32));
+	}
+
+	void drawLayer(const DrawArgs& args, int layer) override
+	{
+		BipolarColorParamQuantity* paramQuantity = dynamic_cast<BipolarColorParamQuantity*>(getParamQuantity());
+
+		if (!paramQuantity)
 		{
 			return;
 		}
 
-		float a0 = TOP_ANGLE;
-		if (!paramQuantity->bipolar)
+		if (layer == 1) // lights layer
 		{
-			a0 += minAngle;
-		}
-		float a1 = TOP_ANGLE + math::rescale(paramQuantity->getValue(), paramQuantity->getMinValue(), paramQuantity->getMaxValue(), minAngle, maxAngle);
+			if (paramQuantity->disabled)
+			{
+				drawArc(args, TOP_ANGLE + minAngle, TOP_ANGLE + maxAngle, nvgRGB(128, 128, 128));
+			}
+			else
+			{
+				float a0 = TOP_ANGLE;
+				if (!paramQuantity->bipolar)
+				{
+					a0 += minAngle;
+				}
+				float a1 = TOP_ANGLE + math::rescale(paramQuantity->getValue(), paramQuantity->getMinValue(), paramQuantity->getMaxValue(), minAngle, maxAngle);
 
-		drawArc(args, a0, a1, paramQuantity->color);
+				drawArc(args, a0, a1, paramQuantity->color);
+			}
+		}
 	}
 
 
 private:
-	void drawArc(const DrawArgs &args, float a0, float a1, NVGcolor arcColor) {
+	void drawBg(const DrawArgs &args, NVGcolor color) {
 
-		int dir = a1 > a0 ? NVG_CW : NVG_CCW;
 		Vec cVec = box.size.div(2.0f);
-		float r = (box.size.x * 1.2f) / 2.0f; // arc radius
+		float r = (box.size.x * 1.3f) / 2.0f; // arc radius
 
 		// bg
 		nvgBeginPath(args.vg);
 		nvgLineCap(args.vg, NVG_ROUND);
 		nvgArc(args.vg, cVec.x, cVec.y, r, TOP_ANGLE + minAngle, TOP_ANGLE + maxAngle, NVG_CW);
 		nvgStrokeWidth(args.vg, arcThickness * 3.f);
-		nvgStrokeColor(args.vg, nvgRGB(32, 32, 32));
+		nvgStrokeColor(args.vg, color);
 		nvgStroke(args.vg);
+	}
+
+	void drawArc(const DrawArgs &args, float a0, float a1, NVGcolor arcColor) {
+
+		int dir = a1 > a0 ? NVG_CW : NVG_CCW;
+		Vec cVec = box.size.div(2.0f);
+		float r = (box.size.x * 1.3f) / 2.0f; // arc radius
 
 		// color // TODO must be a light!
 		nvgBeginPath(args.vg);
