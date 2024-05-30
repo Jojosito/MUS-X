@@ -39,7 +39,9 @@ struct SKF : Module {
 	int oversamplingRate = 4;
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
-	int iterations = 2;
+	int maxIterations = 10;
+	float_4 epsilon = {1.e-4};
+
 	musx::AntialiasedCheapSaturator saturator1[4];
 	musx::AntialiasedCheapSaturator saturator2[4];
 
@@ -75,7 +77,7 @@ struct SKF : Module {
 			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 2.2f));
 			frequency /= args.sampleRate * oversamplingRate;
 			// TODO fit again
-			frequency  = (simd::exp(12.45 * frequency) - 1.) / 12.45; // prewarp. I fitted this, its not perfect, but good enough
+			//frequency  = (simd::exp(12.45 * frequency) - 1.) / 12.45; // prewarp. I fitted this, its not perfect, but good enough
 
 			filter1[c/4].setCutoffFreq(frequency);
 			filter2[c/4].copyCutoffFreq(filter1[c/4]);
@@ -83,6 +85,10 @@ struct SKF : Module {
 			// resonance
 			float_4 feedback = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
 
+			// iterations
+			int iterations = simd::movemask(feedback > 1.e-6f) ? maxIterations : 0;
+			float_4 prevVal = {1.e16};
+			float_4 delta = {};
 
 			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
 
@@ -100,9 +106,17 @@ struct SKF : Module {
 					{
 						filter1[c/4].processDry(in + saturator1[c/4].processNonBandlimited(feedback * filter2[c/4].highpass()));
 						filter2[c/4].processDry(saturator2[c/4].processNonBandlimited(filter1[c/4].lowpass()));
+
+						delta = prevVal - filter2[c/4].highpass();
+						if (movemask(simd::abs(delta) < epsilon * oversamplingRate) == 0xf)
+						{
+							break;
+						}
+						prevVal = filter2[c/4].highpass();
 					}
 					filter1[c/4].process(in + saturator1[c/4].process(feedback * filter2[c/4].highpass()));
 					filter2[c/4].process(saturator2[c/4].process(filter1[c/4].lowpass()));
+
 					inBuffer[i] = filter2[c/4].lowpass();
 					break;
 				case 1: // BP
@@ -110,9 +124,17 @@ struct SKF : Module {
 					{
 						filter1[c/4].processDry(in + saturator1[c/4].processNonBandlimited(feedback * filter2[c/4].highpass()));
 						filter2[c/4].processDry(saturator2[c/4].processNonBandlimited(filter1[c/4].lowpass()));
+
+						delta = prevVal - filter2[c/4].highpass();
+						if (movemask(simd::abs(delta) < epsilon * oversamplingRate) == 0xf)
+						{
+							break;
+						}
+						prevVal = filter2[c/4].highpass();
 					}
 					filter1[c/4].process(in + saturator1[c/4].process(feedback * filter2[c/4].highpass()));
 					filter2[c/4].process(saturator2[c/4].process(filter1[c/4].lowpass()));
+
 					inBuffer[i] = filter2[c/4].highpass();
 					break;
 				case 2: // HP
@@ -120,9 +142,17 @@ struct SKF : Module {
 					{
 						filter1[c/4].processDry(in + saturator1[c/4].processNonBandlimited(feedback * filter2[c/4].lowpass()));
 						filter2[c/4].processDry(saturator2[c/4].processNonBandlimited(filter1[c/4].highpass()));
+
+						delta = prevVal - filter2[c/4].lowpass();
+						if (movemask(simd::abs(delta) < epsilon * oversamplingRate) == 0xf)
+						{
+							break;
+						}
+						prevVal = filter2[c/4].lowpass();
 					}
 					filter1[c/4].process(in + saturator1[c/4].process(feedback * filter2[c/4].lowpass()));
 					filter2[c/4].process(saturator2[c/4].process(filter1[c/4].highpass()));
+
 					inBuffer[i] = filter2[c/4].highpass();
 				}
 			}
@@ -187,15 +217,6 @@ struct SKFWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->oversamplingRate = std::pow(2, mode);
-			}
-		));
-
-		menu->addChild(createIndexSubmenuItem("iterations", {"0", "1", "2", "3", "4", "5"},
-			[=]() {
-				return module->iterations;
-			},
-			[=](int mode) {
-				module->iterations = mode;
 			}
 		));
 	}
