@@ -76,8 +76,7 @@ struct SKF : Module {
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
 			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 2.2f));
 			frequency /= args.sampleRate * oversamplingRate;
-			// TODO fit again
-			//frequency  = (simd::exp(12.45 * frequency) - 1.) / 12.45; // prewarp. I fitted this, its not perfect, but good enough
+			frequency  = (simd::exp(7.14 * frequency) - 1.) / 7.14; // prewarp. I fitted this, its not perfect, but good enough
 
 			filter1[c/4].setCutoffFreq(frequency);
 			filter2[c/4].copyCutoffFreq(filter1[c/4]);
