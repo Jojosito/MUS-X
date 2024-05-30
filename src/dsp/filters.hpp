@@ -306,16 +306,16 @@ struct TSVF {
 
 
 /**
- * 4th order biquad filters to filter out high frequency content between modules
+ * (2*O)th order biquad filters to filter out high frequency content between modules
  */
-template <typename T = float>
+template <typename T = float, size_t O = 2>
 struct AliasReductionFilter
 {
-	dsp::TBiquadFilter<T> filter1;
-	dsp::TBiquadFilter<T> filter2;
+	dsp::TBiquadFilter<T> filter[O];
 
 	AliasReductionFilter()
 	{
+		static_assert(O > 0, "Order must be > 0");
 		setParameters(0.25);
 	}
 
@@ -326,13 +326,30 @@ struct AliasReductionFilter
 	void setParameters(float f, float Q = 0.75f)
 	{
 		f = clamp(f, 0.f, 0.5f);
-		filter1.setParameters(dsp::TBiquadFilter<float_4>::LOWPASS, f, Q, 1.f);
-		filter2.setParameters(dsp::TBiquadFilter<float_4>::LOWPASS, f, Q, 1.f);
+		for (size_t i = 0; i < O; i++)
+		{
+			filter[i].setParameters(dsp::TBiquadFilter<float_4>::LOWPASS, f, Q, 1.f);
+		}
+	}
+
+	void setCutoffFreq(float f)
+	{
+		setParameters(f);
 	}
 
 	T process(T in)
 	{
-		return filter2.process(filter1.process(in));
+		T out = in;
+		for (size_t i = 0; i < O; i++)
+		{
+			out = filter[i].process(out);
+		}
+		return out;
+	}
+
+	T processLowpass(T in)
+	{
+		return process(in);
 	}
 };
 
