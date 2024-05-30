@@ -63,6 +63,7 @@ struct Oscillators : Module {
 
 	bool dcBlock = true;
 	musx::TOnePole<float_4> dcBlocker[4];
+	bool saturate = true;
 	musx::AntialiasedCheapSaturator saturator[4];
 
 	bool antiAliasing = true;
@@ -182,13 +183,16 @@ struct Oscillators : Module {
 				}
 
 				// saturator +-13V
-				if (antiAliasing)
+				if (saturate)
 				{
-					inBuffer[i] = saturator[c/4].processBandlimited(inBuffer[i]);
-				}
-				else
-				{
-					inBuffer[i] = saturator[c/4].processNonBandlimited(inBuffer[i]);
+					if (antiAliasing)
+					{
+						inBuffer[i] = saturator[c/4].processBandlimited(inBuffer[i]);
+					}
+					else
+					{
+						inBuffer[i] = saturator[c/4].processNonBandlimited(inBuffer[i]);
+					}
 				}
 			}
 
@@ -209,6 +213,7 @@ struct Oscillators : Module {
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
 		json_object_set_new(rootJ, "antiAliasing", json_boolean(antiAliasing));
 		json_object_set_new(rootJ, "dcBlock", json_boolean(dcBlock));
+		json_object_set_new(rootJ, "saturate", json_boolean(saturate));
 		json_object_set_new(rootJ, "lfoMode", json_boolean(lfoMode));
 		return rootJ;
 	}
@@ -228,6 +233,11 @@ struct Oscillators : Module {
 		if (dcBlockJ)
 		{
 			dcBlock = (json_boolean_value(dcBlockJ));
+		}
+		json_t* saturateJ = json_object_get(rootJ, "saturate");
+		if (saturateJ)
+		{
+			saturate = (json_boolean_value(saturateJ));
 		}
 		json_t* lfoModeJ = json_object_get(rootJ, "lfoMode");
 		if (lfoModeJ)
@@ -304,6 +314,15 @@ struct OscillatorsWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->dcBlock = mode;
+			}
+		));
+
+		menu->addChild(createBoolMenuItem("Saturator", "",
+			[=]() {
+				return module->saturate;
+			},
+			[=](int mode) {
+				module->saturate = mode;
 			}
 		));
 
