@@ -11,17 +11,17 @@ private:
 	float minTime;
 	float logLambdaBase;
 
-	float_4 gate[4] = {};
-	float_4 attacking[4] = {};
-	float_4 env[4] = {};
-	dsp::TSchmittTrigger<float_4> trigger[4];
-	float_4 attackLambda[4] = {};
-	float_4 decayLambda[4] = {};
-	float_4 releaseLambda[4] = {};
-	float_4 sustain[4] = {};
+	float_4 gate = {};
+	float_4 attacking = {};
+	float_4 env = {};
+	dsp::TSchmittTrigger<float_4> trigger;
+	float_4 attackLambda = {};
+	float_4 decayLambda = {};
+	float_4 releaseLambda = {};
+	float_4 sustain = {};
 
-	float_4 velScaling[4] = {};
-	float_4 velocity[4] = {};
+	float_4 velScaling = {};
+	float_4 velocity = {};
 
 public:
 	// [s]
@@ -33,94 +33,94 @@ public:
 	}
 
 	// [s]
-	void setAttackTime(float_4 t, int c)
+	void setAttackTime(float_4 t)
 	{
-		attackLambda[c/4] = simd::exp(-t * logLambdaBase) / minTime;
+		attackLambda = simd::exp(-t * logLambdaBase) / minTime;
 	}
 
-	void multAttackLambda(float_4 mult, int c)
+	void multAttackLambda(float_4 mult)
 	{
-		attackLambda[c/4] *= mult;
-	}
-
-	// [s]
-	void setDecayTime(float_4 t, int c)
-	{
-		decayLambda[c/4] = simd::exp(-t * logLambdaBase) / minTime;
-	}
-
-	void multDecayLambda(float_4 mult, int c)
-	{
-		decayLambda[c/4] *= mult;
-	}
-
-	// [0..1]
-	void setSustainLevel(float_4 s, int c)
-	{
-		sustain[c/4] = simd::clamp(s, 0.f, 1.f);;
+		attackLambda *= mult;
 	}
 
 	// [s]
-	void setReleaseTime(float_4 t, int c)
+	void setDecayTime(float_4 t)
 	{
-		releaseLambda[c/4] = simd::exp(-t * logLambdaBase) / minTime;
+		decayLambda = simd::exp(-t * logLambdaBase) / minTime;
 	}
 
-	void multReleaseLambda(float_4 mult, int c)
+	void multDecayLambda(float_4 mult)
 	{
-		releaseLambda[c/4] *= mult;
+		decayLambda *= mult;
 	}
 
 	// [0..1]
-	void setVelocityScaling(float_4 v, int c)
+	void setSustainLevel(float_4 s)
 	{
-		velScaling[c/4] = simd::clamp(v, 0.f, 1.f);;
+		sustain = simd::clamp(s, 0.f, 1.f);;
 	}
 
-	void setGate(float_4 g, int c)
+	// [s]
+	void setReleaseTime(float_4 t)
 	{
-		attacking[c/4] |= ((g >= 1.f) & ~gate[c/4]);
-		gate[c/4] = g >= 1.f;
+		releaseLambda = simd::exp(-t * logLambdaBase) / minTime;
 	}
 
-	void setRetrigger(float_4 t, int c)
+	void multReleaseLambda(float_4 mult)
 	{
-		float_4 triggered = trigger[c/4].process(t);
-		attacking[c/4] |= triggered;
+		releaseLambda *= mult;
+	}
+
+	// [0..1]
+	void setVelocityScaling(float_4 v)
+	{
+		velScaling = simd::clamp(v, 0.f, 1.f);;
+	}
+
+	void setGate(float_4 g)
+	{
+		attacking |= ((g >= 1.f) & ~gate);
+		gate = g >= 1.f;
+	}
+
+	void setRetrigger(float_4 t)
+	{
+		float_4 triggered = trigger.process(t);
+		attacking |= triggered;
 	}
 
 	// [0..10]
-	void setVelocity(float_4 v, int c)
+	void setVelocity(float_4 v)
 	{
-		velocity[c/4] = simd::clamp(v, 0.f, 10.f);;
+		velocity = simd::clamp(v, 0.f, 10.f);;
 	}
 
-	float_4 getDecaySustainGate(int c)
+	float_4 getDecaySustainGate()
 	{
-		return simd::ifelse((gate[c/4] & ~attacking[c/4]), 10.f, 0.f);
+		return simd::ifelse((gate & ~attacking), 10.f, 0.f);
 	}
 
-	float_4 process(float sampleTime, int c)
+	float_4 process(float sampleTime)
 	{
 		// Turn off attacking state if gate is LOW
-		attacking[c/4] &= gate[c/4];
+		attacking &= gate;
 
 		// Get target and lambda for exponential decay
-		float_4 target = simd::ifelse(attacking[c/4], attackTarget, simd::ifelse(gate[c/4], sustain[c/4], 0.f));
-		float_4 lambda = simd::ifelse(attacking[c/4], attackLambda[c/4], simd::ifelse(gate[c/4], decayLambda[c/4], releaseLambda[c/4]));
+		float_4 target = simd::ifelse(attacking, attackTarget, simd::ifelse(gate, sustain, 0.f));
+		float_4 lambda = simd::ifelse(attacking, attackLambda, simd::ifelse(gate, decayLambda, releaseLambda));
 
 		// Adjust env
-		env[c/4] += (target - env[c/4]) * lambda * sampleTime;
+		env += (target - env) * lambda * sampleTime;
 
 		// Turn off attacking state if envelope is HIGH
-		attacking[c/4] &= (env[c/4] < 1.f);
+		attacking &= (env < 1.f);
 
 		// velocity
-		float_4 scale = 1.f - velScaling[c/4] +
-				0.1f * velocity[c/4] * velScaling[c/4];
+		float_4 scale = 1.f - velScaling +
+				0.1f * velocity * velScaling;
 
 		// Set output
-		return 10.f * scale * env[c/4];
+		return 10.f * scale * env;
 	}
 
 };

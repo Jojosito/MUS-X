@@ -49,7 +49,7 @@ struct ADSR : Module {
 	static constexpr float MAX_TIME = 20.f;
 	static constexpr float LAMBDA_BASE = MAX_TIME / MIN_TIME;
 	static constexpr float ATT_TARGET = 1.2f;
-	musx::ADSRBlock adsrBlock = musx::ADSRBlock(MIN_TIME, MAX_TIME, ATT_TARGET);
+	musx::ADSRBlock adsrBlock[4] = {musx::ADSRBlock(MIN_TIME, MAX_TIME, ATT_TARGET)};
 
 	ADSR() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -111,31 +111,30 @@ struct ADSR : Module {
 			lastRandParam = params[RANDSCALE_PARAM].getValue();
 
 			for (int c = 0; c < channels; c += 4) {
-				adsrBlock.setAttackTime(lastAttackParam, c);
-				adsrBlock.multAttackLambda(1.f + lastRandParam * randomA[c/4], c);
-				adsrBlock.setDecayTime(lastDecayParam, c);
-				adsrBlock.multDecayLambda(1.f + lastRandParam * randomD[c/4], c);
-				adsrBlock.setReleaseTime(lastReleaseParam, c);
-				adsrBlock.multReleaseLambda(1.f + lastRandParam * randomR[c/4], c);
+				adsrBlock[c/4].setAttackTime(lastAttackParam);
+				adsrBlock[c/4].multAttackLambda(1.f + lastRandParam * randomA[c/4]);
+				adsrBlock[c/4].setDecayTime(lastDecayParam);
+				adsrBlock[c/4].multDecayLambda(1.f + lastRandParam * randomD[c/4]);
+				adsrBlock[c/4].setReleaseTime(lastReleaseParam);
+				adsrBlock[c/4].multReleaseLambda(1.f + lastRandParam * randomR[c/4]);
 			}
 		}
 
 
 		for (int c = 0; c < channels; c += 4) {
-			adsrBlock.setSustainLevel(
+			adsrBlock[c/4].setSustainLevel(
 					(params[S_PARAM].getValue() + inputs[SUSMOD_INPUT].getPolyVoltageSimd<float_4>(c) * 0.1f * params[SUSMOD_PARAM].getValue())
-					* (1.f + lastRandParam * randomS[c/4]),
-					c);
+					* (1.f + lastRandParam * randomS[c/4]));
 
-			adsrBlock.setVelocityScaling(params[VELSCALE_PARAM].getValue(), c);
-			adsrBlock.setVelocity(inputs[VEL_INPUT].getVoltageSimd<float_4>(c), c);
-			adsrBlock.setGate(inputs[GATE_INPUT].getVoltageSimd<float_4>(c), c);
-			adsrBlock.setRetrigger(inputs[RETRIG_INPUT].getVoltageSimd<float_4>(c), c);
+			adsrBlock[c/4].setVelocityScaling(params[VELSCALE_PARAM].getValue());
+			adsrBlock[c/4].setVelocity(inputs[VEL_INPUT].getVoltageSimd<float_4>(c));
+			adsrBlock[c/4].setGate(inputs[GATE_INPUT].getVoltageSimd<float_4>(c));
+			adsrBlock[c/4].setRetrigger(inputs[RETRIG_INPUT].getVoltageSimd<float_4>(c));
 
 			// Set output
-			outputs[ENV_OUTPUT].setVoltageSimd(adsrBlock.process(args.sampleTime, c), c);
+			outputs[ENV_OUTPUT].setVoltageSimd(adsrBlock[c/4].process(args.sampleTime), c);
 
-			outputs[SGATE_OUTPUT].setVoltageSimd(adsrBlock.getDecaySustainGate(c), c);
+			outputs[SGATE_OUTPUT].setVoltageSimd(adsrBlock[c/4].getDecaySustainGate(), c);
 		}
 
 	}
