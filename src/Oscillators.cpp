@@ -49,7 +49,7 @@ struct Oscillators : Module {
 
 	static const size_t maxOversamplingRate = 1024;
 
-	OscillatorsBlock<maxOversamplingRate> oscBlock;
+	OscillatorsBlock<maxOversamplingRate> oscBlock[4];
 
 	bool lfoMode = false;
 
@@ -102,7 +102,9 @@ struct Oscillators : Module {
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override {
 		sampleRate = e.sampleRate;
-		oscBlock.setSampleRate(sampleRate);
+		for (int c = 0; c < 16; c += 4) {
+			oscBlock[c/4].setSampleRate(sampleRate);
+		}
 		setOversamplingRate(oversamplingRate);
 	}
 
@@ -110,9 +112,9 @@ struct Oscillators : Module {
 	{
 		oversamplingRate = arg;
 		setLfoMode(lfoMode); // refresh actualOversamplingRate
-		oscBlock.setOversamplingRate(actualOversamplingRate);
 
 		for (int c = 0; c < 16; c += 4) {
+			oscBlock[c/4].setOversamplingRate(actualOversamplingRate);
 			decimator[c/4].reset();
 			dcBlocker[c/4].setCutoffFreq(20.f/sampleRate/oversamplingRate);
 		}
@@ -132,30 +134,30 @@ struct Oscillators : Module {
 		for (int c = 0; c < channels; c += 4) {
 
 			// parameters and CVs
-			oscBlock.setOsc1Shape(params[OSC1SHAPE_PARAM].getValue() + 0.2f *inputs[OSC1SHAPE_INPUT].getPolyVoltageSimd<float_4>(c), c);
-			oscBlock.setOsc1PW(params[OSC1PW_PARAM].getValue() 	 + 0.2f *inputs[OSC1PW_INPUT].getPolyVoltageSimd<float_4>(c), c);
-			oscBlock.setOsc1Vol(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getPolyVoltageSimd<float_4>(c), c);
-			oscBlock.setOsc1Subvol(params[OSC1SUBVOL_PARAM].getValue() + 0.1f *inputs[OSC1SUBVOL_INPUT].getPolyVoltageSimd<float_4>(c), c);
+			oscBlock[c/4].setOsc1Shape(params[OSC1SHAPE_PARAM].getValue() + 0.2f *inputs[OSC1SHAPE_INPUT].getPolyVoltageSimd<float_4>(c));
+			oscBlock[c/4].setOsc1PW(params[OSC1PW_PARAM].getValue() 	 + 0.2f *inputs[OSC1PW_INPUT].getPolyVoltageSimd<float_4>(c));
+			oscBlock[c/4].setOsc1Vol(params[OSC1VOL_PARAM].getValue()   + 0.1f *inputs[OSC1VOL_INPUT].getPolyVoltageSimd<float_4>(c));
+			oscBlock[c/4].setOsc1Subvol(params[OSC1SUBVOL_PARAM].getValue() + 0.1f *inputs[OSC1SUBVOL_INPUT].getPolyVoltageSimd<float_4>(c));
 
-			oscBlock.setOsc2Shape(params[OSC2SHAPE_PARAM].getValue() + 0.2f *inputs[OSC2SHAPE_INPUT].getPolyVoltageSimd<float_4>(c), c);
-			oscBlock.setOsc2PW(params[OSC2PW_PARAM].getValue() 	 + 0.2f *inputs[OSC2PW_INPUT].getPolyVoltageSimd<float_4>(c), c);
-			oscBlock.setOsc2Vol(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getPolyVoltageSimd<float_4>(c), c);
+			oscBlock[c/4].setOsc2Shape(params[OSC2SHAPE_PARAM].getValue() + 0.2f *inputs[OSC2SHAPE_INPUT].getPolyVoltageSimd<float_4>(c));
+			oscBlock[c/4].setOsc2PW(params[OSC2PW_PARAM].getValue() 	 + 0.2f *inputs[OSC2PW_INPUT].getPolyVoltageSimd<float_4>(c));
+			oscBlock[c/4].setOsc2Vol(params[OSC2VOL_PARAM].getValue()   + 0.1f *inputs[OSC2VOL_INPUT].getPolyVoltageSimd<float_4>(c));
 
-			oscBlock.setSync(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getPolyVoltageSimd<float_4>(c) / 5.f, c);
-			oscBlock.setFmAmount(params[FM_INPUT].getValue()  + 0.1f *inputs[FM_INPUT].getPolyVoltageSimd<float_4>(c), c);
-			oscBlock.setRingmodVol(params[RINGMOD_PARAM].getValue() + 0.1f *inputs[RINGMOD_INPUT].getPolyVoltageSimd<float_4>(c), c);
+			oscBlock[c/4].setSync(params[SYNC_PARAM].getValue() + inputs[SYNC_INPUT].getPolyVoltageSimd<float_4>(c) / 5.f);
+			oscBlock[c/4].setFmAmount(params[FM_INPUT].getValue()  + 0.1f *inputs[FM_INPUT].getPolyVoltageSimd<float_4>(c));
+			oscBlock[c/4].setRingmodVol(params[RINGMOD_PARAM].getValue() + 0.1f *inputs[RINGMOD_INPUT].getPolyVoltageSimd<float_4>(c));
 
 
 			// frequencies
 			if (lfoMode)
 			{
-				oscBlock.setOsc1FreqVOctLFO(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c), c);
-				oscBlock.setOsc2FreqVOctLFO(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c), c);
+				oscBlock[c/4].setOsc1FreqVOctLFO(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c));
+				oscBlock[c/4].setOsc2FreqVOctLFO(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c));
 			}
 			else
 			{
-				oscBlock.setOsc1FreqVOct(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c), c);
-				oscBlock.setOsc2FreqVOct(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c), c);
+				oscBlock[c/4].setOsc1FreqVOct(inputs[OSC1VOCT_INPUT].getVoltageSimd<float_4>(c));
+				oscBlock[c/4].setOsc2FreqVOct(inputs[OSC2VOCT_INPUT].getPolyVoltageSimd<float_4>(c));
 			}
 
 
@@ -164,11 +166,11 @@ struct Oscillators : Module {
 
 			if (antiAliasing)
 			{
-				oscBlock.processBandlimited(inBuffer, c);
+				oscBlock[c/4].processBandlimited(inBuffer);
 			}
 			else
 			{
-				oscBlock.process(inBuffer, c);
+				oscBlock[c/4].process(inBuffer);
 			}
 
 			// dc blocker and saturator
