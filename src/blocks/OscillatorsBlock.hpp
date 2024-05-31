@@ -402,10 +402,11 @@ public:
 				if (simd::movemask(doSyncMask))
 				{
 					float_4 fractionalSyncTime = (INT32_MAX - phasor1) / (1.f * phase1Inc); // [0..1]
-					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.1f);
+					fractionalSyncTime = simd::clamp(fractionalSyncTime, 0.f, 1.0f);
 					fractionalSyncTime = simd::ifelse(doSyncMask, fractionalSyncTime, 1.f); // get rid of some numerical errors
 
-					int32_4 phase2IncWithFmBeforeSync = phase2IncWithFm - *(int32_4*)&doSyncMask & int32_4((1.f - fractionalSyncTime) * phase2IncWithFm);
+					int32_4 phase2IncWithFmBeforeSync = phase2IncWithFm;
+					phase2IncWithFmBeforeSync -= *(int32_4*)&doSyncMask & int32_4((1.f - fractionalSyncTime) * phase2IncWithFm);
 					int32_4 phase2IncWithFmAfterSync = phase2IncWithFm - phase2IncWithFmBeforeSync;
 
 					// calc osc2 and bleps from sample begin to fractionalSyncTime
@@ -416,7 +417,9 @@ public:
 							calcSq2, sq2Amt,
 							blep2Scale,
 							wave2,
-							c);
+							c,
+							0.f,
+							fractionalSyncTime);
 
 					// calc osc2 wave right before sync for blep scale
 					float_4 wave2BeforeSync = 0.f;
@@ -431,7 +434,6 @@ public:
 					phasor2[c/4] += *(int32_4*)&doSyncMask & -phasor2[c/4] + INT32_MIN; // reset to INT32_MIN
 					int32_4 scaleMask = phase2IncWithFm < 0;
 					phasor2[c/4] += scaleMask & -1; // roll over to INT32_MAX if phase2IncWithFm < 0
-					phase2IncWithFmAfterSync += scaleMask & -1;
 
 					// calc osc2 wave right after sync for blep scale
 					float_4 wave2AfterSync = 0.f;
@@ -521,7 +523,8 @@ private:
 			float_4 blep2Scale,
 			float_4& wave2,
 			int c,
-			float_4 timeOffset = 0.)
+			float_4 minTime = 0.f,
+			float_4 maxTime = 1.f)
 	{
 		int32_4 phasor2Offset = phasor2[c/4] + phase2Offset;
 
@@ -533,8 +536,8 @@ private:
 
 			int32_4 effPhasor = phasor2Offset + phasor2Offset + INT32_MAX;
 			osc2Blep[c/4].insertBlamp(
-					getBlepMaskSigned(effPhasor, 2*phase2IncWithFm),
-					(INT32_MAX - effPhasor) / (2.f * phase2IncWithFm),
+					getBlepMaskSigned(effPhasor, 2 * phase2IncWithFm),
+					maxTime * (minTime + (INT32_MAX - effPhasor) / (2.f * phase2IncWithFm)),
 					simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm,
 					oversamplingRate);
 		}
@@ -547,7 +550,7 @@ private:
 
 				osc2Blep[c/4].insertBlep(
 						getBlepMaskSigned(phasor2Offset, phase2IncWithFm),
-						timeOffset + (INT32_MAX - phasor2Offset) / (1.f * phase2IncWithFm),
+						maxTime * (minTime + (INT32_MAX - phasor2Offset) / (1.f * phase2IncWithFm)),
 						blep2Scale * -sawSq2Amt * sq2Amt,
 						oversamplingRate);
 			}
@@ -558,7 +561,7 @@ private:
 
 			osc2Blep[c/4].insertBlep(
 					getBlepMaskSigned(phasor2[c/4], phase2IncWithFm),
-					timeOffset + (INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm),
+					maxTime * (minTime + (INT32_MAX - phasor2[c/4]) / (1.f * phase2IncWithFm)),
 					blep2Scale * sawSq2Amt,
 					oversamplingRate);
 		}
@@ -659,7 +662,7 @@ private:
 		int32_4 phasorResetMaskIntNeg = (phasor + phaseInc) > phasor;
 		float_4 phasorResetMaskFloatNeg = *(float_4*)&phasorResetMaskIntNeg;
 
-		return simd::ifelse(1.f * phaseInc > 0., phasorResetMaskFloatPos, phasorResetMaskFloatNeg);
+		return simd::ifelse(1.f * phaseInc > 0.f, phasorResetMaskFloatPos, phasorResetMaskFloatNeg);
 	}
 
 };
