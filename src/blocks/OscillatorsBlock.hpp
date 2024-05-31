@@ -323,8 +323,8 @@ public:
 
 				int32_4 effPhasor = phasor1Offset + phasor1Offset + INT32_MAX;
 				osc1Blep.insertBlamp(
-						getBlepMask(effPhasor, 2 * phase1Inc),
-						(INT32_MAX - effPhasor) / (2.f * phase1Inc),
+						(1.f * effPhasor + 2.f * phase1Inc > 1.f * INT32_MAX),
+						(1.f * INT32_MAX - 1.f * effPhasor) / (2.f * phase1Inc),
 						simd::sgn(float_4(phasor1Offset)) * tri1Amt * phase1Inc,
 						oversamplingRate);
 			}
@@ -523,7 +523,7 @@ private:
 
 			int32_4 effPhasor = phasor2Offset + phasor2Offset + INT32_MAX;
 			osc2Blep.insertBlamp(
-					getBlepMaskSigned(effPhasor, 2 * phase2IncWithFm),
+					(1.f * effPhasor + 2.f * phase2IncWithFm > 1.f * INT32_MAX),
 					maxTime * (minTime + (INT32_MAX - effPhasor) / (2.f * phase2IncWithFm)),
 					simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm,
 					oversamplingRate);
@@ -603,9 +603,10 @@ private:
 
 		if (calcTri2)
 		{
+			// TODO does not work over fs/4
 			int32_4 effPhasor = phasor2Offset + phasor2Offset + INT32_MAX;
 			osc2Blep.insertBlamp(
-					getBlepMaskSigned(effPhasor, 2*phase2IncWithFm),
+					(1.f * effPhasor + 2.f * phase2IncWithFm > 1.f * INT32_MAX),
 					(INT32_MAX - effPhasor) / (2.f * phase2IncWithFm),
 					simd::sgn(float_4(phasor2Offset)) * tri2Amt * phase2IncWithFm,
 					oversamplingRate);
