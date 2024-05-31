@@ -57,23 +57,21 @@ public:
 	 * scale < 0 for ramp from + to -
 	 * scale = 0.5 for ramp from gradient -1 to 1
 	 * inserts L*oversampling samples
-	 * if L == 4, there will be a delay of one sample
 	 */
-	void insertBlamp(T t, T scale = 1, size_t oversampling = 1, T minTime = 0., T maxTime = 1.)
+	void insertBlamp(T mask, T time, T scale = 1, size_t oversampling = 1)
 	{
-		T mask = (t > minTime) & (t < maxTime);
 		if (!simd::movemask(mask))
 		{
 			return;
 		}
 
-		T x = (-t - (L/2 - 1)) / (L/2);
+		T x = (-time - (L*oversampling/2 - 1)) / (L*oversampling/2);
 
 		size_t index = pos;
 
 		for (size_t i = 0; i < L * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask, oversampling * scale * blepFunction(simd::fabs(x)), 0);
+			buffer[index] += mask & (oversampling * scale * blepFunction(simd::fabs(x)));
 
 			index = (index + 1) & (L * O - 1); // advance and wrap index
 			x += 2. / (oversampling * L);

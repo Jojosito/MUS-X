@@ -327,11 +327,11 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
-//				osc1Blep[c/4].insertBlamp(
-//						(1.f * INT32_MAX - 1.f * (phasor1Offset + phasor1Offset + INT32_MAX)) / (oversamplingRate * 2.f * phase1Inc),
-//						simd::sgn(float_4(phasor1Offset)) * tri1Amt * phase1Inc,
-//						oversamplingRate,
-//						1. - 1. / oversamplingRate);
+				osc1Blep[c/4].insertBlamp(
+						getBlepMask(phasor1Offset + phasor1Offset + INT32_MAX, 2*phase1Inc),
+						simd::clamp((1.f * INT32_MAX - 1.f * (phasor1Offset + phasor1Offset + INT32_MAX)) / (2.f * phase1Inc), 0.f , 1.f),
+						simd::sgn(float_4(phasor1Offset)) * tri1Amt * phase1Inc,
+						oversamplingRate);
 			}
 
 			if (calcSawSq1)
@@ -340,11 +340,11 @@ public:
 				{
 					wave1 += sawSq1Amt * (sq1Amt * phasor1Offset - 1.f * phasor1); // +-INT32_MAX
 
-//					osc1Blep[c/4].insertBlep(
-//							(INT32_MAX - phasor1Offset) / (1.f * oversamplingRate * phase1Inc),
-//							-sawSq1Amt * sq1Amt * INT32_MAX,
-//							oversamplingRate,
-//							1. - 1. / oversamplingRate);
+					osc1Blep[c/4].insertBlep(
+							getBlepMask(phasor1Offset, phase1Inc),
+							simd::clamp((INT32_MAX - phasor1Offset) / (1.f * phase1Inc), 0.f , 1.f),
+							-sawSq1Amt * sq1Amt * INT32_MAX,
+							oversamplingRate);
 				}
 				else
 				{
@@ -364,17 +364,17 @@ public:
 
 				sub1 = 1.f * phasor1SubOffset - 1.f * phasor1Sub[c/4]; // +-INT32_MAX
 
-//				oscSubBlep[c/4].insertBlep(
-//						(INT32_MAX - phasor1Sub[c/4]) / (1.f * oversamplingRate * phase1SubInc),
-//						INT32_MAX,
-//						oversamplingRate,
-//						1. - 1. / oversamplingRate);
-//
-//				oscSubBlep[c/4].insertBlep(
-//						(INT32_MAX - phasor1SubOffset) / (1.f * oversamplingRate * phase1SubInc),
-//						-INT32_MAX,
-//						oversamplingRate,
-//						1. - 1. / oversamplingRate);
+				oscSubBlep[c/4].insertBlep(
+						getBlepMask(phasor1Sub[c/4], phase1SubInc),
+						simd::clamp((INT32_MAX - phasor1Sub[c/4]) / (1.f * phase1SubInc), 0.f , 1.f),
+						INT32_MAX,
+						oversamplingRate);
+
+				oscSubBlep[c/4].insertBlep(
+						getBlepMask(phasor1SubOffset, phase1SubInc),
+						simd::clamp((INT32_MAX - phasor1SubOffset) / (1.f * phase1SubInc), 0.f , 1.f),
+						-INT32_MAX,
+						oversamplingRate);
 
 				out += osc1Subvol[c/4] * (prevSub1[c/4][bufferReadIndex] + oscSubBlep[c/4].process());
 			}
