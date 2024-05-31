@@ -327,9 +327,10 @@ public:
 
 				wave1 += tri1Amt * tri1; // +-INT32_MAX
 
+				int32_4 effPhasor = phasor1Offset + phasor1Offset + INT32_MAX;
 				osc1Blep[c/4].insertBlamp(
-						getBlepMask(phasor1Offset + phasor1Offset + INT32_MAX, 2*phase1Inc),
-						simd::clamp((1.f * INT32_MAX - 1.f * (phasor1Offset + phasor1Offset + INT32_MAX)) / (2.f * phase1Inc), 0.f , 1.f),
+						getBlepMask(effPhasor, 2*phase1Inc),
+						(INT32_MAX - effPhasor) / (2.f * phase1Inc),
 						simd::sgn(float_4(phasor1Offset)) * tri1Amt * phase1Inc,
 						oversamplingRate);
 			}
@@ -342,7 +343,7 @@ public:
 
 					osc1Blep[c/4].insertBlep(
 							getBlepMask(phasor1Offset, phase1Inc),
-							simd::clamp((INT32_MAX - phasor1Offset) / (1.f * phase1Inc), 0.f , 1.f),
+							(INT32_MAX - phasor1Offset) / (1.f * phase1Inc),
 							-sawSq1Amt * sq1Amt * INT32_MAX,
 							oversamplingRate);
 				}
@@ -353,7 +354,7 @@ public:
 
 				osc1Blep[c/4].insertBlep(
 						getBlepMask(phasor1, phase1Inc),
-						simd::clamp((INT32_MAX - phasor1) / (1.f * phase1Inc), 0.f , 1.f),
+						(INT32_MAX - phasor1) / (1.f * phase1Inc),
 						sawSq1Amt * INT32_MAX,
 						oversamplingRate);
 			}
