@@ -30,24 +30,21 @@ public:
 	 * scale < 0 for step from + to -
 	 * scale = 1 for step from -1 to 1
 	 * inserts L*oversampling samples
-	 * if L == 4, there will be a delay of one sample
 	 */
-	void insertBlep(T t, T scale = 1, size_t oversampling = 1, T minTime = 0., T maxTime = 1.)
+	void insertBlep(T mask, T time, T scale = 1, size_t oversampling = 1)
 	{
-		T mask = (t > minTime) & (t < maxTime);
 		if (!simd::movemask(mask))
 		{
 			return;
 		}
 
-		T x = (-t - (L/2 - 1)) / (L/2);
+		T x = (-time - (L*oversampling/2 - 1)) / (L*oversampling/2);
 
 		size_t index = pos;
 
 		for (size_t i = 0; i < L * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask & (x <  0), scale * blepFunction(-x), 0);
-			buffer[index] -= simd::ifelse(mask & (x >= 0), scale * blepFunction(x), 0);
+			buffer[index] -= mask & (simd::sgn(x) * scale * blepFunction(simd::fabs(x)));
 
 			index = (index + 1) & (L * O - 1); // advance and wrap index
 			x += 2. / (oversampling * L);
@@ -76,8 +73,7 @@ public:
 
 		for (size_t i = 0; i < L * oversampling; i++)
 		{
-			buffer[index] += simd::ifelse(mask & (x <  0), oversampling * scale * blepFunction(-x), 0);
-			buffer[index] += simd::ifelse(mask & (x >= 0), oversampling * scale * blepFunction(x), 0);
+			buffer[index] += simd::ifelse(mask, oversampling * scale * blepFunction(simd::fabs(x)), 0);
 
 			index = (index + 1) & (L * O - 1); // advance and wrap index
 			x += 2. / (oversampling * L);
@@ -91,6 +87,18 @@ public:
 	{
 		T value = buffer[pos];
 		buffer[pos] = T(0); // reset buffer at i
+		pos = (pos + 1) & (L * O - 1); // advance and wrap pos
+		return value;
+	}
+
+	/**
+	 * call once per (over)sample
+	 */
+	T process(size_t offset)
+	{
+		size_t posWithOffset = (pos + offset) & (L * O - 1);
+		T value = buffer[posWithOffset];
+		buffer[posWithOffset] = T(0); // reset buffer at i
 		pos = (pos + 1) & (L * O - 1); // advance and wrap pos
 		return value;
 	}
