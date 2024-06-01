@@ -603,7 +603,6 @@ private:
 
 		if (calcTri2)
 		{
-			// TODO does not work over fs/4
 			int32_4 effPhasor = phasor2Offset + phasor2Offset + INT32_MAX;
 			osc2Blep.insertBlamp(
 					(1.f * effPhasor + 2.f * phase2IncWithFm > 1.f * INT32_MAX),
