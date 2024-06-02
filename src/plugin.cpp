@@ -13,6 +13,7 @@ void init(Plugin* p) {
 	p->addModel(modelADSR);
 	p->addModel(modelDelay);
 	p->addModel(modelDrift);
+	p->addModel(modelFilter);
 	p->addModel(modelLast);
 	p->addModel(modelLFO);
 	p->addModel(modelModMatrix);

@@ -122,6 +122,15 @@
         "Filter",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Filter",
+      "name": "Filter",
+      "description": "Collection of virtual analogue filters",
+      "tags": [
+        "Filter",
+        "Polyphonic"
+      ]
     }
   ]
 }
