@@ -41,6 +41,8 @@ struct Filter : Module {
 
 	int channels = 1;
 
+	musx::Method method = Method::RK4;
+
 	musx::LadderFilter<float_4> filter[4];
 
 	float_4 prevInput[4] = {0};
@@ -68,7 +70,7 @@ struct Filter : Module {
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
 			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 4.2f));
-			frequency /= args.sampleRate * oversamplingRate;
+			frequency /= args.sampleRate;
 
 			filter[c/4].setCutoffFreq(frequency);
 
@@ -81,11 +83,10 @@ struct Filter : Module {
 			for (int i = 0; i < oversamplingRate; ++i)
 			{
 				// linear interpolation for input
-				float_4 in = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i+1.f)/oversamplingRate);
+				float_4 in = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i + 1.f)/oversamplingRate);
 
-				filter[c/4].process(in, args.sampleTime / oversamplingRate);
+				filter[c/4].process(in, args.sampleTime / oversamplingRate, method);
 				inBuffer[i] = filter[c/4].lowpass();
-
 			}
 
 			// downsampling
@@ -99,6 +100,7 @@ struct Filter : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
+		json_object_set_new(rootJ, "method", json_integer((int)method));
 		return rootJ;
 	}
 
@@ -107,6 +109,11 @@ struct Filter : Module {
 		if (oversamplingRateJ)
 		{
 			oversamplingRate = json_integer_value(oversamplingRateJ);
+		}
+		json_t* methodJ = json_object_get(rootJ, "method");
+		if (methodJ)
+		{
+			method = (Method)json_integer_value(methodJ);
 		}
 	}
 };
@@ -146,6 +153,15 @@ struct FilterWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->oversamplingRate = std::pow(2, mode);
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("ODE Solver", {"1st order Euler", "2nd order Runge-Kutta", "4th order Runge-Kutta"},
+			[=]() {
+				return (int)module->method;
+			},
+			[=](int mode) {
+				module->method = (Method)mode;
 			}
 		));
 	}

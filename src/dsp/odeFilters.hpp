@@ -12,6 +12,7 @@ using simd::float_4;
 
 template <typename T>
 static T clip(T x) {
+	//return tanh(x);
 	return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
 }
 
@@ -21,6 +22,13 @@ static T clip(T x) {
  * OTA: Iota = g * tanh(V+ - V-) with simple circuit schematic
  * Transistor ladder: Itl = g * ( tanh(V+) - tanh(V-) ) with rather complex schematic
  */
+
+enum struct Method
+{
+	Euler,
+	RK2,
+	RK4
+};
 
 /**
  * S is size of state vector
@@ -35,7 +43,7 @@ protected:
 	T input;
 	T dt;
 
-	virtual void f(T t, const T x[], T dxdt[]);
+	virtual void f(T t, const T x[], T dxdt[]) const;
 
 	T getInputt(T t) const
 	{
@@ -43,60 +51,61 @@ protected:
 	}
 
 	/** Solves an ODE system using the 1st order Euler method */
-	void stepEuler(T t, T dt, T x[], int len) {
-		T k[len];
+	void stepEuler(T t) {
+		T k[S];
 
-		f(t, x, k);
-		for (int i = 0; i < len; i++) {
-			x[i] += dt * k[i];
+		f(t, state, k);
+
+		for (size_t i = 0; i < S; i++) {
+			state[i] += dt * k[i];
 		}
 	}
 
 	/** Solves an ODE system using the 2nd order Runge-Kutta method */
-	void stepRK2(T t, T dt, T x[], int len) {
-		T k1[len];
-		T k2[len];
-		T yi[len];
+	void stepRK2(T t) {
+		T k1[S];
+		T k2[S];
+		T yi[S];
 
-		f(t, x, k1);
+		f(t, state, k1);
 
-		for (int i = 0; i < len; i++) {
-			yi[i] = x[i] + k1[i] * dt / T(2);
+		for (size_t i = 0; i < S; i++) {
+			yi[i] = state[i] + k1[i] * dt / T(2);
 		}
 		f(t + dt / T(2), yi, k2);
 
-		for (int i = 0; i < len; i++) {
-			x[i] += dt * k2[i];
+		for (size_t i = 0; i < S; i++) {
+			state[i] += dt * k2[i];
 		}
 	}
 
 	/** Solves an ODE system using the 4th order Runge-Kutta method */
-	void stepRK4(T t, T dt, T x[], int len) {
-		T k1[len];
-		T k2[len];
-		T k3[len];
-		T k4[len];
-		T yi[len];
+	void stepRK4(T t) {
+		T k1[S];
+		T k2[S];
+		T k3[S];
+		T k4[S];
+		T yi[S];
 
-		f(t, x, k1);
+		f(t, state, k1);
 
-		for (int i = 0; i < len; i++) {
-			yi[i] = x[i] + k1[i] * dt / T(2);
+		for (size_t i = 0; i < S; i++) {
+			yi[i] = state[i] + k1[i] * dt / T(2);
 		}
 		f(t + dt / T(2), yi, k2);
 
-		for (int i = 0; i < len; i++) {
-			yi[i] = x[i] + k2[i] * dt / T(2);
+		for (size_t i = 0; i < S; i++) {
+			yi[i] = state[i] + k2[i] * dt / T(2);
 		}
 		f(t + dt / T(2), yi, k3);
 
-		for (int i = 0; i < len; i++) {
-			yi[i] = x[i] + k3[i] * dt;
+		for (size_t i = 0; i < S; i++) {
+			yi[i] = state[i] + k3[i] * dt;
 		}
 		f(t + dt, yi, k4);
 
-		for (int i = 0; i < len; i++) {
-			x[i] += dt * (k1[i] + T(2) * k2[i] + T(2) * k3[i] + k4[i]) / T(6);
+		for (size_t i = 0; i < S; i++) {
+			state[i] += dt * (k1[i] + T(2) * k2[i] + T(2) * k3[i] + k4[i]) / T(6);
 		}
 	}
 
@@ -129,35 +138,25 @@ public:
 		resonance = res;
 	}
 
-
-	void processEuler(T input, T dt)
+	void process(T input, T dt, Method method = Method::RK4)
 	{
 		this->input = input;
 		this->dt = dt;
-		stepEuler(T(0), dt, state, 4);
+		switch (method)
+		{
+		case Method::Euler:
+			stepEuler(T(0));
+			break;
+		case Method::RK2:
+			stepRK2(T(0));
+			break;
+		case Method::RK4:
+		default:
+			stepRK4(T(0));
+		}
 		this->lastInput = input;
 	}
 
-	void processRK2(T input, T dt)
-	{
-		this->input = input;
-		this->dt = dt;
-		stepRK2(T(0), dt, state, 4);
-		this->lastInput = input;
-	}
-
-	void processRK4(T input, T dt)
-	{
-		this->input = input;
-		this->dt = dt;
-		stepRK4(T(0), dt, state, 4);
-		this->lastInput = input;
-	}
-
-	void process(T input, T dt)
-	{
-		processRK4(input, dt);
-	}
 };
 
 
@@ -165,7 +164,7 @@ template <typename T>
 class LadderFilter : public FilterAbstract<T, 4>
 {
 public:
-	void f(T t, const T x[], T dxdt[]) override
+	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T inputc = clip(this->getInputt(t) - this->resonance * x[3]);
 		T yc0 = clip(x[0]);
