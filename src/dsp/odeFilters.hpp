@@ -43,7 +43,7 @@ protected:
 	T input;
 	T dt;
 
-	virtual void f(T t, const T x[], T dxdt[]) const;
+	virtual void f(T t, const T x[], T dxdt[]) const = 0;
 
 	T getInputt(T t) const
 	{
@@ -122,7 +122,7 @@ public:
 	}
 
 	/**
-	 * cutoff is f_c / f_s
+	 * cutoff is Hz
 	 */
 	void setCutoff(T cutoff) {
 		omega0 = 2 * T(M_PI) * cutoff;
@@ -183,6 +183,7 @@ public:
 		return this->state[3];
 	}
 	T highpass() {
+		// TODO will only work for RK4???
 		return clip((this->input - this->resonance * this->state[3]) -
 				4 * this->state[0] + 6 * this->state[1] - 4 * this->state[2] + this->state[3]);
 	}

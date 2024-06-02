@@ -70,7 +70,6 @@ struct Filter : Module {
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
 			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 4.2f));
-			frequency /= args.sampleRate;
 
 			filter[c/4].setCutoffFreq(frequency);
 
@@ -88,6 +87,8 @@ struct Filter : Module {
 				filter[c/4].process(in, args.sampleTime / oversamplingRate, method);
 				inBuffer[i] = filter[c/4].lowpass();
 			}
+
+			prevInput[c/4] = inputs[IN_INPUT].getVoltageSimd<float_4>(c);
 
 			// downsampling
 			float_4 out = decimator[c/4].process(oversamplingRate);
