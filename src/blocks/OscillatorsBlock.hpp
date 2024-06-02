@@ -253,7 +253,7 @@ public:
 
 			// syncMask / reset phasor2 ?
 			int32_4 resetPhaseMask = phasor1Old > phasor1;
-			phasor2 = simd::ifelse(syncMask & *(float_4*)&resetPhaseMask, INT32_MIN, phasor2);
+			phasor2 = simd::ifelse(syncMask & musx::castIntMaskToFloat(resetPhaseMask), INT32_MIN, phasor2);
 			phasor1Old = phasor1;
 			int32_4 phasor2Offset = phasor2 + phase2Offset;
 
@@ -400,7 +400,7 @@ public:
 					fractionalSyncTime = simd::ifelse(doSyncMask, fractionalSyncTime, 1.f); // get rid of some numerical errors
 
 					int32_4 phase2IncWithFmBeforeSync = phase2IncWithFm;
-					phase2IncWithFmBeforeSync -= *(int32_4*)&doSyncMask & int32_4((1.f - fractionalSyncTime) * phase2IncWithFm);
+					phase2IncWithFmBeforeSync -= castFloatMaskToInt(doSyncMask) & int32_4((1.f - fractionalSyncTime) * phase2IncWithFm);
 					int32_4 phase2IncWithFmAfterSync = phase2IncWithFm - phase2IncWithFmBeforeSync;
 
 					// calc osc2 and bleps from sample begin to fractionalSyncTime
@@ -423,7 +423,7 @@ public:
 							wave2BeforeSync);
 
 					// syncMask? -> reset phasor2
-					phasor2 += *(int32_4*)&doSyncMask & -phasor2 + INT32_MIN; // reset to INT32_MIN
+					phasor2 += castFloatMaskToInt(doSyncMask) & -phasor2 + INT32_MIN; // reset to INT32_MIN
 					int32_4 scaleMask = phase2IncWithFm < 0;
 					phasor2 += scaleMask & -1; // roll over to INT32_MAX if phase2IncWithFm < 0
 
@@ -635,17 +635,16 @@ private:
 	float_4 getBlepMask(int32_4 phasor, int32_4 phaseInc)
 	{
 		int32_4 phasorResetMaskInt = (phasor + phaseInc) < phasor;
-		float_4 phasorResetMaskFloat = *(float_4*)&phasorResetMaskInt;
-		return phasorResetMaskFloat;
+		return castIntMaskToFloat(phasorResetMaskInt);
 	}
 
 	float_4 getBlepMaskSigned(int32_4 phasor, int32_4 phaseInc)
 	{
 		int32_4 phasorResetMaskIntPos = (phasor + phaseInc) < phasor;
-		float_4 phasorResetMaskFloatPos = *(float_4*)&phasorResetMaskIntPos;
+		float_4 phasorResetMaskFloatPos = castIntMaskToFloat(phasorResetMaskIntPos);
 
 		int32_4 phasorResetMaskIntNeg = (phasor + phaseInc) > phasor;
-		float_4 phasorResetMaskFloatNeg = *(float_4*)&phasorResetMaskIntNeg;
+		float_4 phasorResetMaskFloatNeg = castIntMaskToFloat(phasorResetMaskIntNeg);
 
 		return simd::ifelse(1.f * phaseInc > 0.f, phasorResetMaskFloatPos, phasorResetMaskFloatNeg);
 	}

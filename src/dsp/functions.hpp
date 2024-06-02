@@ -6,6 +6,7 @@ namespace musx {
 
 using namespace rack;
 using simd::float_4;
+using simd::int32_4;
 
 inline float_4 waveshape(float_4 in)
 {
@@ -99,5 +100,17 @@ struct TSlewLimiter {
 		return out;
 	}
 };
+
+static inline float_4 castIntMaskToFloat(int32_4 maskInt)
+{
+	void* tmp = &maskInt;
+	return *(float_4*)tmp;
+}
+
+static inline int32_4 castFloatMaskToInt(float_4 maskFloat)
+{
+	void* tmp = &maskFloat;
+	return *(int32_4*)tmp;
+}
 
 }
