@@ -42,8 +42,8 @@ struct SKF : Module {
 	int maxIterations = 10;
 	float_4 epsilon = {1.e-4};
 
-	musx::AntialiasedCheapSaturator saturator1[4];
-	musx::AntialiasedCheapSaturator saturator2[4];
+	musx::AntialiasedCheapSaturator<float_4> saturator1[4];
+	musx::AntialiasedCheapSaturator<float_4> saturator2[4];
 
 	int channels = 1;
 

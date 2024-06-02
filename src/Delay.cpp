@@ -79,8 +79,8 @@ struct Delay : Module {
 	// DC block
 	musx::TOnePole<float_4> dcBlocker;
 
-	musx::AntialiasedCheapSaturator inSaturator;
-	musx::AntialiasedCheapSaturator outSaturator;
+	musx::AntialiasedCheapSaturator<float_4> inSaturator;
+	musx::AntialiasedCheapSaturator<float_4> outSaturator;
 
 	dsp::ClockDivider lightDivider;
 	dsp::ClockDivider knobDivider;
