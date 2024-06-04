@@ -10,12 +10,6 @@ namespace musx {
 using namespace rack;
 using simd::float_4;
 
-template <typename T>
-static T clip(T x) {
-	//return tanh(x);
-	return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
-}
-
 
 enum struct Method
 {
@@ -37,6 +31,15 @@ enum struct IntegratorType
 	Transistor
 };
 
+enum struct NonlinearityType
+{
+	tanh,
+	alt1,
+	alt2,
+	alt3,
+	hardclip
+};
+
 /**
  * S is size of state vector
  */
@@ -51,8 +54,26 @@ protected:
 	T dt;
 	
 	IntegratorType integratorType = IntegratorType::Transistor;
+	NonlinearityType nonlinearityType = NonlinearityType::tanh;
 
 	virtual void f(T t, const T x[], T dxdt[]) = 0;
+
+	T clip(T x) const
+	{
+		switch (nonlinearityType)
+		{
+		case NonlinearityType::tanh:
+			return 12.f * musx::tanh(x/12.f);
+		case NonlinearityType::alt1:
+			return musx::cheapSaturator(x);
+		case NonlinearityType::alt2:
+			return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
+		case NonlinearityType::alt3:
+			return 12.f * musx::waveshape(x/12.f);
+		case NonlinearityType::hardclip:
+			return clamp(x, -12.f, 12.f);
+		}
+	}
 
 	T getInputt(T t) const
 	{
@@ -196,6 +217,16 @@ public:
 		return integratorType;
 	}
 
+	void setNonlinearityType(NonlinearityType t)
+	{
+		nonlinearityType = t;
+	}
+
+	NonlinearityType getNonlinearityType()
+	{
+		return nonlinearityType;
+	}
+
 	/**
 	 * cutoff is Hz
 	 */
@@ -247,6 +278,7 @@ public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) - T(2.) * this->resonance * lp2Out; // negative feedback
+		input = clamp(input, -12.f ,12.f);
 
 		T out0 = this->calcLowpass(0, input, dxdt[0]);
 		lp2Out = this->calcLowpass(1, out0,  dxdt[1]);
@@ -267,6 +299,7 @@ public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) - T(2.) * this->resonance * lp4Out; // negative feedback
+		input = clamp(input, -12.f ,12.f);
 
 		T out0 = this->calcLowpass(0, input, dxdt[0]);
 		T out1 = this->calcLowpass(1, out0,  dxdt[1]);
@@ -290,6 +323,7 @@ public:
 	{
 		T input = this->getInputt(t) + this->resonance * bpOut; // positive feedback
 		input *= T(0.8);
+		input = clamp(input, -12.f ,12.f);
 
 		T out0  = this->calcLowpass(0, input, dxdt[0]);
 		bpOut = this->calcHighpass(1, out0,  dxdt[1]);
@@ -316,6 +350,7 @@ public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) + T(0.8) * this->resonance * lpOut; // positive feedback
+		input = clamp(input, -12.f ,12.f);
 
 		hpOut  = this->calcHighpass(0, input, dxdt[0]);
 		lpOut = this->calcLowpass(1, hpOut,  dxdt[1]);

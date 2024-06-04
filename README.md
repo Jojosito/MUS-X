@@ -38,6 +38,22 @@ The 'Poly' input determines the polyphony channels of the output.
 * 'Drift' adjusts the amount of a random (per voice) drift.
 * 'Drift Rate' adjusts the frequency of the random drift.
 
+## Filter
+A collection of filters.
+* 'Cutoff' sets the filter cutoff frequency.
+* 'Reso' sets the filter resonance.
+* 'Mode' sets the filter type. A selection if ladder and Sallen-Key filters are available.
+
+### Context menu options
+* 'Oversampling rate' sets the internal oversampling rate.
+* 'ODE Solver': The filters are implemented with differential equations, which are solved with numerical methods. 4th order Runkge-Kutta is recommended, the other options use less CPU, but are also much less accurate.
+* 'Integrator type': This affects the placement of the nonlinearities nl() in the integrators:
+	* Linear: dx/dt = ω (in - x)
+	* OTA: dx/dt = ω nl(in - x)
+	* Transistor: dx/dt = ω (nl(in) - nl(x))
+* 'Nonlinearity type': the function used as nonlinearity.
+* 'Saturator' limits the output to around ±10V.
+
 ## Last
 A utility module, which allows to map multiple sources to one destination.
 
@@ -87,10 +103,10 @@ There are two extra outputs to the right of the control knobs. 'Base control kno
     Instead, it can happen that your physical knobs are at the end of their travel, but the on screen knob is not. In that case, you have to turn the physical knob back the whole way, and forth again. 
 
 ## OnePole
-A simple CV controllable 1-pole highpass and lowpass filter.
+A simple CV controllable linear 1-pole highpass and lowpass filter.
 
 ## OnePoleLP
-A simple CV controllable 1-pole lowpass filter.
+A simple CV controllable linear 1-pole lowpass filter.
 
 ## Oscillators
 A pair of analog-style oscillators.

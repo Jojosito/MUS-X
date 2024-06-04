@@ -43,6 +43,7 @@ struct Filter : Module {
 
 	Method method = Method::RK4;
 	IntegratorType integratorType = IntegratorType::Transistor;
+	NonlinearityType nonlinearityType = NonlinearityType::alt3;
 
 	LadderFilter2Pole<float_4> ladderFilter2Pole[4];
 	LadderFilter4Pole<float_4> ladderFilter4Pole[4];
@@ -85,6 +86,18 @@ struct Filter : Module {
 		}
 	}
 
+	void setNonlinearityType(NonlinearityType t)
+	{
+		nonlinearityType = t;
+		for (int c = 0; c < channels; c += 4)
+		{
+			ladderFilter2Pole[c/4].setNonlinearityType(nonlinearityType);
+			ladderFilter4Pole[c/4].setNonlinearityType(nonlinearityType);
+			sallenKeyFilterLpBp[c/4].setNonlinearityType(nonlinearityType);
+			sallenKeyFilterHp[c/4].setNonlinearityType(nonlinearityType);
+		}
+	}
+
 	void process(const ProcessArgs& args) override {
 
 		channels = std::max(1, inputs[IN_INPUT].getChannels());
@@ -94,7 +107,7 @@ struct Filter : Module {
 			// set cutoff
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
-			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 5.3f));
+			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 8.f));
 
 			// resonance
 			float_4 resonance = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
@@ -177,6 +190,8 @@ struct Filter : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
 		json_object_set_new(rootJ, "method", json_integer((int)method));
+		json_object_set_new(rootJ, "integratorType", json_integer((int)integratorType));
+		json_object_set_new(rootJ, "nonlinearityType", json_integer((int)nonlinearityType));
 		json_object_set_new(rootJ, "saturate", json_boolean(saturate));
 		return rootJ;
 	}
@@ -191,6 +206,16 @@ struct Filter : Module {
 		if (methodJ)
 		{
 			method = (Method)json_integer_value(methodJ);
+		}
+		json_t* integratorTypeJ = json_object_get(rootJ, "integratorType");
+		if (integratorTypeJ)
+		{
+			integratorType = (IntegratorType)json_integer_value(integratorTypeJ);
+		}
+		json_t* nonlinearityTypeJ = json_object_get(rootJ, "nonlinearityType");
+		if (nonlinearityTypeJ)
+		{
+			nonlinearityType = (NonlinearityType)json_integer_value(nonlinearityTypeJ);
 		}
 		json_t* saturateJ = json_object_get(rootJ, "saturate");
 		if (saturateJ)
@@ -253,6 +278,15 @@ struct FilterWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->setIntegratorType((IntegratorType)mode);
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("Nonlinearity type", {"tanh", "alt1", "alt2", "alt3", "hardclip"},
+			[=]() {
+				return (int)module->nonlinearityType;
+			},
+			[=](int mode) {
+				module->setNonlinearityType((NonlinearityType)mode);
 			}
 		));
 
