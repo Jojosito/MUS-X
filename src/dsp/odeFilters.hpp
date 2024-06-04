@@ -289,6 +289,7 @@ public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) + this->resonance * bpOut; // positive feedback
+		input *= T(0.8);
 
 		T out0  = this->calcLowpass(0, input, dxdt[0]);
 		bpOut = this->calcHighpass(1, out0,  dxdt[1]);
@@ -305,6 +306,7 @@ public:
 	}
 };
 
+// TODO broken!!
 template <typename T>
 class SallenKeyFilterHp : public FilterAbstract<T, 2>
 {
