@@ -36,7 +36,7 @@ struct Filter : Module {
 	const float logBase = std::log(base);
 
 	static const int maxOversamplingRate = 64;
-	int oversamplingRate = 4;
+	int oversamplingRate = 8;
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
 	int channels = 1;
@@ -90,7 +90,7 @@ struct Filter : Module {
 			// set cutoff
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
-			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 4.2f));
+			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 5.3f));
 
 			// resonance
 			float_4 resonance = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
