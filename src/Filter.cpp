@@ -41,9 +41,13 @@ struct Filter : Module {
 
 	int channels = 1;
 
-	musx::Method method = Method::RK4;
+	Method method = Method::RK4;
+	IntegratorType integratorType = IntegratorType::Transistor;
 
-	musx::LadderFilter<float_4> filter[4];
+	LadderFilter2Pole<float_4> ladderFilter2Pole[4];
+	LadderFilter4Pole<float_4> ladderFilter4Pole[4];
+	SallenKeyFilterLpBp<float_4> sallenKeyFilterLpBp[4];
+	SallenKeyFilterHp<float_4> sallenKeyFilterHp[4];
 
 	float_4 prevInput[4] = {0};
 
@@ -51,13 +55,30 @@ struct Filter : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(MODE_PARAM, 0, 2, 0, "Mode", {"Lowpass", "Bandpass", "Highpass"});
+		configSwitch(MODE_PARAM, 0, 4, 0, "Mode", {
+				"2 pole ladder lowpass",
+				"4 pole ladder lowpass",
+				"2 pole Sallen-Key lowpass",
+				"2 pole Sallen-Key bandpass",
+				"2 pole Sallen-Key highpass"});
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
 		configInput(RESONANCE_INPUT, "Resonance CV");
 		configInput(IN_INPUT, "Audio");
 		configOutput(OUT_OUTPUT, "Filtered");
 
 		configBypass(IN_INPUT, OUT_OUTPUT);
+	}
+
+	void setIntegratorType(IntegratorType t)
+	{
+		integratorType = t;
+		for (int c = 0; c < channels; c += 4)
+		{
+			ladderFilter2Pole[c/4].setIntegratorType(integratorType);
+			ladderFilter4Pole[c/4].setIntegratorType(integratorType);
+			sallenKeyFilterLpBp[c/4].setIntegratorType(integratorType);
+			sallenKeyFilterHp[c/4].setIntegratorType(integratorType);
+		}
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -71,11 +92,30 @@ struct Filter : Module {
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
 			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 4.2f));
 
-			filter[c/4].setCutoffFreq(frequency);
-
 			// resonance
 			float_4 resonance = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
-			filter[c/4].setResonance(resonance);
+			resonance = fmax(0.f, resonance);
+
+			switch ((int)params[MODE_PARAM].getValue())
+			{
+			case 0:
+				ladderFilter2Pole[c/4].setCutoffFreq(frequency);
+				ladderFilter2Pole[c/4].setResonance(resonance);
+				break;
+			case 1:
+				ladderFilter4Pole[c/4].setCutoffFreq(frequency);
+				ladderFilter4Pole[c/4].setResonance(resonance);
+				break;
+			case 2:
+			case 3:
+				sallenKeyFilterLpBp[c/4].setCutoffFreq(frequency);
+				sallenKeyFilterLpBp[c/4].setResonance(resonance);
+				break;
+			case 4:
+				sallenKeyFilterHp[c/4].setCutoffFreq(frequency);
+				sallenKeyFilterHp[c/4].setResonance(resonance);
+				break;
+			}
 
 			// process
 			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
@@ -84,8 +124,29 @@ struct Filter : Module {
 				// linear interpolation for input
 				float_4 in = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i + 1.f)/oversamplingRate);
 
-				filter[c/4].process(in, args.sampleTime / oversamplingRate, method);
-				inBuffer[i] = filter[c/4].lowpass();
+				switch ((int)params[MODE_PARAM].getValue())
+				{
+				case 0:
+					ladderFilter2Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = ladderFilter2Pole[c/4].lowpass();
+					break;
+				case 1:
+					ladderFilter4Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = ladderFilter4Pole[c/4].lowpass();
+					break;
+				case 2:
+					sallenKeyFilterLpBp[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = sallenKeyFilterLpBp[c/4].lowpass();
+					break;
+				case 3:
+					sallenKeyFilterLpBp[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] =sallenKeyFilterLpBp[c/4].bandpass();
+					break;
+				case 4:
+					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = sallenKeyFilterHp[c/4].highpass();
+					break;
+				}
 			}
 
 			prevInput[c/4] = inputs[IN_INPUT].getVoltageSimd<float_4>(c);
@@ -136,7 +197,7 @@ struct FilterWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 44.52)), module, Filter::RESONANCE_PARAM));
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 54.59)), module, Filter::RESONANCE_INPUT));
 
-		addParam(createParamCentered<NKK>(mm2px(Vec(7.62, 72.04)), module, Filter::MODE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 72.04)), module, Filter::MODE_PARAM));
 
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.62, 96.375)), module, Filter::IN_INPUT));
 
@@ -163,6 +224,15 @@ struct FilterWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->method = (Method)mode;
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("Integrator type", {"Linear", "OTA", "Transistor"},
+			[=]() {
+				return (int)module->integratorType;
+			},
+			[=](int mode) {
+				module->setIntegratorType((IntegratorType)mode);
 			}
 		));
 	}

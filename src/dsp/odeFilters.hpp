@@ -16,18 +16,25 @@ static T clip(T x) {
 	return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
 }
 
-/**
- * https://urs.silvrback.com/one-pole-unlimited
- *
- * OTA: Iota = g * tanh(V+ - V-) with simple circuit schematic
- * Transistor ladder: Itl = g * ( tanh(V+) - tanh(V-) ) with rather complex schematic
- */
 
 enum struct Method
 {
 	Euler,
 	RK2,
 	RK4
+};
+
+/**
+ * https://urs.silvrback.com/one-pole-unlimited
+ *
+ * OTA: Iota = g * tanh(V+ - V-) with simple circuit schematic
+ * Transistor ladder: Itl = g * ( tanh(V+) - tanh(V-) ) with rather complex schematic
+ */
+enum struct IntegratorType
+{
+	Linear,
+	OTA,
+	Transistor
 };
 
 /**
@@ -42,12 +49,61 @@ protected:
 	T lastInput;
 	T input;
 	T dt;
+	
+	IntegratorType integratorType = IntegratorType::Transistor;
 
-	virtual void f(T t, const T x[], T dxdt[]) const = 0;
+	virtual void f(T t, const T x[], T dxdt[]) = 0;
 
 	T getInputt(T t) const
 	{
 		return crossfade(this->lastInput, this->input, t / this->dt);
+	}
+	
+	T calcLowpass(size_t iStage, T in, T& dxdt) const
+	{
+		switch (integratorType)
+		{
+		case IntegratorType::Linear:
+			dxdt = omega0 * (in - state[iStage]);
+			return state[iStage];
+		case IntegratorType::OTA:
+			dxdt = omega0 * clip(in - state[iStage]);
+			return state[iStage];
+		case IntegratorType::Transistor:
+		default:
+			dxdt = omega0 * (clip(in) - clip(state[iStage]));
+			return state[iStage];
+		}
+	}
+
+	T calcLowpassInverting(size_t iStage, T in, T& dxdt) const
+	{
+		switch (integratorType)
+		{
+		case IntegratorType::Linear:
+			dxdt = omega0 * (-(state[iStage] + in));
+			return state[iStage];
+		case IntegratorType::OTA:
+		case IntegratorType::Transistor:
+		default:
+			dxdt = omega0 * -clip(state[iStage] + in);
+			return state[iStage];
+		}
+	}
+
+	T calcHighpass(size_t iStage, T in, T& dxdt) const
+	{
+		switch (integratorType)
+		{
+		case IntegratorType::Linear:
+			dxdt = omega0 * (in - state[iStage]);
+			return in - state[iStage];
+		case IntegratorType::OTA:
+		case IntegratorType::Transistor:
+		default:
+			dxdt = omega0 * (in - clip(state[iStage]));
+			return in - state[iStage];
+		}
 	}
 
 	/** Solves an ODE system using the 1st order Euler method */
@@ -121,6 +177,25 @@ public:
 		}
 	}
 
+	// in Eurorack, voltage is limited to +-12V, so the capacitors cannot be charged indefinitely!
+	// also prevents the filter from exploding
+	void clampStates(T v)
+	{
+		for (size_t i = 0; i < S; i++) {
+			state[i] = clamp(state[i], -v, v);
+		}
+	}
+
+	void setIntegratorType(IntegratorType t)
+	{
+		integratorType = t;
+	}
+
+	IntegratorType getIntegratorType()
+	{
+		return integratorType;
+	}
+
 	/**
 	 * cutoff is Hz
 	 */
@@ -155,37 +230,99 @@ public:
 			stepRK4(T(0));
 		}
 		this->lastInput = input;
+
+		// prevent filter from exploding
+		clampStates(12.f);
 	}
 
 };
 
 
 template <typename T>
-class LadderFilter : public FilterAbstract<T, 4>
+class LadderFilter2Pole : public FilterAbstract<T, 4>
 {
+private:
+	T lp2Out;
 public:
-	void f(T t, const T x[], T dxdt[]) const override
+	void f(T t, const T x[], T dxdt[]) override
 	{
-		T inputc = clip(this->getInputt(t) - this->resonance * x[3]);
-		T yc0 = clip(x[0]);
-		T yc1 = clip(x[1]);
-		T yc2 = clip(x[2]);
-		T yc3 = clip(x[3]);
+		T input = this->getInputt(t) - this->resonance * lp2Out; // negative feedback
 
-		dxdt[0] = this->omega0 * (inputc - yc0);
-		dxdt[1] = this->omega0 * (yc0 - yc1);
-		dxdt[2] = this->omega0 * (yc1 - yc2);
-		dxdt[3] = this->omega0 * (yc2 - yc3);
+		T out0 = this->calcLowpass(0, input, dxdt[0]);
+		lp2Out = this->calcLowpass(1, out0,  dxdt[1]);
 	}
 
 	T lowpass()
 	{
-		return this->state[3];
+		return lp2Out;
 	}
-	T highpass() {
-		// TODO will only work for RK4???
-		return clip((this->input - this->resonance * this->state[3]) -
-				4 * this->state[0] + 6 * this->state[1] - 4 * this->state[2] + this->state[3]);
+};
+
+template <typename T>
+class LadderFilter4Pole : public FilterAbstract<T, 4>
+{
+private:
+	T lp4Out;
+public:
+	void f(T t, const T x[], T dxdt[]) override
+	{
+		T input = this->getInputt(t) - this->resonance * lp4Out; // negative feedback
+
+		T out0 = this->calcLowpass(0, input, dxdt[0]);
+		T out1 = this->calcLowpass(1, out0,  dxdt[1]);
+		T out2 = this->calcLowpass(2, out1,  dxdt[2]);
+		lp4Out = this->calcLowpass(3, out2,  dxdt[3]);
+	}
+
+	T lowpass()
+	{
+		return lp4Out;
+	}
+};
+
+template <typename T>
+class SallenKeyFilterLpBp : public FilterAbstract<T, 2>
+{
+private:
+	T bpOut;
+public:
+	void f(T t, const T x[], T dxdt[]) override
+	{
+		T input = this->getInputt(t) + this->resonance * bpOut; // positive feedback
+
+		T out0  = this->calcLowpass(0, input, dxdt[0]);
+		bpOut = this->calcHighpass(1, out0,  dxdt[1]);
+	}
+
+	T lowpass()
+	{
+		return this->state[1];
+	}
+
+	T bandpass()
+	{
+		return bpOut;
+	}
+};
+
+template <typename T>
+class SallenKeyFilterHp : public FilterAbstract<T, 2>
+{
+private:
+	T lpOut;
+	T hpOut;
+public:
+	void f(T t, const T x[], T dxdt[]) override
+	{
+		T input = this->getInputt(t) + this->resonance * lpOut; // positive feedback
+
+		hpOut  = this->calcHighpass(0, input, dxdt[0]);
+		lpOut = this->calcLowpass(1, hpOut,  dxdt[1]);
+	}
+
+	T highpass()
+	{
+		return hpOut - lpOut;
 	}
 };
 
