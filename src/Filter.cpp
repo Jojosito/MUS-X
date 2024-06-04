@@ -51,16 +51,20 @@ struct Filter : Module {
 
 	float_4 prevInput[4] = {0};
 
+	bool saturate = true;
+	musx::AntialiasedCheapSaturator<float_4> saturator[4];
+
 	Filter() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(MODE_PARAM, 0, 4, 1, "Mode", {
+		configSwitch(MODE_PARAM, 0, 5, 1, "Mode", {
 				"Ladder lowpass 6",
 				"Ladder lowpass 24",
 				"Sallen-Key lowpass 12",
 				"Sallen-Key bandpass 6",
-				"Sallen-Key highpass 6"});
+				"Sallen-Key highpass 6",
+				"Sallen-Key highpass 12"});
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
 		configInput(RESONANCE_INPUT, "Resonance CV");
 		configInput(IN_INPUT, "Audio");
@@ -112,6 +116,7 @@ struct Filter : Module {
 				sallenKeyFilterLpBp[c/4].setResonance(resonance);
 				break;
 			case 4:
+			case 5:
 				sallenKeyFilterHp[c/4].setCutoffFreq(frequency);
 				sallenKeyFilterHp[c/4].setResonance(resonance);
 				break;
@@ -144,8 +149,17 @@ struct Filter : Module {
 					break;
 				case 4:
 					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
-					inBuffer[i] = sallenKeyFilterHp[c/4].highpass();
+					inBuffer[i] = sallenKeyFilterHp[c/4].highpass6();
 					break;
+				case 5:
+					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = sallenKeyFilterHp[c/4].highpass12();
+					break;
+				}
+
+				if (saturate)
+				{
+					inBuffer[i] = saturator[c/4].processBandlimited(inBuffer[i]);
 				}
 			}
 
@@ -163,6 +177,7 @@ struct Filter : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
 		json_object_set_new(rootJ, "method", json_integer((int)method));
+		json_object_set_new(rootJ, "saturate", json_boolean(saturate));
 		return rootJ;
 	}
 
@@ -176,6 +191,11 @@ struct Filter : Module {
 		if (methodJ)
 		{
 			method = (Method)json_integer_value(methodJ);
+		}
+		json_t* saturateJ = json_object_get(rootJ, "saturate");
+		if (saturateJ)
+		{
+			saturate = (json_boolean_value(saturateJ));
 		}
 	}
 };
@@ -233,6 +253,15 @@ struct FilterWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->setIntegratorType((IntegratorType)mode);
+			}
+		));
+
+		menu->addChild(createBoolMenuItem("Saturator", "",
+			[=]() {
+				return module->saturate;
+			},
+			[=](int mode) {
+				module->saturate = mode;
 			}
 		));
 	}

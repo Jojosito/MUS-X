@@ -232,7 +232,7 @@ public:
 		this->lastInput = input;
 
 		// prevent filter from exploding
-		clampStates(12.f);
+		clampStates(100.f);
 	}
 
 };
@@ -306,7 +306,6 @@ public:
 	}
 };
 
-// TODO broken!!
 template <typename T>
 class SallenKeyFilterHp : public FilterAbstract<T, 2>
 {
@@ -316,15 +315,20 @@ private:
 public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) + this->resonance * lpOut; // positive feedback
+		T input = this->getInputt(t) + T(0.8) * this->resonance * lpOut; // positive feedback
 
 		hpOut  = this->calcHighpass(0, input, dxdt[0]);
 		lpOut = this->calcLowpass(1, hpOut,  dxdt[1]);
 	}
 
-	T highpass()
+	T highpass6()
 	{
 		return hpOut;
+	}
+
+	T highpass12()
+	{
+		return hpOut - this->state[1];
 	}
 };
 
