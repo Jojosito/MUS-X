@@ -55,12 +55,12 @@ struct Filter : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(MODE_PARAM, 0, 4, 0, "Mode", {
-				"2 pole ladder lowpass",
-				"4 pole ladder lowpass",
-				"2 pole Sallen-Key lowpass",
-				"2 pole Sallen-Key bandpass",
-				"2 pole Sallen-Key highpass"});
+		configSwitch(MODE_PARAM, 0, 4, 1, "Mode", {
+				"Ladder lowpass 6",
+				"Ladder lowpass 24",
+				"Sallen-Key lowpass 12",
+				"Sallen-Key bandpass 6",
+				"Sallen-Key highpass 6"});
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
 		configInput(RESONANCE_INPUT, "Resonance CV");
 		configInput(IN_INPUT, "Audio");

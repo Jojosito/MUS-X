@@ -246,7 +246,7 @@ private:
 public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) - this->resonance * lp2Out; // negative feedback
+		T input = this->getInputt(t) - T(2.) * this->resonance * lp2Out; // negative feedback
 
 		T out0 = this->calcLowpass(0, input, dxdt[0]);
 		lp2Out = this->calcLowpass(1, out0,  dxdt[1]);
@@ -266,7 +266,7 @@ private:
 public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) - this->resonance * lp4Out; // negative feedback
+		T input = this->getInputt(t) - T(2.) * this->resonance * lp4Out; // negative feedback
 
 		T out0 = this->calcLowpass(0, input, dxdt[0]);
 		T out1 = this->calcLowpass(1, out0,  dxdt[1]);
@@ -322,7 +322,7 @@ public:
 
 	T highpass()
 	{
-		return hpOut - lpOut;
+		return hpOut;
 	}
 };
 
