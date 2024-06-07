@@ -13,6 +13,7 @@ private:
 	LadderFilter4Pole<float_4> ladderFilter4Pole;
 	SallenKeyFilterLpBp<float_4> sallenKeyFilterLpBp;
 	SallenKeyFilterHp<float_4> sallenKeyFilterHp;
+	DiodeClipper<float_4> diodeClipper;
 
 public:
 	static std::vector<std::string> getModeLabels()
@@ -29,7 +30,8 @@ public:
 			"2-pole Sallen-Key lowpass, 12 dB/Oct",
 			"2-pole Sallen-Key bandpass, 6 dB/Oct",
 			"2-pole Sallen-Key highpass, 6 dB/Oct",
-			"2-pole Sallen-Key highpass, 12 dB/Oct"
+			"2-pole Sallen-Key highpass, 12 dB/Oct",
+			"Diode Clipper",
 		};
 		return labels;
 	}
@@ -73,6 +75,7 @@ public:
 		ladderFilter4Pole.setMethod(m);
 		sallenKeyFilterLpBp.setMethod(m);
 		sallenKeyFilterHp.setMethod(m);
+		diodeClipper.setMethod(m);
 	}
 
 	void setIntegratorType(IntegratorType t)
@@ -124,6 +127,9 @@ public:
 			sallenKeyFilterHp.setCutoffFreq(frequency);
 			sallenKeyFilterHp.setResonance(resonance);
 			break;
+		case 12:
+			diodeClipper.setCutoffFreq(frequency);
+			diodeClipper.setResonance(resonance);
 		}
 	}
 
@@ -167,6 +173,9 @@ public:
 		case 11:
 			sallenKeyFilterHp.process(in, dt);
 			return sallenKeyFilterHp.highpass12();
+		case 12:
+			diodeClipper.process(in, dt);
+			return diodeClipper.out();
 		default:
 			return in;
 		}

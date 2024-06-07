@@ -58,7 +58,7 @@ protected:
 	IntegratorType integratorType = IntegratorType::Transistor;
 	NonlinearityType nonlinearityType = NonlinearityType::tanh;
 
-	virtual void f(T t, const T x[], T dxdt[]) = 0;
+	virtual void f(T t, const T x[], T dxdt[]) const = 0;
 
 	T clip(T x) const
 	{
@@ -269,9 +269,6 @@ public:
 			stepRK4(T(0));
 		}
 		this->lastInput = input;
-
-		// prevent filter from exploding
-		//clampStates(100.f);
 	}
 
 };
@@ -281,7 +278,7 @@ template <typename T>
 class Filter1Pole : public FilterAbstract<T, 1>
 {
 protected:
-	void f(T t, const T x[], T dxdt[]) override
+	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T input = this->getInputt(t);
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
@@ -297,7 +294,7 @@ public:
 
 	T highpass()
 	{
-		return this->input - this->state[0];
+		return clamp(this->input, -this->maxAmplitude, this->maxAmplitude) - this->state[0];
 	}
 };
 
@@ -305,7 +302,7 @@ template <typename T>
 class LadderFilter2Pole : public FilterAbstract<T, 2>
 {
 protected:
-	void f(T t, const T x[], T dxdt[]) override
+	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T input = this->getInputt(t) - T(4.) * this->resonance * x[1]; // negative feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
@@ -330,7 +327,7 @@ template <typename T>
 class LadderFilter4Pole : public FilterAbstract<T, 4>
 {
 protected:
-	void f(T t, const T x[], T dxdt[]) override
+	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T input = this->getInputt(t) - T(2.) * this->resonance * x[3]; // negative feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
@@ -364,7 +361,7 @@ template <typename T>
 class SallenKeyFilterLpBp : public FilterAbstract<T, 2>
 {
 protected:
-	void f(T t, const T x[], T dxdt[]) override
+	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T hp1 = x[0] - x[1];
 		T input = this->getInputt(t) + this->resonance * hp1; // positive feedback
@@ -391,7 +388,7 @@ template <typename T>
 class SallenKeyFilterHp : public FilterAbstract<T, 2>
 {
 protected:
-	void f(T t, const T x[], T dxdt[]) override
+	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T input = this->getInputt(t) + T(0.8) * this->resonance * x[1]; // positive feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
@@ -403,12 +400,37 @@ protected:
 public:
 	T highpass6()
 	{
-		return this->input - this->state[0];
+		return clamp(this->input, -this->maxAmplitude, this->maxAmplitude) - this->state[0];
 	}
 
 	T highpass12()
 	{
-		return this->input - this->state[0] - this->state[1];
+		return clamp(this->input, -this->maxAmplitude, this->maxAmplitude) - this->state[0] - this->state[1];
+	}
+};
+
+// TODO becomes unstable when res or cutoff too high
+template <typename T>
+class DiodeClipper : public FilterAbstract<T, 1>
+{
+protected:
+	void f(T t, const T x[], T dxdt[]) const override
+	{
+		T input = this->getInputt(t);
+
+		static const T a = {-1.e-6};
+		T b = 10.f * this->resonance;
+
+		dxdt[0] = this->omega0 * (input - x[0])
+				+ a * (exp(0.5 * b * x[0]) - T(1.))
+				- a * (exp(-b * x[0]) - T(1.));
+	}
+
+public:
+	T out()
+	{
+		this->clampStates(this->maxAmplitude);
+		return this->state[0];
 	}
 };
 
