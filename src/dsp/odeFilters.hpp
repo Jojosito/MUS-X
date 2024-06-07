@@ -54,6 +54,7 @@ protected:
 	T dt;
 	T maxAmplitude = 12.f;
 	
+	Method method = Method::RK4;
 	IntegratorType integratorType = IntegratorType::Transistor;
 	NonlinearityType nonlinearityType = NonlinearityType::tanh;
 
@@ -209,6 +210,11 @@ public:
 		}
 	}
 
+	void setMethod(Method m)
+	{
+		method = m;
+	}
+
 	void setIntegratorType(IntegratorType t)
 	{
 		integratorType = t;
@@ -246,7 +252,7 @@ public:
 		resonance = res;
 	}
 
-	void process(T input, T dt, Method method = Method::RK4)
+	void process(T input, T dt)
 	{
 		this->input = input;
 		this->dt = dt;
@@ -327,7 +333,7 @@ protected:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) - T(2.) * this->resonance * x[3]; // negative feedback
-		//input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		this->calcLowpass(input, 0, x, dxdt);
 		this->calcLowpass(x[0], 1, x, dxdt);
@@ -363,7 +369,7 @@ protected:
 		T hp1 = x[0] - x[1];
 		T input = this->getInputt(t) + this->resonance * hp1; // positive feedback
 		input *= T(0.8);
-		//input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		this->calcLowpass(input, 0, x, dxdt);
 		this->calcHighpass(x[0], 1, x, dxdt);

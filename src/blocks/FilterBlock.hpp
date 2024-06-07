@@ -8,10 +8,6 @@ using simd::float_4;
 
 class FilterBlock {
 private:
-	Method method = Method::RK4;
-	IntegratorType integratorType = IntegratorType::Transistor;
-	NonlinearityType nonlinearityType = NonlinearityType::alt3;
-
 	Filter1Pole<float_4> filter1Pole;
 	LadderFilter2Pole<float_4> ladderFilter2Pole;
 	LadderFilter4Pole<float_4> ladderFilter4Pole;
@@ -70,23 +66,31 @@ public:
 		return labels;
 	}
 
+	void setMethod(Method m)
+	{
+		filter1Pole.setMethod(m);
+		ladderFilter2Pole.setMethod(m);
+		ladderFilter4Pole.setMethod(m);
+		sallenKeyFilterLpBp.setMethod(m);
+		sallenKeyFilterHp.setMethod(m);
+	}
+
 	void setIntegratorType(IntegratorType t)
 	{
-		integratorType = t;
-			filter1Pole.setIntegratorType(integratorType);
-			ladderFilter2Pole.setIntegratorType(integratorType);
-			ladderFilter4Pole.setIntegratorType(integratorType);
-			sallenKeyFilterLpBp.setIntegratorType(integratorType);
-			sallenKeyFilterHp.setIntegratorType(integratorType);
+		filter1Pole.setIntegratorType(t);
+		ladderFilter2Pole.setIntegratorType(t);
+		ladderFilter4Pole.setIntegratorType(t);
+		sallenKeyFilterLpBp.setIntegratorType(t);
+		sallenKeyFilterHp.setIntegratorType(t);
 	}
 
 	void setNonlinearityType(NonlinearityType t)
 	{
-		filter1Pole.setNonlinearityType(nonlinearityType);
-		ladderFilter2Pole.setNonlinearityType(nonlinearityType);
-		ladderFilter4Pole.setNonlinearityType(nonlinearityType);
-		sallenKeyFilterLpBp.setNonlinearityType(nonlinearityType);
-		sallenKeyFilterHp.setNonlinearityType(nonlinearityType);
+		filter1Pole.setNonlinearityType(t);
+		ladderFilter2Pole.setNonlinearityType(t);
+		ladderFilter4Pole.setNonlinearityType(t);
+		sallenKeyFilterLpBp.setNonlinearityType(t);
+		sallenKeyFilterHp.setNonlinearityType(t);
 	}
 
 	void setCutoffFrequencyAndResonance(float_4 frequency, float_4 resonance, int mode)
@@ -128,40 +132,40 @@ public:
 		switch (mode)
 		{
 		case 0:
-			filter1Pole.process(in, dt, method);
+			filter1Pole.process(in, dt);
 			return filter1Pole.lowpass();
 		case 1:
-			filter1Pole.process(in, dt, method);
+			filter1Pole.process(in, dt);
 			return filter1Pole.highpass();
 		case 2:
-			ladderFilter2Pole.process(in, dt, method);
+			ladderFilter2Pole.process(in, dt);
 			return ladderFilter2Pole.lowpass();
 		case 3 :
-			ladderFilter2Pole.process(in, dt, method);
+			ladderFilter2Pole.process(in, dt);
 			return ladderFilter2Pole.bandpass();
 		case 4:
-			ladderFilter4Pole.process(in, dt, method);
+			ladderFilter4Pole.process(in, dt);
 			return ladderFilter4Pole.lowpass6();
 		case 5:
-			ladderFilter4Pole.process(in, dt, method);
+			ladderFilter4Pole.process(in, dt);
 			return ladderFilter4Pole.lowpass12();
 		case 6:
-			ladderFilter4Pole.process(in, dt, method);
+			ladderFilter4Pole.process(in, dt);
 			return ladderFilter4Pole.lowpass18();
 		case 7:
-			ladderFilter4Pole.process(in, dt, method);
+			ladderFilter4Pole.process(in, dt);
 			return ladderFilter4Pole.lowpass24();
 		case 8:
-			sallenKeyFilterLpBp.process(in, dt, method);
+			sallenKeyFilterLpBp.process(in, dt);
 			return sallenKeyFilterLpBp.lowpass();
 		case 9:
-			sallenKeyFilterLpBp.process(in, dt, method);
+			sallenKeyFilterLpBp.process(in, dt);
 			return sallenKeyFilterLpBp.bandpass();
 		case 10:
-			sallenKeyFilterHp.process(in, dt, method);
+			sallenKeyFilterHp.process(in, dt);
 			return sallenKeyFilterHp.highpass6();
 		case 11:
-			sallenKeyFilterHp.process(in, dt, method);
+			sallenKeyFilterHp.process(in, dt);
 			return sallenKeyFilterHp.highpass12();
 		default:
 			return in;

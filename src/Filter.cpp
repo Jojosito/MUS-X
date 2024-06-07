@@ -63,6 +63,15 @@ struct Filter : Module {
 		configBypass(IN_INPUT, OUT_OUTPUT);
 	}
 
+	void setMethod(Method m)
+	{
+		method = m;
+		for (int c = 0; c < channels; c += 4)
+		{
+			filterBlock[c/4].setMethod(method);
+		}
+	}
+
 	void setIntegratorType(IntegratorType t)
 	{
 		integratorType = t;
@@ -90,7 +99,7 @@ struct Filter : Module {
 			// set cutoff
 			float_4 voltage = params[CUTOFF_PARAM].getValue() + 0.1f * inputs[CUTOFF_INPUT].getPolyVoltageSimd<float_4>(c);
 			float_4 frequency = simd::exp(logBase * voltage) * minFreq;
-			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate / 8.f));
+			frequency  = simd::clamp(frequency, minFreq, simd::fmin(maxFreq, args.sampleRate * oversamplingRate * 0.18f));
 
 			// resonance
 			float_4 resonance = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
@@ -206,7 +215,7 @@ struct FilterWidget : ModuleWidget {
 				return (int)module->method;
 			},
 			[=](int mode) {
-				module->method = (Method)mode;
+				module->setMethod((Method)mode);
 			}
 		));
 
