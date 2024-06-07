@@ -36,12 +36,12 @@ struct Filter : Module {
 	const float logBase = std::log(base);
 
 	static const int maxOversamplingRate = 64;
-	int oversamplingRate = 8;
+	int oversamplingRate = 4;
 	HalfBandDecimatorCascade<float_4> decimator[4];
 
 	int channels = 1;
 
-	Method method = Method::RK4;
+	Method method = Method::RK2;
 	IntegratorType integratorType = IntegratorType::Transistor_tanh;
 	musx::FilterBlock filterBlock[4];
 	float_4 prevInput[4] = {0};
@@ -65,7 +65,7 @@ struct Filter : Module {
 	void setMethod(Method m)
 	{
 		method = m;
-		for (int c = 0; c < channels; c += 4)
+		for (int c = 0; c < 16; c += 4)
 		{
 			filterBlock[c/4].setMethod(method);
 		}
@@ -74,7 +74,7 @@ struct Filter : Module {
 	void setIntegratorType(IntegratorType t)
 	{
 		integratorType = t;
-		for (int c = 0; c < channels; c += 4)
+		for (int c = 0; c < 16; c += 4)
 		{
 			filterBlock[c/4].setIntegratorType(integratorType);
 		}
@@ -141,12 +141,12 @@ struct Filter : Module {
 		json_t* methodJ = json_object_get(rootJ, "method");
 		if (methodJ)
 		{
-			method = (Method)json_integer_value(methodJ);
+			setMethod((Method)json_integer_value(methodJ));
 		}
 		json_t* integratorTypeJ = json_object_get(rootJ, "integratorType");
 		if (integratorTypeJ)
 		{
-			integratorType = (IntegratorType)json_integer_value(integratorTypeJ);
+			setIntegratorType((IntegratorType)json_integer_value(integratorTypeJ));
 		}
 		json_t* saturateJ = json_object_get(rootJ, "saturate");
 		if (saturateJ)
@@ -212,7 +212,7 @@ struct FilterWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createBoolMenuItem("Saturator", "",
+		menu->addChild(createBoolMenuItem("Post-filter saturator", "",
 			[=]() {
 				return module->saturate;
 			},

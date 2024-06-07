@@ -84,6 +84,7 @@ public:
 		ladderFilter4Pole.setIntegratorType(t);
 		sallenKeyFilterLpBp.setIntegratorType(t);
 		sallenKeyFilterHp.setIntegratorType(t);
+		diodeClipper.setIntegratorType(t);
 	}
 
 	void setCutoffFrequencyAndResonance(float_4 frequency, float_4 resonance, int mode)
