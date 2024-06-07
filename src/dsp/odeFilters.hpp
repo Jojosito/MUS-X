@@ -369,7 +369,7 @@ protected:
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		this->calcLowpass(input, 0, x, dxdt);
-		this->calcHighpass(x[0], 1, x, dxdt);
+		this->calcLowpass(x[0], 1, x, dxdt);
 	}
 
 public:
@@ -393,7 +393,7 @@ protected:
 		T input = this->getInputt(t) + T(0.8) * this->resonance * x[1]; // positive feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		this->calcHighpass(input, 0, x, dxdt);
+		this->calcLowpass(input, 0, x, dxdt);
 		this->calcLowpass(input - x[0], 1, x, dxdt);
 	}
 
@@ -405,11 +405,11 @@ public:
 
 	T highpass12()
 	{
-		return clamp(this->input, -this->maxAmplitude, this->maxAmplitude) - this->state[0] - this->state[1];
+		return highpass6() - this->state[1];
 	}
 };
 
-// TODO becomes unstable when res or cutoff too high
+// TODO quickly becomes unstable when res or cutoff too high
 template <typename T>
 class DiodeClipper : public FilterAbstract<T, 1>
 {
@@ -417,6 +417,7 @@ protected:
 	void f(T t, const T x[], T dxdt[]) const override
 	{
 		T input = this->getInputt(t);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		static const T a = {-1.e-6};
 		T b = 10.f * this->resonance;
