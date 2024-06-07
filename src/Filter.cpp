@@ -42,8 +42,7 @@ struct Filter : Module {
 	int channels = 1;
 
 	Method method = Method::RK4;
-	IntegratorType integratorType = IntegratorType::Transistor;
-	NonlinearityType nonlinearityType = NonlinearityType::alt3;
+	IntegratorType integratorType = IntegratorType::Transistor_tanh;
 	musx::FilterBlock filterBlock[4];
 	float_4 prevInput[4] = {0};
 
@@ -78,15 +77,6 @@ struct Filter : Module {
 		for (int c = 0; c < channels; c += 4)
 		{
 			filterBlock[c/4].setIntegratorType(integratorType);
-		}
-	}
-
-	void setNonlinearityType(NonlinearityType t)
-	{
-		nonlinearityType = t;
-		for (int c = 0; c < channels; c += 4)
-		{
-			filterBlock[c/4].setNonlinearityType(nonlinearityType);
 		}
 	}
 
@@ -138,7 +128,6 @@ struct Filter : Module {
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
 		json_object_set_new(rootJ, "method", json_integer((int)method));
 		json_object_set_new(rootJ, "integratorType", json_integer((int)integratorType));
-		json_object_set_new(rootJ, "nonlinearityType", json_integer((int)nonlinearityType));
 		json_object_set_new(rootJ, "saturate", json_boolean(saturate));
 		return rootJ;
 	}
@@ -158,11 +147,6 @@ struct Filter : Module {
 		if (integratorTypeJ)
 		{
 			integratorType = (IntegratorType)json_integer_value(integratorTypeJ);
-		}
-		json_t* nonlinearityTypeJ = json_object_get(rootJ, "nonlinearityType");
-		if (nonlinearityTypeJ)
-		{
-			nonlinearityType = (NonlinearityType)json_integer_value(nonlinearityTypeJ);
 		}
 		json_t* saturateJ = json_object_get(rootJ, "saturate");
 		if (saturateJ)
@@ -225,15 +209,6 @@ struct FilterWidget : ModuleWidget {
 			},
 			[=](int mode) {
 				module->setIntegratorType((IntegratorType)mode);
-			}
-		));
-
-		menu->addChild(createIndexSubmenuItem("Nonlinearity type", FilterBlock::getNonlinearityTypeLabels(),
-			[=]() {
-				return (int)module->nonlinearityType;
-			},
-			[=](int mode) {
-				module->setNonlinearityType((NonlinearityType)mode);
 			}
 		));
 

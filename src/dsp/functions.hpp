@@ -38,7 +38,7 @@ class AntialiasedCheapSaturator {
 private:
 	static constexpr float epsilon = 1.e-3; // good balance between antialising and stability & noise
 	//static constexpr float scale = 13.1713; // deviation from 10*tanh(x/10) < 0.317 in [-23..23]
-	static constexpr float scale = 10.; // limit output to +-10V
+	static constexpr float scale = 12.; // limit output to +-12V
 	T x = 0; // previous input value
 
 	// saturation function

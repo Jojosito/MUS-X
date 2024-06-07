@@ -27,17 +27,10 @@ enum struct Method
 enum struct IntegratorType
 {
 	Linear,
-	OTA,
-	Transistor
-};
-
-enum struct NonlinearityType
-{
-	tanh,
-	alt1,
-	alt2,
-	alt3,
-	hardclip
+	OTA_tanh,
+	OTA_alt,
+	Transistor_tanh,
+	Transistor_alt,
 };
 
 /**
@@ -55,27 +48,18 @@ protected:
 	T maxAmplitude = 12.f;
 	
 	Method method = Method::RK4;
-	IntegratorType integratorType = IntegratorType::Transistor;
-	NonlinearityType nonlinearityType = NonlinearityType::tanh;
+	IntegratorType integratorType = IntegratorType::Transistor_tanh;
 
 	virtual void f(T t, const T x[], T dxdt[]) const = 0;
 
 	T clip(T x) const
 	{
-		switch (nonlinearityType)
-		{
-		default:
-		case NonlinearityType::tanh:
-			return maxAmplitude * musx::tanh(x/maxAmplitude);
-		case NonlinearityType::alt1:
-			return musx::cheapSaturator(x);
-		case NonlinearityType::alt2:
-			return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
-		case NonlinearityType::alt3:
-			return maxAmplitude * musx::waveshape(x/maxAmplitude);
-		case NonlinearityType::hardclip:
-			return clamp(x, -maxAmplitude, maxAmplitude);
-		}
+		return maxAmplitude * musx::tanh(x/maxAmplitude);
+	}
+
+	T clipAlt(T x) const
+	{
+		return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
 	}
 
 	T getInputt(T t) const
@@ -90,12 +74,18 @@ protected:
 		case IntegratorType::Linear:
 			dxdt[iStage] = omega0 * (in - x[iStage]);
 			break;
-		case IntegratorType::OTA:
+		case IntegratorType::OTA_tanh:
 			dxdt[iStage] = omega0 * clip(in - x[iStage]);
 			break;
-		case IntegratorType::Transistor:
+		case IntegratorType::OTA_alt:
+			dxdt[iStage] = omega0 * clipAlt(in - x[iStage]);
+			break;
+		case IntegratorType::Transistor_tanh:
 		default:
 			dxdt[iStage] = omega0 * (clip(in) - clip(x[iStage]));
+			break;
+		case IntegratorType::Transistor_alt:
+			dxdt[iStage] = omega0 * (clipAlt(in) - clipAlt(x[iStage]));
 			break;
 		}
 	}
@@ -107,10 +97,14 @@ protected:
 		case IntegratorType::Linear:
 			dxdt[iStage] = omega0 * (-(x[iStage] + in));
 			break;
-		case IntegratorType::OTA:
-		case IntegratorType::Transistor:
+		case IntegratorType::OTA_tanh:
+		case IntegratorType::Transistor_tanh:
 		default:
 			dxdt[iStage] = omega0 * -clip(x[iStage] + in);
+			break;
+		case IntegratorType::OTA_alt:
+		case IntegratorType::Transistor_alt:
+			dxdt[iStage] = omega0 * -clipAlt(x[iStage] + in);
 			break;
 		}
 	}
@@ -122,10 +116,14 @@ protected:
 		case IntegratorType::Linear:
 			dxdt[iStage] = omega0 * (in - x[iStage]);
 			break;
-		case IntegratorType::OTA:
-		case IntegratorType::Transistor:
+		case IntegratorType::OTA_tanh:
+		case IntegratorType::Transistor_tanh:
 		default:
 			dxdt[iStage] = omega0 * (in - clip(x[iStage]));
+			break;
+		case IntegratorType::OTA_alt:
+		case IntegratorType::Transistor_alt:
+			dxdt[iStage] = omega0 * (in - clipAlt(x[iStage]));
 			break;
 		}
 	}
@@ -223,16 +221,6 @@ public:
 	IntegratorType getIntegratorType()
 	{
 		return integratorType;
-	}
-
-	void setNonlinearityType(NonlinearityType t)
-	{
-		nonlinearityType = t;
-	}
-
-	NonlinearityType getNonlinearityType()
-	{
-		return nonlinearityType;
 	}
 
 	/**
@@ -365,7 +353,6 @@ protected:
 	{
 		T hp1 = x[0] - x[1];
 		T input = this->getInputt(t) + this->resonance * hp1; // positive feedback
-		input *= T(0.8);
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		this->calcLowpass(input, 0, x, dxdt);

@@ -50,8 +50,10 @@ public:
 	{
 		std::vector<std::string> labels = {
 			"Linear",
-			"OTA",
-			"Transistor"
+			"OTA with tanh",
+			"OTA with alternate saturator",
+			"Transistor with tanh",
+			"Transistor with alternate saturator"
 		};
 		return labels;
 	}
@@ -60,10 +62,7 @@ public:
 	{
 		std::vector<std::string> labels = {
 			"tanh",
-			"alt1",
-			"alt2",
-			"alt3",
-			"hardclip"
+			"alt"
 		};
 		return labels;
 	}
@@ -85,15 +84,6 @@ public:
 		ladderFilter4Pole.setIntegratorType(t);
 		sallenKeyFilterLpBp.setIntegratorType(t);
 		sallenKeyFilterHp.setIntegratorType(t);
-	}
-
-	void setNonlinearityType(NonlinearityType t)
-	{
-		filter1Pole.setNonlinearityType(t);
-		ladderFilter2Pole.setNonlinearityType(t);
-		ladderFilter4Pole.setNonlinearityType(t);
-		sallenKeyFilterLpBp.setNonlinearityType(t);
-		sallenKeyFilterHp.setNonlinearityType(t);
 	}
 
 	void setCutoffFrequencyAndResonance(float_4 frequency, float_4 resonance, int mode)
