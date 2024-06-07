@@ -60,16 +60,19 @@ struct Filter : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(MODE_PARAM, 0, 8, 1, "Mode", {
-				"Lowpass 6 (non-resonant)",
-				"Highpass 6 (non-resonant)",
-				"Ladder lowpass 12",
-				"Ladder bandpass 12",
-				"Ladder lowpass 24",
-				"Sallen-Key lowpass 12",
-				"Sallen-Key bandpass 6",
-				"Sallen-Key highpass 6",
-				"Sallen-Key highpass 12"});
+		configSwitch(MODE_PARAM, 0, 11, 1, "Mode", {
+				"1-pole lowpass, 6 dB/Oct (non-resonant)",
+				"1-pole highpass, 6 dB/Oct (non-resonant)",
+				"2-pole ladder lowpass, 12 dB/Oct",
+				"2-pole ladder bandpass, 6 dB/Oct",
+				"4-pole ladder lowpass, 6 dB/Oct",
+				"4-pole ladder lowpass, 12 dB/Oct",
+				"4-pole ladder lowpass, 18 dB/Oct",
+				"4-pole ladder lowpass, 24 dB/Oct",
+				"2-pole Sallen-Key lowpass, 12 dB/Oct",
+				"2-pole Sallen-Key bandpass, 6 dB/Oct",
+				"2-pole Sallen-Key highpass, 6 dB/Oct",
+				"2-pole Sallen-Key highpass, 12 dB/Oct"});
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
 		configInput(RESONANCE_INPUT, "Resonance CV");
 		configInput(IN_INPUT, "Audio");
@@ -132,16 +135,19 @@ struct Filter : Module {
 				ladderFilter2Pole[c/4].setResonance(resonance);
 				break;
 			case 4:
+			case 5:
+			case 6:
+			case 7:
 				ladderFilter4Pole[c/4].setCutoffFreq(frequency);
 				ladderFilter4Pole[c/4].setResonance(resonance);
 				break;
-			case 5:
-			case 6:
+			case 8:
+			case 9:
 				sallenKeyFilterLpBp[c/4].setCutoffFreq(frequency);
 				sallenKeyFilterLpBp[c/4].setResonance(resonance);
 				break;
-			case 7:
-			case 8:
+			case 10:
+			case 11:
 				sallenKeyFilterHp[c/4].setCutoffFreq(frequency);
 				sallenKeyFilterHp[c/4].setResonance(resonance);
 				break;
@@ -174,21 +180,33 @@ struct Filter : Module {
 					break;
 				case 4:
 					ladderFilter4Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
-					inBuffer[i] = ladderFilter4Pole[c/4].lowpass();
+					inBuffer[i] = ladderFilter4Pole[c/4].lowpass6();
 					break;
 				case 5:
+					ladderFilter4Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = ladderFilter4Pole[c/4].lowpass12();
+					break;
+				case 6:
+					ladderFilter4Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = ladderFilter4Pole[c/4].lowpass18();
+					break;
+				case 7:
+					ladderFilter4Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = ladderFilter4Pole[c/4].lowpass24();
+					break;
+				case 8:
 					sallenKeyFilterLpBp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = sallenKeyFilterLpBp[c/4].lowpass();
 					break;
-				case 6:
+				case 9:
 					sallenKeyFilterLpBp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] =sallenKeyFilterLpBp[c/4].bandpass();
 					break;
-				case 7:
+				case 10:
 					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = sallenKeyFilterHp[c/4].highpass6();
 					break;
-				case 8:
+				case 11:
 					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = sallenKeyFilterHp[c/4].highpass12();
 					break;

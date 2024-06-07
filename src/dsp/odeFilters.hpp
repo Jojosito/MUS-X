@@ -336,7 +336,19 @@ protected:
 	}
 
 public:
-	T lowpass()
+	T lowpass6()
+	{
+		return this->state[0];
+	}
+	T lowpass12()
+	{
+		return this->state[1];
+	}
+	T lowpass18()
+	{
+		return this->state[2];
+	}
+	T lowpass24()
 	{
 		return this->state[3];
 	}
