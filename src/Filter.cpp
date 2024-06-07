@@ -45,6 +45,7 @@ struct Filter : Module {
 	IntegratorType integratorType = IntegratorType::Transistor;
 	NonlinearityType nonlinearityType = NonlinearityType::alt3;
 
+	Filter1Pole<float_4> filter1Pole[4];
 	LadderFilter2Pole<float_4> ladderFilter2Pole[4];
 	LadderFilter4Pole<float_4> ladderFilter4Pole[4];
 	SallenKeyFilterLpBp<float_4> sallenKeyFilterLpBp[4];
@@ -59,8 +60,11 @@ struct Filter : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(MODE_PARAM, 0, 5, 1, "Mode", {
-				"Ladder lowpass 6",
+		configSwitch(MODE_PARAM, 0, 8, 1, "Mode", {
+				"Lowpass 6 (non-resonant)",
+				"Highpass 6 (non-resonant)",
+				"Ladder lowpass 12",
+				"Ladder bandpass 12",
 				"Ladder lowpass 24",
 				"Sallen-Key lowpass 12",
 				"Sallen-Key bandpass 6",
@@ -79,6 +83,7 @@ struct Filter : Module {
 		integratorType = t;
 		for (int c = 0; c < channels; c += 4)
 		{
+			filter1Pole[c/4].setIntegratorType(integratorType);
 			ladderFilter2Pole[c/4].setIntegratorType(integratorType);
 			ladderFilter4Pole[c/4].setIntegratorType(integratorType);
 			sallenKeyFilterLpBp[c/4].setIntegratorType(integratorType);
@@ -91,6 +96,7 @@ struct Filter : Module {
 		nonlinearityType = t;
 		for (int c = 0; c < channels; c += 4)
 		{
+			filter1Pole[c/4].setNonlinearityType(nonlinearityType);
 			ladderFilter2Pole[c/4].setNonlinearityType(nonlinearityType);
 			ladderFilter4Pole[c/4].setNonlinearityType(nonlinearityType);
 			sallenKeyFilterLpBp[c/4].setNonlinearityType(nonlinearityType);
@@ -116,20 +122,26 @@ struct Filter : Module {
 			switch ((int)params[MODE_PARAM].getValue())
 			{
 			case 0:
-				ladderFilter2Pole[c/4].setCutoffFreq(frequency);
-				ladderFilter2Pole[c/4].setResonance(resonance);
-				break;
 			case 1:
-				ladderFilter4Pole[c/4].setCutoffFreq(frequency);
-				ladderFilter4Pole[c/4].setResonance(resonance);
+				filter1Pole[c/4].setCutoffFreq(frequency);
+				filter1Pole[c/4].setResonance(resonance);
 				break;
 			case 2:
 			case 3:
+				ladderFilter2Pole[c/4].setCutoffFreq(frequency);
+				ladderFilter2Pole[c/4].setResonance(resonance);
+				break;
+			case 4:
+				ladderFilter4Pole[c/4].setCutoffFreq(frequency);
+				ladderFilter4Pole[c/4].setResonance(resonance);
+				break;
+			case 5:
+			case 6:
 				sallenKeyFilterLpBp[c/4].setCutoffFreq(frequency);
 				sallenKeyFilterLpBp[c/4].setResonance(resonance);
 				break;
-			case 4:
-			case 5:
+			case 7:
+			case 8:
 				sallenKeyFilterHp[c/4].setCutoffFreq(frequency);
 				sallenKeyFilterHp[c/4].setResonance(resonance);
 				break;
@@ -145,26 +157,38 @@ struct Filter : Module {
 				switch ((int)params[MODE_PARAM].getValue())
 				{
 				case 0:
+					filter1Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = filter1Pole[c/4].lowpass();
+					break;
+				case 1:
+					filter1Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = filter1Pole[c/4].highpass();
+					break;
+				case 2:
 					ladderFilter2Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = ladderFilter2Pole[c/4].lowpass();
 					break;
-				case 1:
+				case 3 :
+					ladderFilter2Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
+					inBuffer[i] = ladderFilter2Pole[c/4].bandpass();
+					break;
+				case 4:
 					ladderFilter4Pole[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = ladderFilter4Pole[c/4].lowpass();
 					break;
-				case 2:
+				case 5:
 					sallenKeyFilterLpBp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = sallenKeyFilterLpBp[c/4].lowpass();
 					break;
-				case 3:
+				case 6:
 					sallenKeyFilterLpBp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] =sallenKeyFilterLpBp[c/4].bandpass();
 					break;
-				case 4:
+				case 7:
 					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = sallenKeyFilterHp[c/4].highpass6();
 					break;
-				case 5:
+				case 8:
 					sallenKeyFilterHp[c/4].process(in, args.sampleTime / oversamplingRate, method);
 					inBuffer[i] = sallenKeyFilterHp[c/4].highpass12();
 					break;

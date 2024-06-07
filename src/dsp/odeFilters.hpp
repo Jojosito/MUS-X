@@ -52,6 +52,7 @@ protected:
 	T lastInput;
 	T input;
 	T dt;
+	T maxAmplitude = 12.f;
 	
 	IntegratorType integratorType = IntegratorType::Transistor;
 	NonlinearityType nonlinearityType = NonlinearityType::tanh;
@@ -62,16 +63,17 @@ protected:
 	{
 		switch (nonlinearityType)
 		{
+		default:
 		case NonlinearityType::tanh:
-			return 12.f * musx::tanh(x/12.f);
+			return maxAmplitude * musx::tanh(x/maxAmplitude);
 		case NonlinearityType::alt1:
 			return musx::cheapSaturator(x);
 		case NonlinearityType::alt2:
 			return musx::AntialiasedCheapSaturator<T>::processNonBandlimited(x);
 		case NonlinearityType::alt3:
-			return 12.f * musx::waveshape(x/12.f);
+			return maxAmplitude * musx::waveshape(x/maxAmplitude);
 		case NonlinearityType::hardclip:
-			return clamp(x, -12.f, 12.f);
+			return clamp(x, -maxAmplitude, maxAmplitude);
 		}
 	}
 
@@ -270,23 +272,54 @@ public:
 
 
 template <typename T>
-class LadderFilter2Pole : public FilterAbstract<T, 4>
+class Filter1Pole : public FilterAbstract<T, 1>
 {
 private:
+	T lpOut;
+public:
+	void f(T t, const T x[], T dxdt[]) override
+	{
+		T input = this->getInputt(t);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
+
+		lpOut = this->calcLowpass(0, input, dxdt[0]);
+	}
+
+	T lowpass()
+	{
+		return lpOut;
+	}
+
+	T highpass()
+	{
+		return lpOut - this->state[1];
+	}
+};
+
+template <typename T>
+class LadderFilter2Pole : public FilterAbstract<T, 2>
+{
+private:
+	T lp1Out;
 	T lp2Out;
 public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) - T(2.) * this->resonance * lp2Out; // negative feedback
-		input = clamp(input, -12.f ,12.f);
+		T input = this->getInputt(t) - T(4.) * this->resonance * lp2Out; // negative feedback
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		T out0 = this->calcLowpass(0, input, dxdt[0]);
-		lp2Out = this->calcLowpass(1, out0,  dxdt[1]);
+		lp1Out = this->calcLowpass(0, input, dxdt[0]);
+		lp2Out = this->calcLowpass(1, lp1Out,  dxdt[1]);
 	}
 
 	T lowpass()
 	{
 		return lp2Out;
+	}
+
+	T bandpass()
+	{
+		return lp1Out - this->state[1];
 	}
 };
 
@@ -299,7 +332,7 @@ public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) - T(2.) * this->resonance * lp4Out; // negative feedback
-		input = clamp(input, -12.f ,12.f);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		T out0 = this->calcLowpass(0, input, dxdt[0]);
 		T out1 = this->calcLowpass(1, out0,  dxdt[1]);
@@ -323,7 +356,7 @@ public:
 	{
 		T input = this->getInputt(t) + this->resonance * bpOut; // positive feedback
 		input *= T(0.8);
-		input = clamp(input, -12.f ,12.f);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		T out0  = this->calcLowpass(0, input, dxdt[0]);
 		bpOut = this->calcHighpass(1, out0,  dxdt[1]);
@@ -350,7 +383,7 @@ public:
 	void f(T t, const T x[], T dxdt[]) override
 	{
 		T input = this->getInputt(t) + T(0.8) * this->resonance * lpOut; // positive feedback
-		input = clamp(input, -12.f ,12.f);
+		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		hpOut  = this->calcHighpass(0, input, dxdt[0]);
 		lpOut = this->calcLowpass(1, hpOut,  dxdt[1]);
