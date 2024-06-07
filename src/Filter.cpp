@@ -54,19 +54,7 @@ struct Filter : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
-		configSwitch(MODE_PARAM, 0, 11, 1, "Mode", {
-				"1-pole lowpass, 6 dB/Oct (non-resonant)",
-				"1-pole highpass, 6 dB/Oct (non-resonant)",
-				"2-pole ladder lowpass, 12 dB/Oct",
-				"2-pole ladder bandpass, 6 dB/Oct",
-				"4-pole ladder lowpass, 6 dB/Oct",
-				"4-pole ladder lowpass, 12 dB/Oct",
-				"4-pole ladder lowpass, 18 dB/Oct",
-				"4-pole ladder lowpass, 24 dB/Oct",
-				"2-pole Sallen-Key lowpass, 12 dB/Oct",
-				"2-pole Sallen-Key bandpass, 6 dB/Oct",
-				"2-pole Sallen-Key highpass, 6 dB/Oct",
-				"2-pole Sallen-Key highpass, 12 dB/Oct"});
+		configSwitch(MODE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Mode", FilterBlock::getModeLabels());
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
 		configInput(RESONANCE_INPUT, "Resonance CV");
 		configInput(IN_INPUT, "Audio");
@@ -213,7 +201,7 @@ struct FilterWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createIndexSubmenuItem("ODE Solver", {"1st order Euler", "2nd order Runge-Kutta", "4th order Runge-Kutta"},
+		menu->addChild(createIndexSubmenuItem("ODE Solver", FilterBlock::getOdeSolverLabels(),
 			[=]() {
 				return (int)module->method;
 			},
@@ -222,7 +210,7 @@ struct FilterWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createIndexSubmenuItem("Integrator type", {"Linear", "OTA", "Transistor"},
+		menu->addChild(createIndexSubmenuItem("Integrator type", FilterBlock::getIntegratorTypeLabels(),
 			[=]() {
 				return (int)module->integratorType;
 			},
@@ -231,7 +219,7 @@ struct FilterWidget : ModuleWidget {
 			}
 		));
 
-		menu->addChild(createIndexSubmenuItem("Nonlinearity type", {"tanh", "alt1", "alt2", "alt3", "hardclip"},
+		menu->addChild(createIndexSubmenuItem("Nonlinearity type", FilterBlock::getNonlinearityTypeLabels(),
 			[=]() {
 				return (int)module->nonlinearityType;
 			},

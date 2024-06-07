@@ -301,7 +301,7 @@ class LadderFilter2Pole : public FilterAbstract<T, 2>
 protected:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) - T(4.) * this->resonance * this->state[1]; // negative feedback
+		T input = this->getInputt(t) - T(2.) * this->resonance * this->state[1]; // negative feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
 		T lp1Out = this->calcLowpass(0, input, dxdt[0]);

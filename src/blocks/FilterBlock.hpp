@@ -19,7 +19,7 @@ private:
 	SallenKeyFilterHp<float_4> sallenKeyFilterHp;
 
 public:
-	constexpr std::vector<std::string> getLabels()
+	static std::vector<std::string> getModeLabels()
 	{
 		std::vector<std::string> labels = {
 			"1-pole lowpass, 6 dB/Oct (non-resonant)",
@@ -34,6 +34,38 @@ public:
 			"2-pole Sallen-Key bandpass, 6 dB/Oct",
 			"2-pole Sallen-Key highpass, 6 dB/Oct",
 			"2-pole Sallen-Key highpass, 12 dB/Oct"
+		};
+		return labels;
+	}
+
+	static std::vector<std::string> getOdeSolverLabels()
+	{
+		std::vector<std::string> labels = {
+			"1st order Euler",
+			"2nd order Runge-Kutta",
+			"4th order Runge-Kutta"
+		};
+		return labels;
+	}
+
+	static std::vector<std::string> getIntegratorTypeLabels()
+	{
+		std::vector<std::string> labels = {
+			"Linear",
+			"OTA",
+			"Transistor"
+		};
+		return labels;
+	}
+
+	static std::vector<std::string> getNonlinearityTypeLabels()
+	{
+		std::vector<std::string> labels = {
+			"tanh",
+			"alt1",
+			"alt2",
+			"alt3",
+			"hardclip"
 		};
 		return labels;
 	}
