@@ -82,50 +82,50 @@ protected:
 		return crossfade(this->lastInput, this->input, t / this->dt);
 	}
 	
-	T calcLowpass(size_t iStage, T in, T& dxdt) const
+	void calcLowpass(T in, size_t iStage, const T x[], T dxdt[]) const
 	{
 		switch (integratorType)
 		{
 		case IntegratorType::Linear:
-			dxdt = omega0 * (in - state[iStage]);
-			return state[iStage];
+			dxdt[iStage] = omega0 * (in - x[iStage]);
+			break;
 		case IntegratorType::OTA:
-			dxdt = omega0 * clip(in - state[iStage]);
-			return state[iStage];
+			dxdt[iStage] = omega0 * clip(in - x[iStage]);
+			break;
 		case IntegratorType::Transistor:
 		default:
-			dxdt = omega0 * (clip(in) - clip(state[iStage]));
-			return state[iStage];
+			dxdt[iStage] = omega0 * (clip(in) - clip(x[iStage]));
+			break;
 		}
 	}
 
-	T calcLowpassInverting(size_t iStage, T in, T& dxdt) const
+	void calcLowpassInverting(T in, size_t iStage, const T x[], T dxdt[]) const
 	{
 		switch (integratorType)
 		{
 		case IntegratorType::Linear:
-			dxdt = omega0 * (-(state[iStage] + in));
-			return state[iStage];
+			dxdt[iStage] = omega0 * (-(x[iStage] + in));
+			break;
 		case IntegratorType::OTA:
 		case IntegratorType::Transistor:
 		default:
-			dxdt = omega0 * -clip(state[iStage] + in);
-			return state[iStage];
+			dxdt[iStage] = omega0 * -clip(x[iStage] + in);
+			break;
 		}
 	}
 
-	T calcHighpass(size_t iStage, T in, T& dxdt) const
+	void calcHighpass(T in, size_t iStage, const T x[], T dxdt[]) const
 	{
 		switch (integratorType)
 		{
 		case IntegratorType::Linear:
-			dxdt = omega0 * (in - state[iStage]);
-			return in - state[iStage];
+			dxdt[iStage] = omega0 * (in - x[iStage]);
+			break;
 		case IntegratorType::OTA:
 		case IntegratorType::Transistor:
 		default:
-			dxdt = omega0 * (in - clip(state[iStage]));
-			return in - state[iStage];
+			dxdt[iStage] = omega0 * (in - clip(x[iStage]));
+			break;
 		}
 	}
 
@@ -265,7 +265,7 @@ public:
 		this->lastInput = input;
 
 		// prevent filter from exploding
-		clampStates(100.f);
+		//clampStates(100.f);
 	}
 
 };
@@ -280,7 +280,7 @@ protected:
 		T input = this->getInputt(t);
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		this->calcLowpass(0, input, dxdt[0]);
+		this->calcLowpass(input, 0, x, dxdt);
 	}
 
 public:
@@ -301,11 +301,11 @@ class LadderFilter2Pole : public FilterAbstract<T, 2>
 protected:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) - T(2.) * this->resonance * this->state[1]; // negative feedback
+		T input = this->getInputt(t) - T(4.) * this->resonance * x[1]; // negative feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		T lp1Out = this->calcLowpass(0, input, dxdt[0]);
-		this->calcLowpass(1, lp1Out,  dxdt[1]);
+		this->calcLowpass(input, 0, x, dxdt);
+		this->calcLowpass(x[0], 1, x, dxdt);
 	}
 
 public:
@@ -316,7 +316,7 @@ public:
 
 	T bandpass()
 	{
-		return this->state[0] - this->state[1];
+		return this->state[0] - this->state[1]; // hp1
 	}
 };
 
@@ -326,13 +326,13 @@ class LadderFilter4Pole : public FilterAbstract<T, 4>
 protected:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) - T(2.) * this->resonance * this->state[3]; // negative feedback
-		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
+		T input = this->getInputt(t) - T(2.) * this->resonance * x[3]; // negative feedback
+		//input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		T out0 = this->calcLowpass(0, input, dxdt[0]);
-		T out1 = this->calcLowpass(1, out0,  dxdt[1]);
-		T out2 = this->calcLowpass(2, out1,  dxdt[2]);
-		this->calcLowpass(3, out2,  dxdt[3]);
+		this->calcLowpass(input, 0, x, dxdt);
+		this->calcLowpass(x[0], 1, x, dxdt);
+		this->calcLowpass(x[1], 2, x, dxdt);
+		this->calcLowpass(x[2], 3, x, dxdt);
 	}
 
 public:
@@ -360,12 +360,13 @@ class SallenKeyFilterLpBp : public FilterAbstract<T, 2>
 protected:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) + this->resonance * (this->state[0] - this->state[1]); // positive feedback
+		T hp1 = x[0] - x[1];
+		T input = this->getInputt(t) + this->resonance * hp1; // positive feedback
 		input *= T(0.8);
-		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
+		//input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		T out0  = this->calcLowpass(0, input, dxdt[0]);
-		this->calcHighpass(1, out0,  dxdt[1]);
+		this->calcLowpass(input, 0, x, dxdt);
+		this->calcHighpass(x[0], 1, x, dxdt);
 	}
 
 public:
@@ -386,11 +387,11 @@ class SallenKeyFilterHp : public FilterAbstract<T, 2>
 protected:
 	void f(T t, const T x[], T dxdt[]) override
 	{
-		T input = this->getInputt(t) + T(0.8) * this->resonance * this->state[1]; // positive feedback
+		T input = this->getInputt(t) + T(0.8) * this->resonance * x[1]; // positive feedback
 		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
 
-		T hpOut  = this->calcHighpass(0, input, dxdt[0]);
-		this->calcLowpass(1, hpOut,  dxdt[1]);
+		this->calcHighpass(input, 0, x, dxdt);
+		this->calcLowpass(input - x[0], 1, x, dxdt);
 	}
 
 public:
