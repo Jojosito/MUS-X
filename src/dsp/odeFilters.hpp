@@ -45,7 +45,7 @@ protected:
 	T lastInput;
 	T input;
 	T dt;
-	T maxAmplitude = 12.f;
+	const T maxAmplitude = 12.f;
 	
 	Method method = Method::RK4;
 	IntegratorType integratorType = IntegratorType::Transistor_tanh;
@@ -275,12 +275,12 @@ protected:
 	}
 
 public:
-	T lowpass()
+	T lowpass() const
 	{
 		return this->state[0];
 	}
 
-	T highpass()
+	T highpass() const
 	{
 		return clamp(this->input, -this->maxAmplitude, this->maxAmplitude) - this->state[0];
 	}
@@ -300,12 +300,12 @@ protected:
 	}
 
 public:
-	T lowpass()
+	T lowpass() const
 	{
 		return this->state[1];
 	}
 
-	T bandpass()
+	T bandpass() const
 	{
 		return this->state[0] - this->state[1]; // hp1
 	}
@@ -327,19 +327,19 @@ protected:
 	}
 
 public:
-	T lowpass6()
+	T lowpass6() const
 	{
 		return this->state[0];
 	}
-	T lowpass12()
+	T lowpass12() const
 	{
 		return this->state[1];
 	}
-	T lowpass18()
+	T lowpass18() const
 	{
 		return this->state[2];
 	}
-	T lowpass24()
+	T lowpass24() const
 	{
 		return this->state[3];
 	}
@@ -360,12 +360,12 @@ protected:
 	}
 
 public:
-	T lowpass()
+	T lowpass() const
 	{
 		return this->state[1];
 	}
 
-	T bandpass()
+	T bandpass() const
 	{
 		return this->state[0] - this->state[1];
 	}
@@ -385,33 +385,35 @@ protected:
 	}
 
 public:
-	T highpass6()
+	T highpass6() const
 	{
 		return clamp(this->input, -this->maxAmplitude, this->maxAmplitude) - this->state[0];
 	}
 
-	T highpass12()
+	T highpass12() const
 	{
 		return highpass6() - this->state[1];
 	}
 };
 
-// TODO quickly becomes unstable when res or cutoff too high
 template <typename T>
 class DiodeClipper : public FilterAbstract<T, 1>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
 	{
-		T input = this->getInputt(t);
-		input = clamp(input, -this->maxAmplitude, this->maxAmplitude);
+		// resonance = drive
+		T mult = T(0.5) + T(0.4) * this->resonance * this->resonance;
+		T input = mult * this->getInputt(t);
+		// clip input slightly above diode clip level to avoid solver going instable
+		input = clamp(input, -1.05 * this->maxAmplitude, 1.05 * this->maxAmplitude);
 
-		static const T a = {-1.e-6};
-		T b = 10.f * this->resonance;
+		static const T a = {1.e-6};
+		static const T b = 0.1575 * this->maxAmplitude;
 
 		dxdt[0] = this->omega0 * (input - x[0])
-				+ a * (exp(0.5 * b * x[0]) - T(1.))
-				- a * (exp(-b * x[0]) - T(1.));
+				- a * (exp( b * x[0]) - T(1.))
+				+ a * (exp(-b * x[0]) - T(1.));
 	}
 
 public:
@@ -419,6 +421,38 @@ public:
 	{
 		this->clampStates(this->maxAmplitude);
 		return this->state[0];
+	}
+};
+
+template <typename T>
+class DiodeClipperAsym : public FilterAbstract<T, 2>
+{
+protected:
+	void f(T t, const T x[], T dxdt[]) const override
+	{
+		// resonance = drive
+		T mult = T(0.5) + T(0.4) * this->resonance * this->resonance;
+		T input = mult * this->getInputt(t);
+		// clip input slightly above diode clip level to avoid solver going instable
+		input = clamp(input, -1.05 * this->maxAmplitude, 1.05 * this->maxAmplitude);
+
+		static const T a = {1.e-6};
+		static const T b = 0.1575 * this->maxAmplitude;
+
+		dxdt[0] = this->omega0 * (input - x[0])
+				- a * (exp( b * x[0]) - T(1.))
+				+ a * (exp(-0.5 * b * x[0]) - T(1.));
+
+		// highpass  20Hz to get rid of DC
+		dxdt[1] = 2 * T(M_PI) * T(20.) * (x[0] - x[1]);
+	}
+
+public:
+	T out()
+	{
+		this->clampStates(this->maxAmplitude);
+		return this->state[0];
+		return this->state[0] - this->state[1];
 	}
 };
 

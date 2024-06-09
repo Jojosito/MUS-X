@@ -51,7 +51,7 @@ struct Filter : Module {
 
 	Filter() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(CUTOFF_PARAM, 0.f, 1.f, 0.f, "Cutoff frequency", " Hz", base, minFreq);
+		configParam(CUTOFF_PARAM, 0.f, 1.f, 1.f, "Cutoff frequency", " Hz", base, minFreq);
 		configParam(RESONANCE_PARAM, 0.f, 1.f, 0.f, "Resonance", " %", 0, 100.);
 		configSwitch(MODE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Mode", FilterBlock::getModeLabels());
 		configInput(CUTOFF_INPUT, "Cutoff frequency CV");
