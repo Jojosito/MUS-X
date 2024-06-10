@@ -405,15 +405,17 @@ protected:
 		// resonance = drive
 		T mult = T(0.5) + T(0.4) * this->resonance * this->resonance;
 		T input = mult * this->getInputt(t);
-		// clip input slightly above diode clip level to avoid solver going instable
-		input = clamp(input, -1.05 * this->maxAmplitude, 1.05 * this->maxAmplitude);
 
 		static const T a = {1.e-6};
-		static const T b = 0.1575 * this->maxAmplitude;
+		static const T b = 0.3 * this->maxAmplitude;
 
-		dxdt[0] = this->omega0 * (input - x[0])
-				- a * (exp( b * x[0]) - T(1.))
-				+ a * (exp(-b * x[0]) - T(1.));
+		T dxdtCap = this->omega0 * (input - x[0]); // dxdt of the capacitor
+
+		// cap the diode currents (they can only limit dxdt, but not reverse it!)
+		// if the exponentials are left uncapped, the solution can become instable easily
+		dxdt[0] = dxdtCap
+				- fmin(a * (exp( b * x[0]) - T(1.)), fabs(dxdtCap))
+				+ fmin(a * (exp(-b * x[0]) - T(1.)), fabs(dxdtCap));
 	}
 
 public:
@@ -433,15 +435,17 @@ protected:
 		// resonance = drive
 		T mult = T(0.5) + T(0.4) * this->resonance * this->resonance;
 		T input = mult * this->getInputt(t);
-		// clip input slightly above diode clip level to avoid solver going instable
-		input = clamp(input, -1.05 * this->maxAmplitude, 1.05 * this->maxAmplitude);
 
 		static const T a = {1.e-6};
-		static const T b = 0.1575 * this->maxAmplitude;
+		static const T b = 0.3 * this->maxAmplitude;
 
-		dxdt[0] = this->omega0 * (input - x[0])
-				- a * (exp( b * x[0]) - T(1.))
-				+ a * (exp(-0.5 * b * x[0]) - T(1.));
+		T dxdtCap = this->omega0 * (input - x[0]); // dxdt of the capacitor
+
+		// cap the diode currents (they can only limit dxdt, but not reverse it!)
+		// if the exponentials are left uncapped, the solution can become instable easily
+		dxdt[0] = dxdtCap
+				- fmin(a * (exp( b * x[0]) - T(1.)), fabs(dxdtCap))
+				+ fmin(a * T(0.5) * (exp(T(-2.) * b * x[0]) - T(1.)), fabs(dxdtCap));
 
 		// highpass  20Hz to get rid of DC
 		dxdt[1] = 2 * T(M_PI) * T(20.) * (x[0] - x[1]);
@@ -451,8 +455,8 @@ public:
 	T out()
 	{
 		this->clampStates(this->maxAmplitude);
-		return this->state[0];
-		return this->state[0] - this->state[1];
+		// scale to match amplitude of DiodeClipper
+		return T(1.306) * (this->state[0] - this->state[1]);
 	}
 };
 
