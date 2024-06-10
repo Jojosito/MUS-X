@@ -34,6 +34,7 @@ public:
 			"2-pole Sallen-Key highpass, 12 dB/Oct",
 			"Diode Clipper (Symmetric)",
 			"Diode Clipper (Asymmetric)",
+			"Bypass"
 		};
 		return labels;
 	}
@@ -179,6 +180,7 @@ public:
 		case 13:
 			diodeClipperAsym.process(in, dt);
 			return diodeClipperAsym.out();
+		case 14:
 		default:
 			return in;
 		}
