@@ -128,7 +128,8 @@
       "name": "Synth",
       "description": "",
       "tags": [
-        "Synth voice"
+        "Synth voice",
+        "Polyphonic"
       ]
     }
   ]
