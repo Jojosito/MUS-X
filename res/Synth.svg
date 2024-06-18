@@ -78,7 +78,7 @@
      inkscape:cx="807"
      inkscape:cy="254.5"
      inkscape:document-units="mm"
-     inkscape:current-layer="layer3"
+     inkscape:current-layer="layer2"
      showgrid="false"
      units="mm"
      inkscape:snap-bbox="true"
@@ -2341,7 +2341,7 @@
        id="circle48981"
        cx="24.82308"
        cy="116.79881"
-       inkscape:label="knob1"
+       inkscape:label="ext"
        r="3.6981449" />
     <circle
        r="3.8024998"

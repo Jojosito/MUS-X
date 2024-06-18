@@ -7,45 +7,66 @@ using namespace rack;
 
 struct Synth : Module {
 	enum ParamId {
+		// mod in
 		VOCT_ASSIGN_PARAM,
+		GATE_ASSIGN_PARAM,
+		VELOCITY_ASSIGN_PARAM,
+		AFTERTOUCH_ASSIGN_PARAM,
+		PITCH_WHEEL_ASSIGN_PARAM,
+		MOD_WHEEL_ASSIGN_PARAM,
+		EXPRESSION_ASSIGN_PARAM,
+		INDIVIDUAL_MOD_1_ASSIGN_PARAM,
+		INDIVIDUAL_MOD_2_ASSIGN_PARAM,
+		VOICE_NR_ASSIGN_PARAM,
+		RANDOM_ASSIGN_PARAM,
+
+		// env
 		ENV1_A_PARAM,
 		ENV1_D_PARAM,
 		ENV1_S_PARAM,
 		ENV1_R_PARAM,
 		ENV1_VEL_PARAM,
 		ENV1_ASSIGN_PARAM,
-		LFO1_FREQ_PARAM,
-		LFO1_SHAPE_PARAM,
-		LFO1_AMOUNT_PARAM,
-		LFO1_MODE_PARAM,
-		LFO1_UNIPOLAR_ASSIGN_PARAM,
-		LFO1_BIPOLAR_ASSIGN_PARAM,
-		GLOBAL_LFO_FREQ_PARAM,
-		GLOBAL_LFO_AMT_PARAM,
-		GLOBAL_LFO_ASSIGN_PARAM,
-		INDIVIDUAL_MOD_1_PARAM,
-		GATE_ASSIGN_PARAM,
-		VELOCITY_ASSIGN_PARAM,
-		DRIFT_1_ASSIGN_PARAM,
+
 		ENV2_A_PARAM,
 		ENV2_D_PARAM,
 		ENV2_S_PARAM,
 		ENV2_R_PARAM,
 		ENV2_VEL_PARAM,
 		ENV2_ASSIGN_PARAM,
+
+		// lfo
+		LFO1_FREQ_PARAM,
+		LFO1_SHAPE_PARAM,
+		LFO1_AMOUNT_PARAM,
+		LFO1_MODE_PARAM,
+		LFO1_UNIPOLAR_ASSIGN_PARAM,
+		LFO1_BIPOLAR_ASSIGN_PARAM,
+
 		LFO2_FREQ_PARAM,
 		LFO2_SHAPE_PARAM,
 		LFO2_AMOUNT_PARAM,
 		LFO2_MODE_PARAM,
 		LFO2_UNIPOLAR_ASSIGN_PARAM,
 		LFO2_BIPOLAR_ASSIGN_PARAM,
+
+		GLOBAL_LFO_FREQ_PARAM,
+		GLOBAL_LFO_AMT_PARAM,
+		GLOBAL_LFO_ASSIGN_PARAM,
+
 		DRIFT_RATE_PARAM,
-		AFTERTOUCH_ASSIGN_PARAM,
 		DRIFT_BALANCE_PARAM,
-		INDIVIDUAL_MOD_OUT_2_PARAM,
+		DRIFT_1_ASSIGN_PARAM,
 		DRIFT_2_ASSIGN_PARAM,
-		PITCH_WHEEL_ASSIGN_PARAM,
-		MOD_WHEEL_ASSIGN_PARAM,
+
+		// mod out
+		INDIVIDUAL_MOD_OUT_1_PARAM,
+		INDIVIDUAL_MOD_OUT_2_PARAM,
+		INDIVIDUAL_MOD_OUT_3_PARAM,
+		INDIVIDUAL_MOD_OUT_4_PARAM,
+
+		// osc
+		OSC1_GLIDE_PARAM,
 		OSC1_OCT_PARAM,
 		OSC1_SEMI_PARAM,
 		OSC1_FINE_PARAM,
@@ -53,6 +74,23 @@ struct Synth : Module {
 		OSC1_PW_PARAM,
 		OSC1_VOL_PARAM,
 		OSC1_SUB_VOL_PARAM,
+
+		OSC2_GLIDE_PARAM,
+		OSC2_OCT_PARAM,
+		OSC2_SEMI_PARAM,
+		OSC2_FINE_PARAM,
+		OSC2_SHAPE_PARAM,
+		OSC2_PW_PARAM,
+		OSC2_VOL_PARAM,
+
+		OSC_SYNC_PARAM,
+		OSC_FM_PARAM,
+		OSC_RM_PARAM,
+
+		OSC_NOISE_PARAM,
+		OSC_EXT_VOL_PARAM,
+
+		// filter
 		FILTER1_INPUT_ASSIGN_PARAM,
 		FILTER1_CUTOFF_PARAM,
 		FILTER1_RESONANCE_PARAM,
@@ -60,16 +98,7 @@ struct Synth : Module {
 		FILTER1_FM_PARAM,
 		FILTER1_TYPE_PARAM,
 		FILTER1_VOL_PARAM,
-		INDIVIDUAL_MOD_OUT_3_PARAM,
-		EXPRESSION_ASSIGN_PARAM,
-		INDIVIDUAL_MOD_1_ASSIGN_PARAM,
-		INDIVIDUAL_MOD_2_ASSIGN_PARAM,
-		OSC1_GLIDE_PARAM,
-		OSC2_GLIDE_PARAM,
-		OSC_SYNC_PARAM,
-		OSC_FM_PARAM,
-		OSC_RM_PARAM,
-		OSC_NOISE_PARAM,
+
 		FILTER2_INPUT_ASSIGN_PARAM,
 		FILTER2_CUTOFF_PARAM,
 		FILTER2_RESONANCE_PARAM,
@@ -77,22 +106,15 @@ struct Synth : Module {
 		FILTER2_FM_PARAM,
 		FILTER2_TYPE_PARAM,
 		FILTER2_VOL_PARAM,
-		INDIVIDUAL_MOD_4_PARAM,
-		VOICE_NR_ASSIGN_PARAM,
-		RANDOM_ASSIGN_PARAM,
-		OSC2_OCT_PARAM,
-		OSC2_SEMI_PARAM,
-		OSC2_FINE_PARAM,
-		OSC2_SHAPE_PARAM,
-		OSC2_PW_PARAM,
-		OSC2_VOL_PARAM,
-		OSC_EXT_VOL_PARAM,
+
+		// amp
 		AMP_INPUT_ASSIGN_PARAM,
 		AMP_VOL_PARAM,
 		AMP_AM_ASSIGN_PARAM,
 		AMP_AM_PARAM,
 		AMP_PAN_ASSIGN_PARAM,
 		AMP_PAN_PARAM,
+
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -106,7 +128,7 @@ struct Synth : Module {
 		INDIVIDUAL_MOD_1_INPUT,
 		INDIVIDUAL_MOD_2_INPUT,
 		RETRIGGER_INPUT,
-		KNOB1_INPUT,
+		EXT_INPUT,
 		INPUTS_LEN
 	};
 	enum OutputId {
@@ -140,7 +162,7 @@ struct Synth : Module {
 		configParam<BipolarColorParamQuantity>(GLOBAL_LFO_FREQ_PARAM, 0.f, 1.f, 0.f, "");
 		configParam<BipolarColorParamQuantity>(GLOBAL_LFO_AMT_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(GLOBAL_LFO_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_1_PARAM, 0.f, 1.f, 0.f, "");
+		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_1_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(GATE_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(VELOCITY_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(DRIFT_1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
@@ -194,7 +216,7 @@ struct Synth : Module {
 		configParam<BipolarColorParamQuantity>(FILTER2_FM_PARAM, 0.f, 1.f, 0.f, "");
 		configParam<BipolarColorParamQuantity>(FILTER2_TYPE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam<BipolarColorParamQuantity>(FILTER2_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_4_PARAM, 0.f, 1.f, 0.f, "");
+		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_4_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(VOICE_NR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(RANDOM_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(OSC2_OCT_PARAM, 0.f, 1.f, 0.f, "");
@@ -220,7 +242,7 @@ struct Synth : Module {
 		configInput(INDIVIDUAL_MOD_1_INPUT, "");
 		configInput(INDIVIDUAL_MOD_2_INPUT, "");
 		configInput(RETRIGGER_INPUT, "");
-		configInput(KNOB1_INPUT, "");
+		configInput(EXT_INPUT, "");
 		configOutput(INDIVIDUAL_MOD_1_OUTPUT, "");
 		configOutput(INDIVIDUAL_MOD_2_OUTPUT, "");
 		configOutput(INDIVIDUAL_MOD_3_OUTPUT, "");
@@ -297,10 +319,10 @@ struct SynthWidget : ModuleWidget {
 		addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(275.0, 44.742)), module, Synth::DRIFT_2_ASSIGN_PARAM));
 
 		// mod out
-		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(293.0, 15.088)), module, Synth::INDIVIDUAL_MOD_1_PARAM));
+		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(293.0, 15.088)), module, Synth::INDIVIDUAL_MOD_OUT_1_PARAM));
 		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(293.0, 39.188)), module, Synth::INDIVIDUAL_MOD_OUT_2_PARAM));
 		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(293.0, 63.288)), module, Synth::INDIVIDUAL_MOD_OUT_3_PARAM));
-		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(293.0, 87.388)), module, Synth::INDIVIDUAL_MOD_4_PARAM));
+		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(293.0, 87.388)), module, Synth::INDIVIDUAL_MOD_OUT_4_PARAM));
 
 		// osc
 		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(55.0, 87.388)), module, Synth::OSC1_GLIDE_PARAM));
@@ -344,7 +366,6 @@ struct SynthWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(255.0, 87.388)), module, Synth::FILTER2_TYPE_PARAM));
 		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(272.0, 87.388)), module, Synth::FILTER2_VOL_PARAM));
 
-
 		// amp
 		addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<RedLight>>>(mm2px(Vec(176.464, 112.488)), module, Synth::AMP_INPUT_ASSIGN_PARAM));
 		addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(191.5, 112.488)), module, Synth::AMP_VOL_PARAM));
@@ -364,7 +385,7 @@ struct SynthWidget : ModuleWidget {
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.0, 77.549)), module, Synth::INDIVIDUAL_MOD_1_INPUT));
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(7.0, 87.074)), module, Synth::INDIVIDUAL_MOD_2_INPUT));
 		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(8.983, 116.799)), module, Synth::RETRIGGER_INPUT));
-		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(24.823, 116.799)), module, Synth::KNOB1_INPUT));
+		addInput(createInputCentered<ThemedPJ301MPort>(mm2px(Vec(24.823, 116.799)), module, Synth::EXT_INPUT));
 
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(308.0, 15.088)), module, Synth::INDIVIDUAL_MOD_1_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(308.0, 39.188)), module, Synth::INDIVIDUAL_MOD_2_OUTPUT));
