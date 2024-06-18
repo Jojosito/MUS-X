@@ -19,6 +19,7 @@ extern Model* modelModMatrix;
 extern Model* modelOnePole;
 extern Model* modelOnePoleLP;
 extern Model* modelOscillators;
+extern Model* modelSynth;
 extern Model* modelTuner;
 
 }

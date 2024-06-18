@@ -122,6 +122,14 @@
         "Filter",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Synth",
+      "name": "Synth",
+      "description": "",
+      "tags": [
+        "Synth voice"
+      ]
     }
   ]
 }

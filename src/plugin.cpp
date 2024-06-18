@@ -20,6 +20,7 @@ void init(Plugin* p) {
 	p->addModel(modelOnePole);
 	p->addModel(modelOnePoleLP);
 	p->addModel(modelOscillators);
+	p->addModel(modelSynth);
 	p->addModel(modelTuner);
 
 	// Any other plugin initialization may go here.
