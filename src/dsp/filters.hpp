@@ -31,16 +31,8 @@ struct TOnePole {
 	*/
 	void setCutoffFreq(T f) {
 		T x;
-		//if (typeid(T) == typeid(float_4))
-		//{
-			f = simd::fmin(f, 0.3);
-			x = simd::exp(-2.0f * M_PI * f);
-		/*}
-		else
-		{
-			f = std::fmin(f, 0.3);
-			x = std::exp(-2.0f * M_PI * f);
-		}*/
+		f = fmin(f, 0.3);
+		x = exp(-2.0f * M_PI * f);
 		a = 1.0f - x;
 		b = -x;
 	}
@@ -160,16 +152,8 @@ struct TFourPole {
 	*/
 	void setCutoffFreq(T f) {
 		T x;
-		//if (typeid(T) == typeid(float_4))
-		//{
-			f = simd::fmin(f, 0.3);
-			x = simd::exp(-2.0f * M_PI * f);
-		/*}
-		else
-		{
-			f = std::fmin(f, 0.3);
-			x = std::exp(-2.0f * M_PI * f);
-		}*/
+		f = fmin(f, 0.3);
+		x = exp(-2.0f * M_PI * f);
 		a = 1.0f - x;
 		b = -x;
 	}
@@ -260,30 +244,15 @@ struct TSVF {
 	`f` is the ratio between the cutoff frequency and sample rate, i.e. f = f_c / f_s
 	*/
 	void setCutoffFreq(T f) {
-		//if (typeid(T) == typeid(float_4))
-		//{
-			f = simd::clamp(f, 0.001, 0.2f);
-			c = 2.f * simd::sin(M_PI * f);
-		/*}
-		else
-		{
-			f = std::fmin(std::fmax(f, 0.001), 0.2f);
-			c = 2.f * std::sin(M_PI * f);
-		}*/
+		f = clamp(f, 0.001, 0.2f);
+		c = 2.f * sin(M_PI * f);
 	}
 
 	/**
 	 * Set resonance between 0 and 1
 	 */
 	void setResonance(T r) {
-		//if (typeid(T) == typeid(float_4))
-		//{
-			q = simd::clamp(1.f - r, 0.f, 1.f);
-		/*}
-		else
-		{
-			q = std::fmin(std::fmax(1.f - r, 0.f), 1.f);
-		}*/
+		q = clamp(1.f - r, 0.f, 1.f);
 		scale = q;
 	}
 
