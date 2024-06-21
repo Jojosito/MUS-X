@@ -96,7 +96,8 @@ struct Filter : Module {
 			resonance = fmax(0.f, resonance);
 
 			int mode = (int)params[MODE_PARAM].getValue();
-			filterBlock[c/4].setCutoffFrequencyAndResonance(frequency, resonance, mode);
+			filterBlock[c/4].setMode(mode);
+			filterBlock[c/4].setCutoffFrequencyAndResonance(frequency, resonance);
 
 			// process
 			float_4* inBuffer = decimator[c/4].getInputArray(oversamplingRate);
@@ -106,7 +107,7 @@ struct Filter : Module {
 				inBuffer[i] = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i + 1.f)/oversamplingRate);
 			}
 
-			filterBlock[c/4].processBlock(inBuffer, args.sampleTime / oversamplingRate, mode, oversamplingRate);
+			filterBlock[c/4].processBlock(inBuffer, args.sampleTime / oversamplingRate, oversamplingRate);
 
 			if (saturate)
 			{

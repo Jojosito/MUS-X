@@ -36,7 +36,7 @@ enum struct IntegratorType
 /**
  * S is size of state vector
  */
-template <typename T, size_t S>
+template <typename T, size_t S, IntegratorType integratorType = IntegratorType::Transistor_tanh>
 class FilterAbstract {
 protected:
 	T omega0;
@@ -48,7 +48,6 @@ protected:
 	const T maxAmplitude = 12.f;
 	
 	Method method = Method::RK4;
-	IntegratorType integratorType = IntegratorType::Transistor_tanh;
 
 	virtual void f(T t, const T x[], T dxdt[]) const = 0;
 
@@ -213,16 +212,6 @@ public:
 		method = m;
 	}
 
-	void setIntegratorType(IntegratorType t)
-	{
-		integratorType = t;
-	}
-
-	IntegratorType getIntegratorType()
-	{
-		return integratorType;
-	}
-
 	/**
 	 * cutoff is Hz
 	 */
@@ -259,11 +248,35 @@ public:
 		this->lastInput = input;
 	}
 
+	void processEuler(T input, T dt)
+	{
+		this->input = input;
+		this->dt = dt;
+		stepEuler(T(0));
+		this->lastInput = input;
+	}
+
+	void processRK2(T input, T dt)
+	{
+		this->input = input;
+		this->dt = dt;
+		stepRK2(T(0));
+		this->lastInput = input;
+	}
+
+	void processRK4(T input, T dt)
+	{
+		this->input = input;
+		this->dt = dt;
+		stepRK4(T(0));
+		this->lastInput = input;
+	}
+
 };
 
 
-template <typename T>
-class Filter1Pole : public FilterAbstract<T, 1>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class Filter1Pole : public FilterAbstract<T, 1, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
@@ -286,8 +299,8 @@ public:
 	}
 };
 
-template <typename T>
-class LadderFilter2Pole : public FilterAbstract<T, 2>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class LadderFilter2Pole : public FilterAbstract<T, 2, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
@@ -311,8 +324,8 @@ public:
 	}
 };
 
-template <typename T>
-class LadderFilter4Pole : public FilterAbstract<T, 4>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class LadderFilter4Pole : public FilterAbstract<T, 4, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
@@ -345,8 +358,8 @@ public:
 	}
 };
 
-template <typename T>
-class SallenKeyFilterLpBp : public FilterAbstract<T, 2>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class SallenKeyFilterLpBp : public FilterAbstract<T, 2, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
@@ -371,8 +384,8 @@ public:
 	}
 };
 
-template <typename T>
-class SallenKeyFilterHp : public FilterAbstract<T, 2>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class SallenKeyFilterHp : public FilterAbstract<T, 2, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
@@ -396,8 +409,8 @@ public:
 	}
 };
 
-template <typename T>
-class DiodeClipper : public FilterAbstract<T, 1>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class DiodeClipper : public FilterAbstract<T, 1, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
@@ -426,8 +439,8 @@ public:
 	}
 };
 
-template <typename T>
-class DiodeClipperAsym : public FilterAbstract<T, 2>
+template <typename T, IntegratorType integratorType = IntegratorType::Transistor_tanh>
+class DiodeClipperAsym : public FilterAbstract<T, 2, integratorType>
 {
 protected:
 	void f(T t, const T x[], T dxdt[]) const override
