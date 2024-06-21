@@ -1,6 +1,10 @@
 #include "plugin.hpp"
 #include "components/componentLibrary.hpp"
 
+#include "blocks/ADSRBlock.hpp"
+#include "blocks/FilterBlock.hpp"
+#include "blocks/OscillatorsBlock.hpp"
+
 namespace musx {
 
 using namespace rack;
@@ -16,7 +20,6 @@ struct Synth : Module {
 		EXPRESSION_ASSIGN_PARAM,
 		INDIVIDUAL_MOD_1_ASSIGN_PARAM,
 		INDIVIDUAL_MOD_2_ASSIGN_PARAM,
-		MIX_ROUTE_PARAM,
 		VOICE_NR_ASSIGN_PARAM,
 		RANDOM_ASSIGN_PARAM,
 		ENV1_A_PARAM,
@@ -69,6 +72,7 @@ struct Synth : Module {
 		OSC2_SHAPE_PARAM,
 		OSC2_PW_PARAM,
 		OSC2_VOL_PARAM,
+		OSC_MIX_ROUTE_PARAM,
 		OSC_SYNC_PARAM,
 		OSC_FM_AMOUNT_PARAM,
 		OSC_RM_VOL_PARAM,
@@ -118,6 +122,30 @@ struct Synth : Module {
 		LIGHTS_LEN
 	};
 
+	//
+	int channels = 1;
+	BipolarColorParamQuantity* modulatableParamQtys[PARAMS_LEN];
+
+	// over/-undersampling
+	static const size_t maxOversamplingRate = 8;
+
+	dsp::ClockDivider uiDivider;
+	dsp::ClockDivider modDivider;
+
+	// modulation blocks
+	static constexpr float MIN_TIME = 1e-3f;
+	static constexpr float MAX_TIME = 10.f;
+	static constexpr float LAMBDA_BASE = MAX_TIME / MIN_TIME;
+	static constexpr float ATT_TARGET = 1.2f;
+	musx::ADSRBlock env1[4] = {musx::ADSRBlock(MIN_TIME, MAX_TIME, ATT_TARGET)};
+	musx::ADSRBlock env2[4] = {musx::ADSRBlock(MIN_TIME, MAX_TIME, ATT_TARGET)};
+
+	// audio blocks
+	OscillatorsBlock<maxOversamplingRate> oscillators[4];
+
+	musx::FilterBlock filter1[4];
+	musx::FilterBlock filter2[4];
+
 	Synth() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(VOCT_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
@@ -129,79 +157,79 @@ struct Synth : Module {
 		configParam(EXPRESSION_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(INDIVIDUAL_MOD_1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(INDIVIDUAL_MOD_2_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(MIX_ROUTE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(VOICE_NR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(RANDOM_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV1_A_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV1_D_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV1_S_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV1_R_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV1_A_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV1_D_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_D_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV1_S_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_S_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV1_R_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_R_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(ENV1_VEL_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(ENV1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV2_A_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV2_D_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV2_S_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(ENV2_R_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV2_A_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_A_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV2_D_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_D_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV2_S_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_S_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[ENV2_R_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_R_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(ENV2_VEL_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(ENV2_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO1_UNIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(LFO1_FREQ_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[LFO1_FREQ_PARAM] = configParam<BipolarColorParamQuantity>(LFO1_FREQ_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO1_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(LFO1_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[LFO1_AMOUNT_PARAM] = configParam<BipolarColorParamQuantity>(LFO1_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO1_MODE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO1_BIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO2_UNIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(LFO2_FREQ_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[LFO2_FREQ_PARAM] = configParam<BipolarColorParamQuantity>(LFO2_FREQ_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO2_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(LFO2_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[LFO2_AMOUNT_PARAM] = configParam<BipolarColorParamQuantity>(LFO2_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO2_MODE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(LFO2_BIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(GLOBAL_LFO_FREQ_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(GLOBAL_LFO_AMT_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[GLOBAL_LFO_FREQ_PARAM] = configParam<BipolarColorParamQuantity>(GLOBAL_LFO_FREQ_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[GLOBAL_LFO_AMT_PARAM] = configParam<BipolarColorParamQuantity>(GLOBAL_LFO_AMT_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(GLOBAL_LFO_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(DRIFT_1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(DRIFT_RATE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(DRIFT_BALANCE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(DRIFT_2_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_1_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_2_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_3_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_4_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[INDIVIDUAL_MOD_OUT_1_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_1_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[INDIVIDUAL_MOD_OUT_2_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_2_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[INDIVIDUAL_MOD_OUT_3_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_3_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[INDIVIDUAL_MOD_OUT_4_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_4_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(OSC1_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_TUNE_SEMI_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_TUNE_FINE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_PW_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_SUB_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC1_TUNE_GLIDE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC2_TUNE_GLIDE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_TUNE_SEMI_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_TUNE_SEMI_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_TUNE_FINE_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_TUNE_FINE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_SHAPE_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_PW_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_PW_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_SUB_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_SUB_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC1_TUNE_GLIDE_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_TUNE_GLIDE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC2_TUNE_GLIDE_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_TUNE_GLIDE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(OSC2_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC2_TUNE_SEMI_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC2_TUNE_FINE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC2_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC2_PW_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC2_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC2_TUNE_SEMI_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_TUNE_SEMI_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC2_TUNE_FINE_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_TUNE_FINE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC2_SHAPE_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC2_PW_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_PW_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC2_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_VOL_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(OSC_SYNC_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC_FM_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC_RM_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC_NOISE_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(OSC_EXT_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER1_CUTOFF_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER1_RESONANCE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC_FM_AMOUNT_PARAM] = configParam<BipolarColorParamQuantity>(OSC_FM_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC_RM_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC_RM_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC_NOISE_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC_NOISE_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[OSC_EXT_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC_EXT_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		configSwitch(OSC_MIX_ROUTE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER1_CUTOFF_PARAM] = configParam<BipolarColorParamQuantity>(FILTER1_CUTOFF_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER1_RESONANCE_PARAM] = configParam<BipolarColorParamQuantity>(FILTER1_RESONANCE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(FILTER1_TYPE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER1_PAN_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER1_PAN_PARAM] = configParam<BipolarColorParamQuantity>(FILTER1_PAN_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(FILTER2_CUTOFF_MODE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER2_CUTOFF_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER2_RESONANCE_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER2_CUTOFF_PARAM] = configParam<BipolarColorParamQuantity>(FILTER2_CUTOFF_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER2_RESONANCE_PARAM] = configParam<BipolarColorParamQuantity>(FILTER2_RESONANCE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(FILTER2_TYPE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER2_PAN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(FILTER_SERIAL_PARALLEL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(AMP_VOL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER2_PAN_PARAM] = configParam<BipolarColorParamQuantity>(FILTER2_PAN_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[FILTER_SERIAL_PARALLEL_PARAM] = configParam<BipolarColorParamQuantity>(FILTER_SERIAL_PARALLEL_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[AMP_VOL_PARAM] = configParam<BipolarColorParamQuantity>(AMP_VOL_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(DELAY_TAP_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(DELAY_TIME_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(DELAY_FEEDBACK_PARAM, 0.f, 1.f, 0.f, "");
-		configParam<BipolarColorParamQuantity>(DELAY_MIX_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[DELAY_TIME_PARAM] = configParam<BipolarColorParamQuantity>(DELAY_TIME_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[DELAY_FEEDBACK_PARAM] = configParam<BipolarColorParamQuantity>(DELAY_FEEDBACK_PARAM, 0.f, 1.f, 0.f, "");
+		modulatableParamQtys[DELAY_MIX_PARAM] = configParam<BipolarColorParamQuantity>(DELAY_MIX_PARAM, 0.f, 1.f, 0.f, "");
 		configInput(VOCT_INPUT, "");
 		configInput(GATE_INPUT, "");
 		configInput(VELOCITY_INPUT, "");
@@ -219,9 +247,37 @@ struct Synth : Module {
 		configOutput(INDIVIDUAL_MOD_4_OUTPUT, "");
 		configOutput(OUT_L_OUTPUT, "");
 		configOutput(OUT_R_OUTPUT, "");
+
+		uiDivider.setDivision(32);
+		modDivider.setDivision(2);
 	}
 
 	void process(const ProcessArgs& args) override {
+		if (uiDivider.process())
+		{
+			channels = std::max(1, inputs[VOCT_INPUT].getChannels());
+
+			// adapt UI if OSC_MIX_ROUTE_PARAM button is pressed
+			modulatableParamQtys[OSC1_VOL_PARAM]->bipolar = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5;
+			modulatableParamQtys[OSC1_VOL_PARAM]->color = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5 ? nvgRGB(255, 0, 0) : nvgRGB(0, 255, 0);
+
+
+			// adapt UI if assign button is pressed
+
+			// update mod matrix elements
+
+			// set non-modulatable parameters
+		}
+
+		if (modDivider.process())
+		{
+			// process modulation blocks
+
+			// matrix multiplication
+
+			// set modulated parameters
+
+		}
 	}
 };
 
@@ -230,8 +286,6 @@ struct SynthWidget : ModuleWidget {
 	SynthWidget(Synth* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Synth.svg"), asset::plugin(pluginInstance, "res/Synth-dark.svg")));
-
-
 
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 8.557)), module, Synth::VOCT_ASSIGN_PARAM));
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 18.182)), module, Synth::GATE_ASSIGN_PARAM));
@@ -242,7 +296,6 @@ struct SynthWidget : ModuleWidget {
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 66.309)), module, Synth::EXPRESSION_ASSIGN_PARAM));
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 75.934)), module, Synth::INDIVIDUAL_MOD_1_ASSIGN_PARAM));
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 85.56)), module, Synth::INDIVIDUAL_MOD_2_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<RedLight>>>(mm2px(Vec(126.9, 87.388)), module, Synth::MIX_ROUTE_PARAM));
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 95.185)), module, Synth::VOICE_NR_ASSIGN_PARAM));
 	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 104.81)), module, Synth::RANDOM_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(47.029, 12.088)), module, Synth::ENV1_A_PARAM));
@@ -300,6 +353,7 @@ struct SynthWidget : ModuleWidget {
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(140.626, 87.388)), module, Synth::OSC_RM_VOL_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(157.626, 87.388)), module, Synth::OSC_NOISE_VOL_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(157.626, 112.488)), module, Synth::OSC_EXT_VOL_PARAM));
+	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<RedLight>>>(mm2px(Vec(126.9, 87.388)), module, Synth::OSC_MIX_ROUTE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(194.912, 62.288)), module, Synth::FILTER1_CUTOFF_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(211.912, 62.288)), module, Synth::FILTER1_RESONANCE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(227.325, 62.288)), module, Synth::FILTER1_TYPE_PARAM));
@@ -334,6 +388,23 @@ struct SynthWidget : ModuleWidget {
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(298.975, 87.388)), module, Synth::INDIVIDUAL_MOD_4_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(279.323, 112.557)), module, Synth::OUT_L_OUTPUT));
 		addOutput(createOutputCentered<ThemedPJ301MPort>(mm2px(Vec(294.477, 112.557)), module, Synth::OUT_R_OUTPUT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Synth* module = getModule<Synth>();
+
+		menu->addChild(new MenuSeparator);
+
+//		menu->addChild(createIndexSubmenuItem("Quality", {"draft", "ok", "good", "ultra"},
+//			[=]() {
+//				// TODO
+//			},
+//			[=](int mode) {
+//				// TODO
+//			}
+//		));
+
+		// latch buttons
 	}
 };
 
