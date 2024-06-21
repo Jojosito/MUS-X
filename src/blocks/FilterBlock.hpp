@@ -185,6 +185,114 @@ public:
 			return in;
 		}
 	}
+
+	void processBlock(float_4* in, float_4 dt, int mode, int oversamplingRate)
+	{
+		switch (mode)
+		{
+		case 0:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				filter1Pole.process(in[i], dt);
+				in[i] = filter1Pole.lowpass();
+			}
+			break;
+		case 1:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				filter1Pole.process(in[i], dt);
+				in[i] = filter1Pole.highpass();
+			}
+			break;
+		case 2:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				ladderFilter2Pole.process(in[i], dt);
+				in[i] = ladderFilter2Pole.lowpass();
+			}
+			break;
+		case 3 :
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				ladderFilter2Pole.process(in[i], dt);
+				in[i] = ladderFilter2Pole.bandpass();
+			}
+			break;
+		case 4:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				ladderFilter4Pole.process(in[i], dt);
+				in[i] = ladderFilter4Pole.lowpass6();
+			}
+			break;
+		case 5:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				ladderFilter4Pole.process(in[i], dt);
+				in[i] = ladderFilter4Pole.lowpass12();
+			}
+			break;
+		case 6:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				ladderFilter4Pole.process(in[i], dt);
+				in[i] = ladderFilter4Pole.lowpass18();
+			}
+			break;
+		case 7:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				ladderFilter4Pole.process(in[i], dt);
+				in[i] = ladderFilter4Pole.lowpass24();
+			}
+			break;
+		case 8:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				sallenKeyFilterLpBp.process(in[i], dt);
+				in[i] = sallenKeyFilterLpBp.lowpass();
+			}
+			break;
+		case 9:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				sallenKeyFilterLpBp.process(in[i], dt);
+				in[i] = sallenKeyFilterLpBp.bandpass();
+			}
+			break;
+		case 10:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				sallenKeyFilterHp.process(in[i], dt);
+				in[i] = sallenKeyFilterHp.highpass6();
+			}
+			break;
+		case 11:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				sallenKeyFilterHp.process(in[i], dt);
+				in[i] = sallenKeyFilterHp.highpass12();
+			}
+			break;
+		case 12:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				diodeClipper.process(in[i], dt);
+				in[i] = diodeClipper.out();
+			}
+			break;
+		case 13:
+			for (int i = 0; i < oversamplingRate; ++i)
+			{
+				diodeClipperAsym.process(in[i], dt);
+				in[i] = diodeClipperAsym.out();
+			}
+			break;
+		case 14:
+		default:
+			return;
+		}
+	}
 };
 
 }

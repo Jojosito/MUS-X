@@ -103,14 +103,14 @@ struct Filter : Module {
 			for (int i = 0; i < oversamplingRate; ++i)
 			{
 				// linear interpolation for input
-				float_4 in = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i + 1.f)/oversamplingRate);
+				inBuffer[i] = crossfade(prevInput[c/4], inputs[IN_INPUT].getVoltageSimd<float_4>(c), (i + 1.f)/oversamplingRate);
+			}
 
-				inBuffer[i] = filterBlock[c/4].process(in, args.sampleTime / oversamplingRate, mode);
+			filterBlock[c/4].processBlock(inBuffer, args.sampleTime / oversamplingRate, mode, oversamplingRate);
 
-				if (saturate)
-				{
-					inBuffer[i] = saturator[c/4].processBandlimited(inBuffer[i]);
-				}
+			if (saturate)
+			{
+				saturator[c/4].processBlockBandlimited(inBuffer, oversamplingRate);
 			}
 
 			prevInput[c/4] = inputs[IN_INPUT].getVoltageSimd<float_4>(c);

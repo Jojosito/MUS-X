@@ -75,6 +75,22 @@ public:
 		return ret;
 	}
 
+	void processBlockBandlimited(T* inBuffer, int oversamplingRate)
+	{
+		for (int i = 0; i < oversamplingRate; ++i)
+		{
+			T in = inBuffer[i] / 20.;
+			T bandlimited = (F(in) - F(x)) / (in - x);
+			T fallback = T(0.5) * (f(in) + f(x));
+
+			inBuffer[i] = scale * ifelse(fabs(in - x) < epsilon,
+					fallback,
+					bandlimited);
+
+			x = in;
+		}
+	}
+
 	static T processNonBandlimited(T in)
 	{
 		in /= T(20.);
