@@ -42,6 +42,7 @@ private:
 	float_4 osc2Vol = {0};
 
 	float_4 syncMask = {0};
+	int calcFm = 0;
 	float_4 fmUnscaled = {0};
 	float_4 fmAmt = {0};
 	float_4 ringmodVol = {0};
@@ -139,7 +140,7 @@ public:
 	inline void setOsc1FreqVOct(float_4 freq)
 	{
 		osc1Freq = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(freq), minFreq, maxFreq);
-		setFmAmount(fmUnscaled);
+		if (calcFm) setFmAmount(fmUnscaled);
 		setPhase1Inc();
 	}
 
@@ -147,7 +148,7 @@ public:
 	inline void setOsc1FreqVOctLFO(float_4 freq)
 	{
 		osc1Freq = simd::clamp(2. * dsp::exp2_taylor5(freq), minFreq, maxFreq);
-		setFmAmount(fmUnscaled);
+		if (calcFm) setFmAmount(fmUnscaled);
 		setPhase1Inc();
 	}
 
@@ -155,7 +156,7 @@ public:
 	inline void setOsc1FreqHz(float_4 freq)
 	{
 		osc1Freq = simd::clamp(freq, minFreq, maxFreq);
-		setFmAmount(fmUnscaled);
+		if (calcFm) setFmAmount(fmUnscaled);
 		setPhase1Inc();
 	}
 
@@ -201,7 +202,7 @@ public:
 	inline void setOsc2FreqVOct(float_4 freq)
 	{
 		osc2Freq = simd::clamp(dsp::FREQ_C4 * dsp::exp2_taylor5(freq), minFreq, maxFreq);
-		setFmAmount(fmUnscaled);
+		if (calcFm) setFmAmount(fmUnscaled);
 		setPhase2Inc();
 	}
 
@@ -209,7 +210,7 @@ public:
 	inline void setOsc2FreqVOctLFO(float_4 freq)
 	{
 		osc2Freq = simd::clamp(2. * dsp::exp2_taylor5(freq), minFreq, maxFreq);
-		setFmAmount(fmUnscaled);
+		if (calcFm) setFmAmount(fmUnscaled);
 		setPhase2Inc();
 	}
 
@@ -217,7 +218,7 @@ public:
 	inline void setOsc2Freq(float_4 freq)
 	{
 		osc2Freq = simd::clamp(freq, minFreq, maxFreq);
-		setFmAmount(fmUnscaled);
+		if (calcFm) setFmAmount(fmUnscaled);
 		setPhase2Inc();
 	}
 
@@ -260,6 +261,8 @@ public:
 	// set oscillator 1 -> oscillator 2 frequency-modulation amount [0..1]
 	inline void setFmAmount(float_4 fm)
 	{
+		calcFm = simd::movemask(fm > 1.e-6f);
+
 		fmUnscaled = simd::clamp(fm, 0.f, 1.f);
 
 		// use adapted carsons rule to limit FM amount
