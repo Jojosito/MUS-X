@@ -11,6 +11,7 @@ using namespace rack;
 
 struct Synth : Module {
 	enum ParamId {
+		// assign params
 		VOCT_ASSIGN_PARAM,
 		GATE_ASSIGN_PARAM,
 		VELOCITY_ASSIGN_PARAM,
@@ -22,77 +23,105 @@ struct Synth : Module {
 		INDIVIDUAL_MOD_2_ASSIGN_PARAM,
 		VOICE_NR_ASSIGN_PARAM,
 		RANDOM_ASSIGN_PARAM,
+
+		ENV1_ASSIGN_PARAM,
+		ENV2_ASSIGN_PARAM,
+		LFO1_UNIPOLAR_ASSIGN_PARAM,
+		LFO1_BIPOLAR_ASSIGN_PARAM,
+		LFO2_UNIPOLAR_ASSIGN_PARAM,
+		LFO2_BIPOLAR_ASSIGN_PARAM,
+		GLOBAL_LFO_ASSIGN_PARAM,
+		DRIFT_1_ASSIGN_PARAM,
+		DRIFT_2_ASSIGN_PARAM,
+
+		// modulatable params
+		PARAMS_MODULATABLE_PARAMS,
+
 		ENV1_A_PARAM,
 		ENV1_D_PARAM,
 		ENV1_S_PARAM,
 		ENV1_R_PARAM,
-		ENV1_VEL_PARAM,
-		ENV1_ASSIGN_PARAM,
+
 		ENV2_A_PARAM,
 		ENV2_D_PARAM,
 		ENV2_S_PARAM,
 		ENV2_R_PARAM,
-		ENV2_VEL_PARAM,
-		ENV2_ASSIGN_PARAM,
-		LFO1_UNIPOLAR_ASSIGN_PARAM,
+
 		LFO1_FREQ_PARAM,
-		LFO1_SHAPE_PARAM,
 		LFO1_AMOUNT_PARAM,
-		LFO1_MODE_PARAM,
-		LFO1_BIPOLAR_ASSIGN_PARAM,
-		LFO2_UNIPOLAR_ASSIGN_PARAM,
+
 		LFO2_FREQ_PARAM,
-		LFO2_SHAPE_PARAM,
 		LFO2_AMOUNT_PARAM,
-		LFO2_MODE_PARAM,
-		LFO2_BIPOLAR_ASSIGN_PARAM,
+
 		GLOBAL_LFO_FREQ_PARAM,
 		GLOBAL_LFO_AMT_PARAM,
-		GLOBAL_LFO_ASSIGN_PARAM,
-		DRIFT_1_ASSIGN_PARAM,
-		DRIFT_RATE_PARAM,
-		DRIFT_BALANCE_PARAM,
-		DRIFT_2_ASSIGN_PARAM,
+
 		INDIVIDUAL_MOD_OUT_1_PARAM,
 		INDIVIDUAL_MOD_OUT_2_PARAM,
 		INDIVIDUAL_MOD_OUT_3_PARAM,
 		INDIVIDUAL_MOD_OUT_4_PARAM,
-		OSC1_TUNE_OCT_PARAM,
+
+		OSC1_TUNE_GLIDE_PARAM,
 		OSC1_TUNE_SEMI_PARAM,
 		OSC1_TUNE_FINE_PARAM,
 		OSC1_SHAPE_PARAM,
 		OSC1_PW_PARAM,
-		OSC1_VOL_PARAM,
-		OSC1_SUB_VOL_PARAM,
-		OSC1_TUNE_GLIDE_PARAM,
+
 		OSC2_TUNE_GLIDE_PARAM,
-		OSC2_TUNE_OCT_PARAM,
 		OSC2_TUNE_SEMI_PARAM,
 		OSC2_TUNE_FINE_PARAM,
 		OSC2_SHAPE_PARAM,
 		OSC2_PW_PARAM,
-		OSC2_VOL_PARAM,
-		OSC_MIX_ROUTE_PARAM,
-		OSC_SYNC_PARAM,
+
 		OSC_FM_AMOUNT_PARAM,
-		OSC_RM_VOL_PARAM,
-		OSC_NOISE_VOL_PARAM,
-		OSC_EXT_VOL_PARAM,
+
 		FILTER1_CUTOFF_PARAM,
 		FILTER1_RESONANCE_PARAM,
-		FILTER1_TYPE_PARAM,
 		FILTER1_PAN_PARAM,
-		FILTER2_CUTOFF_MODE_PARAM,
+
 		FILTER2_CUTOFF_PARAM,
 		FILTER2_RESONANCE_PARAM,
-		FILTER2_TYPE_PARAM,
 		FILTER2_PAN_PARAM,
+
 		FILTER_SERIAL_PARALLEL_PARAM,
+
 		AMP_VOL_PARAM,
-		DELAY_TAP_PARAM,
+
 		DELAY_TIME_PARAM,
 		DELAY_FEEDBACK_PARAM,
 		DELAY_MIX_PARAM,
+
+		// mix params
+		OSC1_VOL_PARAM,
+		OSC1_SUB_VOL_PARAM,
+		OSC_RM_VOL_PARAM,
+		OSC_NOISE_VOL_PARAM,
+		OSC2_VOL_PARAM,
+		OSC_EXT_VOL_PARAM,
+
+		// non modulatable params
+		PARAMS_NONMODULATABLE_PARAMS,
+
+		ENV1_VEL_PARAM,
+		ENV2_VEL_PARAM,
+		LFO1_SHAPE_PARAM,
+		LFO1_MODE_PARAM,
+		LFO2_SHAPE_PARAM,
+		LFO2_MODE_PARAM,
+		DRIFT_RATE_PARAM,
+		DRIFT_BALANCE_PARAM,
+
+		OSC1_TUNE_OCT_PARAM,
+		OSC2_TUNE_OCT_PARAM,
+		OSC_MIX_ROUTE_PARAM,
+		OSC_SYNC_PARAM,
+
+		FILTER1_TYPE_PARAM,
+		FILTER2_CUTOFF_MODE_PARAM,
+		FILTER2_TYPE_PARAM,
+
+		DELAY_TAP_PARAM,
+
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -124,13 +153,30 @@ struct Synth : Module {
 
 	//
 	int channels = 1;
-	BipolarColorParamQuantity* modulatableParamQtys[PARAMS_LEN];
 
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
 
 	dsp::ClockDivider uiDivider;
 	dsp::ClockDivider modDivider;
+
+	// mod matrix
+	static constexpr size_t nSources = PARAMS_MODULATABLE_PARAMS + 1; // number of modulation sources, + 1 for base vale
+	static constexpr size_t nMixChannels = 6;
+	static constexpr size_t nDestinations = PARAMS_NONMODULATABLE_PARAMS - PARAMS_MODULATABLE_PARAMS + 1 + nMixChannels; // number of modulation destinations, additional 6 for mix to filter balance
+
+	size_t activeSourceAssign = 0; // index of active mod source assign button. 0 = base value / no button active
+
+	bool oscMixRouteActive = false; // is the OSC_MIX_ROUTE_PARAM button pressed?
+	float mixLevels[nMixChannels] = {0.};
+	float mixFilterBalances[nMixChannels] = {0.};
+
+	float_4 modMatrixInputs[nSources][4] = {0};
+	float_4 modMatrixOutputs[nDestinations][4] = {0};
+
+	float modMatrix[nSources][nDestinations] = {0}; // the mod matrix
+
+	bool mustCalculateDestination[nDestinations] = {false}; // false if all but the first entry of the mod matrix column are 0
 
 	// modulation blocks
 	static constexpr float MIN_TIME = 1e-3f;
@@ -148,118 +194,227 @@ struct Synth : Module {
 
 	Synth() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(VOCT_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(GATE_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(VELOCITY_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(AFTERTOUCH_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(PITCH_WHEEL_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(MOD_WHEEL_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(EXPRESSION_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(INDIVIDUAL_MOD_1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(INDIVIDUAL_MOD_2_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(VOICE_NR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(RANDOM_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV1_A_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV1_D_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_D_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV1_S_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_S_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV1_R_PARAM] = configParam<BipolarColorParamQuantity>(ENV1_R_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(ENV1_VEL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(ENV1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV2_A_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_A_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV2_D_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_D_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV2_S_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_S_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[ENV2_R_PARAM] = configParam<BipolarColorParamQuantity>(ENV2_R_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(ENV2_VEL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(ENV2_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO1_UNIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[LFO1_FREQ_PARAM] = configParam<BipolarColorParamQuantity>(LFO1_FREQ_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO1_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[LFO1_AMOUNT_PARAM] = configParam<BipolarColorParamQuantity>(LFO1_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO1_MODE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO1_BIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO2_UNIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[LFO2_FREQ_PARAM] = configParam<BipolarColorParamQuantity>(LFO2_FREQ_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO2_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[LFO2_AMOUNT_PARAM] = configParam<BipolarColorParamQuantity>(LFO2_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO2_MODE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(LFO2_BIPOLAR_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[GLOBAL_LFO_FREQ_PARAM] = configParam<BipolarColorParamQuantity>(GLOBAL_LFO_FREQ_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[GLOBAL_LFO_AMT_PARAM] = configParam<BipolarColorParamQuantity>(GLOBAL_LFO_AMT_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(GLOBAL_LFO_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(DRIFT_1_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(DRIFT_RATE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(DRIFT_BALANCE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(DRIFT_2_ASSIGN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[INDIVIDUAL_MOD_OUT_1_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_1_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[INDIVIDUAL_MOD_OUT_2_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_2_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[INDIVIDUAL_MOD_OUT_3_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_3_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[INDIVIDUAL_MOD_OUT_4_PARAM] = configParam<BipolarColorParamQuantity>(INDIVIDUAL_MOD_OUT_4_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(OSC1_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_TUNE_SEMI_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_TUNE_SEMI_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_TUNE_FINE_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_TUNE_FINE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_SHAPE_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_PW_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_PW_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_SUB_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_SUB_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC1_TUNE_GLIDE_PARAM] = configParam<BipolarColorParamQuantity>(OSC1_TUNE_GLIDE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC2_TUNE_GLIDE_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_TUNE_GLIDE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(OSC2_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC2_TUNE_SEMI_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_TUNE_SEMI_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC2_TUNE_FINE_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_TUNE_FINE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC2_SHAPE_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_SHAPE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC2_PW_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_PW_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC2_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC2_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(OSC_SYNC_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC_FM_AMOUNT_PARAM] = configParam<BipolarColorParamQuantity>(OSC_FM_AMOUNT_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC_RM_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC_RM_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC_NOISE_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC_NOISE_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[OSC_EXT_VOL_PARAM] = configParam<BipolarColorParamQuantity>(OSC_EXT_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configSwitch(OSC_MIX_ROUTE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER1_CUTOFF_PARAM] = configParam<BipolarColorParamQuantity>(FILTER1_CUTOFF_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER1_RESONANCE_PARAM] = configParam<BipolarColorParamQuantity>(FILTER1_RESONANCE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(FILTER1_TYPE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER1_PAN_PARAM] = configParam<BipolarColorParamQuantity>(FILTER1_PAN_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(FILTER2_CUTOFF_MODE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER2_CUTOFF_PARAM] = configParam<BipolarColorParamQuantity>(FILTER2_CUTOFF_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER2_RESONANCE_PARAM] = configParam<BipolarColorParamQuantity>(FILTER2_RESONANCE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(FILTER2_TYPE_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER2_PAN_PARAM] = configParam<BipolarColorParamQuantity>(FILTER2_PAN_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[FILTER_SERIAL_PARALLEL_PARAM] = configParam<BipolarColorParamQuantity>(FILTER_SERIAL_PARALLEL_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[AMP_VOL_PARAM] = configParam<BipolarColorParamQuantity>(AMP_VOL_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(DELAY_TAP_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[DELAY_TIME_PARAM] = configParam<BipolarColorParamQuantity>(DELAY_TIME_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[DELAY_FEEDBACK_PARAM] = configParam<BipolarColorParamQuantity>(DELAY_FEEDBACK_PARAM, 0.f, 1.f, 0.f, "");
-		modulatableParamQtys[DELAY_MIX_PARAM] = configParam<BipolarColorParamQuantity>(DELAY_MIX_PARAM, 0.f, 1.f, 0.f, "");
-		configInput(VOCT_INPUT, "");
-		configInput(GATE_INPUT, "");
-		configInput(VELOCITY_INPUT, "");
-		configInput(AFTERTOUCH_INPUT, "");
-		configInput(PITCH_WHEEL_INPUT, "");
-		configInput(MOD_WHEEL_INPUT, "");
-		configInput(EXPRESSION_INPUT, "");
-		configInput(INDIVIDUAL_MOD_1_INPUT, "");
-		configInput(INDIVIDUAL_MOD_2_INPUT, "");
-		configInput(RETRIGGER_INPUT, "");
-		configInput(EXT_INPUT, "");
-		configOutput(INDIVIDUAL_MOD_1_OUTPUT, "");
-		configOutput(INDIVIDUAL_MOD_2_OUTPUT, "");
-		configOutput(INDIVIDUAL_MOD_3_OUTPUT, "");
-		configOutput(INDIVIDUAL_MOD_4_OUTPUT, "");
-		configOutput(OUT_L_OUTPUT, "");
-		configOutput(OUT_R_OUTPUT, "");
+		configParam(ENV1_VEL_PARAM, 0.f, 1.f, 0.f, "Envelope 1 velocity scaling", " %", 0, 100);
+		configParam(ENV2_VEL_PARAM, 0.f, 1.f, 0.f, "Envelope 2 velocity scaling", " %", 0, 100);
+		configParam(LFO1_SHAPE_PARAM, 0.f, 1.f, 0.f, "LFO 1 shape");
+		configSwitch(LFO1_MODE_PARAM, 0, 2, 0, "LFO 1 mode", {"free running", "retrigger", "retrigger, single cycle"});
+		configParam(LFO2_SHAPE_PARAM, 0.f, 1.f, 0.f, "LFO 2 shape");
+		configSwitch(LFO2_MODE_PARAM, 0, 2, 0, "LFO 2 mode", {"free running", "retrigger", "retrigger, single cycle"});
+		configParam(DRIFT_RATE_PARAM, 0.f, 1.f, 0.f, "Drift rate", " Hz");
+		configParam(DRIFT_BALANCE_PARAM, 0.f, 1.f, 0.f, "Random constant offset / drift balance");
+		configParam(OSC1_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "Oscillator 1 octave");
+		configParam(OSC2_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "Oscillator 2 octave");
+		configSwitch(OSC_SYNC_PARAM, 0,   1,   0,  "Sync", {"Off", "Sync oscillator 2 to oscillator 1"});
+		configSwitch(OSC_MIX_ROUTE_PARAM, 0, 1, 0, "Adjust filter 1 / filter 2 input balance", {"", "active"});
+		configSwitch(FILTER1_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 1 type", FilterBlock::getModeLabels());
+		configSwitch(FILTER2_CUTOFF_MODE_PARAM, 0, 2, 0, "Filter 2 cutoff mode", {"individual", "offset", "space"});
+		configSwitch(FILTER2_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 2 type", FilterBlock::getModeLabels());
+		configSwitch(DELAY_TAP_PARAM, 0, 1, 0, "Delay tap tempo");
+		configInput(VOCT_INPUT, "V/Oct");
+		configInput(GATE_INPUT, "Gate");
+		configInput(VELOCITY_INPUT, "Velocity");
+		configInput(AFTERTOUCH_INPUT, "Aftertouch");
+		configInput(PITCH_WHEEL_INPUT, "Pitch wheel");
+		configInput(MOD_WHEEL_INPUT, "Mod wheel");
+		configInput(EXPRESSION_INPUT, "Expression");
+		configInput(INDIVIDUAL_MOD_1_INPUT, "Indvidual modulation 1");
+		configInput(INDIVIDUAL_MOD_2_INPUT, "Indvidual modulation 2");
+		configInput(RETRIGGER_INPUT, "Retrigger");
+		configInput(EXT_INPUT, "External audio");
+		configOutput(INDIVIDUAL_MOD_1_OUTPUT, "Indvidual modulation 1");
+		configOutput(INDIVIDUAL_MOD_2_OUTPUT, "Indvidual modulation 2");
+		configOutput(INDIVIDUAL_MOD_3_OUTPUT, "Indvidual modulation 3");
+		configOutput(INDIVIDUAL_MOD_4_OUTPUT, "Indvidual modulation 4");
+		configOutput(OUT_L_OUTPUT, "Left/Mono");
+		configOutput(OUT_R_OUTPUT, "Right");
 
-		uiDivider.setDivision(32);
+		const auto& sourceLabels = getSourceLabels();
+		for (size_t i = 0; i < sourceLabels.size(); i++)
+		{
+			configSwitch(i, 0, 1, 0, "Assign " + sourceLabels[i], {"", "active"});
+		}
+
+		configureUi();
+
+		uiDivider.setDivision(128);
 		modDivider.setDivision(2);
 	}
 
+	static const std::array<std::string, nSources>& getSourceLabels()
+	{
+		static const std::array<std::string, nSources> sourceLabelMap = {
+			"V/Oct",
+			"gate",
+			"velocity",
+			"aftertouch",
+			"pitch wheel",
+			"mod wheel",
+			"expression pedal",
+			"indvidual modulation 1",
+			"indvidual modulation 2",
+			"voice number",
+			"random",
+
+			"envelope 1",
+			"envelope 2",
+			"LFO 1 (unipolar)",
+			"LFO 1 (bipolar)",
+			"LFO 2 (unipolar)",
+			"LFO 2 (bipolar)",
+			"global LFO (bipolar, monophonic)",
+			"drift 1",
+			"drift 2",
+		};
+
+		return sourceLabelMap;
+	}
+
+	static const std::array<std::string, nDestinations>& getDestinationLabels()
+	{
+		static const std::array<std::string, nDestinations> destinationLabelMap = {
+			"envelope 1 Attack",
+			"envelope 1 Decay",
+			"envelope 1 Sustain",
+			"envelope 1 Release",
+
+			"envelope 2 Attack",
+			"envelope 2 Decay",
+			"envelope 2 Sustain",
+			"envelope 2 Release",
+
+			"LFO 1 frequency",
+			"LFO 1 amount",
+
+			"LFO 2 frequency",
+			"LFO 2 amount",
+
+			"global LFO frequency",
+			"global LFO amount",
+
+			"individual modulation 1",
+			"individual modulation 2",
+			"individual modulation 3",
+			"individual modulation 4",
+
+			"oscillator 1 glide",
+			"oscillator 1 semitones",
+			"oscillator 1 fine tune",
+			"oscillator 1 shape",
+			"oscillator 1 triangle phase / pulse width",
+
+			"oscillator 2 glide offset",
+			"oscillator 2 semitones",
+			"oscillator 2 fine tune",
+			"oscillator 2 shape",
+			"oscillator 2 triangle phase / pulse width",
+
+			"oscillator 1 to oscillator 2 FM amount",
+
+			"filter 1 cutoff frequency",
+			"filter 1 resonance",
+			"filter 1 pan",
+
+			"filter 2 cutoff frequency",
+			"filter 2 resonance",
+			"filter 2 pan",
+
+			"filter routing: serial / parallel",
+
+			"amp volume",
+
+			"delay time",
+			"delay feedback",
+			"delay dry-wet mix",
+
+			"oscillator 1",
+			"oscillator 1 sub-oscillator",
+			"ring modulator",
+			"Noise",
+			"oscillator 2",
+			"external audio input",
+		};
+
+		return destinationLabelMap;
+	}
+
+	void configureUi()
+	{
+		static NVGcolor colorNormal = nvgRGB(0, 255, 0);
+		static NVGcolor colorFilterBalance = nvgRGB(255, 0, 0);
+		static NVGcolor colorModulated = nvgRGB(0, 255, 255);
+		static NVGcolor colorModulatedFilterBalance = nvgRGB(255, 0, 255);
+
+		const auto& sourceLabels = getSourceLabels();
+		const auto& destinationLabels = getDestinationLabels();
+
+
+		for (size_t i = 0; i < destinationLabels.size() - nMixChannels; i++)
+		{
+			if (activeSourceAssign)
+			{
+				std::string sourceLabel = sourceLabels[activeSourceAssign - 1];
+
+				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(PARAMS_MODULATABLE_PARAMS + 1 + i, -1.f, 1.f, 0.f,
+						"Assign " + sourceLabel + " to " + destinationLabels[i],
+						" %", 0, 100.);
+
+				param->bipolar = true;
+				param->color = colorModulated;
+			}
+			else
+			{
+				std::string destinationLabel = destinationLabels[i];
+				destinationLabel[0] = toupper(destinationLabel[0]);
+				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(PARAMS_MODULATABLE_PARAMS + 1 + i, 0.f, 1.f, 0.f, destinationLabel); // TODO unit label
+
+				param->bipolar = false; // TODO must be true for some params
+				param->color = colorNormal;
+			}
+		}
+
+		for (size_t i = destinationLabels.size() - nMixChannels; i < destinationLabels.size(); i++)
+		{
+			// TODO
+			if (oscMixRouteActive)
+			{
+
+			}
+			else
+			{
+
+			}
+			configParam(PARAMS_MODULATABLE_PARAMS + 1 + i, 0.f, 1.f, 0.f, destinationLabels[i]);
+		}
+
+
+	}
+
 	void process(const ProcessArgs& args) override {
+
 		if (uiDivider.process())
 		{
 			channels = std::max(1, inputs[VOCT_INPUT].getChannels());
 
-			// adapt UI if OSC_MIX_ROUTE_PARAM button is pressed
-			modulatableParamQtys[OSC1_VOL_PARAM]->bipolar = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5;
-			modulatableParamQtys[OSC1_VOL_PARAM]->color = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5 ? nvgRGB(255, 0, 0) : nvgRGB(0, 255, 0);
+			// update activeSourceAssign and oscMixRouteActive
+			size_t newActiveSourceAssign = 0;
+			for (size_t i = 0; i < PARAMS_MODULATABLE_PARAMS; i++)
+			{
+				if (params[i].getValue())
+				{
+					newActiveSourceAssign = i + 1;
+					break;
+				}
+			}
+
+			bool newOscMixRouteActive = params[OSC_MIX_ROUTE_PARAM].getValue();
+
+			// adapt UI if  activeSourceAssign or oscMixRouteActive have changed
+			if (activeSourceAssign != newActiveSourceAssign || oscMixRouteActive != newOscMixRouteActive)
+			{
+				activeSourceAssign = newActiveSourceAssign;
+				oscMixRouteActive = newOscMixRouteActive;
+				configureUi();
+			}
 
 
 			// adapt UI if assign button is pressed
@@ -278,6 +433,17 @@ struct Synth : Module {
 			// set modulated parameters
 
 		}
+
+		outputs[OUT_L_OUTPUT].setVoltage(params[OSC_MIX_ROUTE_PARAM].getValue());
+		outputs[OUT_R_OUTPUT].setVoltage(params[OSC1_VOL_PARAM].getValue());
+	}
+
+	json_t* dataToJson() override {
+		// TODO store mod matrix, mixLevels, mixFilterBalances
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		// TODO load mod matrix, mixLevels, mixFilterBalances
 	}
 };
 
