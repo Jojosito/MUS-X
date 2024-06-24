@@ -508,6 +508,38 @@ struct Synth : Module {
 		}
 	}
 
+	void onReset(const ResetEvent& e) override
+	{
+		activeSourceAssign = 0;
+		oscMixRouteActive = false;
+		memset(mixFilterBalances, 0.f, nMixChannels * sizeof(float));
+		memset(modMatrix, 0.f, nDestinations*nSources * sizeof(float));
+
+		Module::onReset(e);
+
+		configureUi();
+	}
+
+	void onRandomize(const RandomizeEvent& e) override
+	{
+		// do not randomize assign and osc mix buttons
+		float assignButtonValues[ENV1_A_PARAM];
+		for (size_t i = 0; i < ENV1_A_PARAM; i++)
+		{
+			assignButtonValues[i] = getParam(i).getValue();
+		}
+		float mixButtonValue = getParam(OSC_MIX_ROUTE_PARAM).getValue();
+
+		Module::onRandomize(e);
+
+		for (size_t i = 0; i < ENV1_A_PARAM; i++)
+		{
+			getParam(i).setValue(assignButtonValues[i]);
+		}
+
+		getParam(OSC_MIX_ROUTE_PARAM).setValue(mixButtonValue);
+	}
+
 	void process(const ProcessArgs& args) override {
 
 		if (uiDivider.process())
