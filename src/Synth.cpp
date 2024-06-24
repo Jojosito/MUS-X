@@ -178,6 +178,8 @@ struct Synth : Module {
 	//
 	int channels = 1;
 
+	ModuleWidget* widget;
+
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
 
@@ -506,6 +508,16 @@ struct Synth : Module {
 				lights[OSC_MIX_ROUTE_LIGHT].setBrightness(0.f);
 			}
 		}
+
+		// force redraw
+		if (widget)
+		{
+			for (ParamWidget* paramWidget : widget->getParams())
+			{
+				Widget::ChangeEvent e;
+				paramWidget->onChange(e);
+			}
+		}
 	}
 
 	void onReset(const ResetEvent& e) override
@@ -633,6 +645,8 @@ struct Synth : Module {
 struct SynthWidget : ModuleWidget {
 	SynthWidget(Synth* module) {
 		setModule(module);
+		module->widget = this;
+
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Synth.svg"), asset::plugin(pluginInstance, "res/Synth-dark.svg")));
 
 	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 8.557)), module, Synth::VOCT_ASSIGN_PARAM, Synth::VOCT_ASSIGN_LIGHT));

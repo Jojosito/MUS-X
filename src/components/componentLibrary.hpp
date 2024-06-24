@@ -36,6 +36,8 @@ public:
 
 	void drawLayer(const DrawArgs& args, int layer) override
 	{
+		RoundBlackKnob::drawLayer(args, layer);
+
 		BipolarColorParamQuantity* paramQuantity = dynamic_cast<BipolarColorParamQuantity*>(getParamQuantity());
 
 		if (!paramQuantity)
