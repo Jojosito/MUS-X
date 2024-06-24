@@ -558,6 +558,11 @@ struct Synth : Module {
 		{
 			channels = std::max(1, inputs[VOCT_INPUT].getChannels());
 
+			outputs[INDIVIDUAL_MOD_1_OUTPUT].setChannels(channels);
+			outputs[INDIVIDUAL_MOD_2_OUTPUT].setChannels(channels);
+			outputs[INDIVIDUAL_MOD_3_OUTPUT].setChannels(channels);
+			outputs[INDIVIDUAL_MOD_4_OUTPUT].setChannels(channels);
+
 			// update activeSourceAssign and oscMixRouteActive
 			size_t newActiveSourceAssign = 0;
 			for (size_t i = 0; i < ENV1_A_PARAM; i++)
@@ -601,10 +606,10 @@ struct Synth : Module {
 			}
 
 			// update mustCalculateDestination
-			for (size_t iDest = 1; iDest < nDestinations; iDest++)
+			for (size_t iDest = 0; iDest < nDestinations; iDest++)
 			{
 				mustCalculateDestination[iDest] = false;
-				for (size_t iSource = 0; iSource < nSources; iSource++)
+				for (size_t iSource = 1; iSource < nSources; iSource++)
 				{
 					if (modMatrix[iDest][iSource] != 0.f)
 					{
@@ -616,20 +621,43 @@ struct Synth : Module {
 
 
 			// set non-modulatable parameters
+			// TODO
 		}
 
 		if (modDivider.process())
 		{
-			// process modulation blocks
+			for (int c = 0; c < channels; c += 4) {
+				// get modulation inputs
+				for (size_t iInput = 0; iInput < INDIVIDUAL_MOD_2_INPUT; iInput++)
+				{
+					modMatrixInputs[iInput + 1][c/4] = inputs[iInput].getPolyVoltageSimd<float_4>(c);
+				}
 
-			// matrix multiplication
+				// process modulation blocks
 
-			// set modulated parameters
+				// matrix multiplication
+				for (size_t iDest = 0; iDest < nDestinations; iDest++)
+				{
+					modMatrixOutputs[iDest][c/4] = modMatrix[iDest][0];
+					if (mustCalculateDestination[iDest])
+					{
+						for (size_t iSource = 1; iSource < nSources; iSource++)
+						{
+							modMatrixOutputs[iDest][c/4] += modMatrix[iDest][iSource] * modMatrixInputs[iSource][c/4];
+						}
+					}
+				}
 
+				// set modulated parameters
+				outputs[INDIVIDUAL_MOD_1_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_1_PARAM - ENV1_A_PARAM][c/4], c);
+				outputs[INDIVIDUAL_MOD_2_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_2_PARAM - ENV1_A_PARAM][c/4], c);
+				outputs[INDIVIDUAL_MOD_3_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_3_PARAM - ENV1_A_PARAM][c/4], c);
+				outputs[INDIVIDUAL_MOD_4_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_4_PARAM - ENV1_A_PARAM][c/4], c);
+			}
 		}
 
-		outputs[OUT_L_OUTPUT].setVoltage(oscMixRouteActive);
-		outputs[OUT_R_OUTPUT].setVoltage(activeSourceAssign);
+		outputs[OUT_L_OUTPUT].setVoltage(channels);
+//		outputs[OUT_R_OUTPUT].setVoltage(activeSourceAssign);
 	}
 
 //	json_t* dataToJson() override {
@@ -645,7 +673,10 @@ struct Synth : Module {
 struct SynthWidget : ModuleWidget {
 	SynthWidget(Synth* module) {
 		setModule(module);
-		module->widget = this;
+		if (module)
+		{
+			module->widget = this;
+		}
 
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Synth.svg"), asset::plugin(pluginInstance, "res/Synth-dark.svg")));
 
