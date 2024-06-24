@@ -35,8 +35,6 @@ struct Synth : Module {
 		DRIFT_2_ASSIGN_PARAM,
 
 		// modulatable params
-		PARAMS_MODULATABLE_PARAMS,
-
 		ENV1_A_PARAM,
 		ENV1_D_PARAM,
 		ENV1_S_PARAM,
@@ -100,8 +98,6 @@ struct Synth : Module {
 		OSC_EXT_VOL_PARAM,
 
 		// non modulatable params
-		PARAMS_NONMODULATABLE_PARAMS,
-
 		ENV1_VEL_PARAM,
 		ENV2_VEL_PARAM,
 		LFO1_SHAPE_PARAM,
@@ -148,6 +144,32 @@ struct Synth : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
+		// assign lights
+		VOCT_ASSIGN_LIGHT,
+		GATE_ASSIGN_LIGHT,
+		VELOCITY_ASSIGN_LIGHT,
+		AFTERTOUCH_ASSIGN_LIGHT,
+		PITCH_WHEEL_ASSIGN_LIGHT,
+		MOD_WHEEL_ASSIGN_LIGHT,
+		EXPRESSION_ASSIGN_LIGHT,
+		INDIVIDUAL_MOD_1_ASSIGN_LIGHT,
+		INDIVIDUAL_MOD_2_ASSIGN_LIGHT,
+		VOICE_NR_ASSIGN_LIGHT,
+		RANDOM_ASSIGN_LIGHT,
+
+		ENV1_ASSIGN_LIGHT,
+		ENV2_ASSIGN_LIGHT,
+		LFO1_UNIPOLAR_ASSIGN_LIGHT,
+		LFO1_BIPOLAR_ASSIGN_LIGHT,
+		LFO2_UNIPOLAR_ASSIGN_LIGHT,
+		LFO2_BIPOLAR_ASSIGN_LIGHT,
+		GLOBAL_LFO_ASSIGN_LIGHT,
+		DRIFT_1_ASSIGN_LIGHT,
+		DRIFT_2_ASSIGN_LIGHT,
+
+		// mix route light
+		OSC_MIX_ROUTE_LIGHT,
+
 		LIGHTS_LEN
 	};
 
@@ -161,9 +183,9 @@ struct Synth : Module {
 	dsp::ClockDivider modDivider;
 
 	// mod matrix
-	static constexpr size_t nSources = PARAMS_MODULATABLE_PARAMS + 1; // number of modulation sources, + 1 for base vale
+	static constexpr size_t nSources = ENV1_A_PARAM; // number of modulation sources, + 1 for base vale
 	static constexpr size_t nMixChannels = 6;
-	static constexpr size_t nDestinations = PARAMS_NONMODULATABLE_PARAMS - PARAMS_MODULATABLE_PARAMS + 1 + nMixChannels; // number of modulation destinations, additional 6 for mix to filter balance
+	static constexpr size_t nDestinations = ENV1_VEL_PARAM - ENV1_A_PARAM + nMixChannels; // number of modulation destinations, additional 6 for mix to filter balance
 
 	size_t activeSourceAssign = 0; // index of active mod source assign button. 0 = base value / no button active
 
@@ -339,54 +361,98 @@ struct Synth : Module {
 
 	void configureUi()
 	{
-		static NVGcolor colorNormal = nvgRGB(0, 255, 0);
-		static NVGcolor colorFilterBalance = nvgRGB(255, 0, 0);
-		static NVGcolor colorModulated = nvgRGB(0, 255, 255);
-		static NVGcolor colorModulatedFilterBalance = nvgRGB(255, 0, 255);
-
 		const auto& sourceLabels = getSourceLabels();
 		const auto& destinationLabels = getDestinationLabels();
 
 
-		for (size_t i = 0; i < destinationLabels.size() - nMixChannels; i++)
+		for (size_t i = 0; i < destinationLabels.size() - 2 * nMixChannels; i++)
 		{
 			if (activeSourceAssign)
 			{
 				std::string sourceLabel = sourceLabels[activeSourceAssign - 1];
 
-				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(PARAMS_MODULATABLE_PARAMS + 1 + i, -1.f, 1.f, 0.f,
+				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
 						"Assign " + sourceLabel + " to " + destinationLabels[i],
 						" %", 0, 100.);
 
 				param->bipolar = true;
-				param->color = colorModulated;
+				param->color = SCHEME_BLUE;
 			}
 			else
 			{
 				std::string destinationLabel = destinationLabels[i];
 				destinationLabel[0] = toupper(destinationLabel[0]);
-				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(PARAMS_MODULATABLE_PARAMS + 1 + i, 0.f, 1.f, 0.f, destinationLabel); // TODO unit label
+				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, 0.f, 1.f, 0.f, destinationLabel); // TODO unit label
 
 				param->bipolar = false; // TODO must be true for some params
-				param->color = colorNormal;
+				param->color = SCHEME_GREEN;
 			}
+//			params[ENV1_A_PARAM + i].setValue(modMatrix[activeSourceAssign][ENV1_A_PARAM + i]);
 		}
 
-		for (size_t i = destinationLabels.size() - nMixChannels; i < destinationLabels.size(); i++)
+		for (size_t i = destinationLabels.size() - 2 * nMixChannels; i < destinationLabels.size() - nMixChannels; i++)
 		{
-			// TODO
 			if (oscMixRouteActive)
 			{
+				if (activeSourceAssign)
+				{
+					std::string sourceLabel = sourceLabels[activeSourceAssign - 1];
 
+					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+							"Assign " + sourceLabel + " to " + destinationLabels[i] + " routing (filter 1 / filter 2)",
+							" %", 0, 100.);
+
+					param->bipolar = true;
+					param->color = SCHEME_PURPLE;
+				}
+				else
+				{
+					std::string destinationLabel = destinationLabels[i];
+					destinationLabel[0] = toupper(destinationLabel[0]);
+					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+							destinationLabel + " routing (filter 1 / filter 2)",
+							" %", 0, 100.);
+
+					param->bipolar = true;
+					param->color = SCHEME_RED;
+				}
+//				params[ENV1_A_PARAM + i].setValue(modMatrix[activeSourceAssign][ENV1_A_PARAM + nMixChannels + i]);
 			}
 			else
 			{
+				if (activeSourceAssign)
+				{
+					std::string sourceLabel = sourceLabels[activeSourceAssign - 1];
 
+					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+							"Assign " + sourceLabel + " to " + destinationLabels[i] + " volume",
+							" %", 0, 100.);
+
+					param->bipolar = true;
+					param->color = SCHEME_BLUE;
+				}
+				else
+				{
+					std::string destinationLabel = destinationLabels[i];
+					destinationLabel[0] = toupper(destinationLabel[0]);
+					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, 0.f, 1.f, 0.f,
+							destinationLabel + " volume",
+							" %", 0, 100.);
+
+					param->bipolar = false;
+					param->color = SCHEME_GREEN;
+				}
+//				params[ENV1_A_PARAM + i].setValue(modMatrix[activeSourceAssign][ENV1_A_PARAM + i]);
 			}
-			configParam(PARAMS_MODULATABLE_PARAMS + 1 + i, 0.f, 1.f, 0.f, destinationLabels[i]);
 		}
 
+		// set lights
+		for (size_t i = 0; i < OSC_MIX_ROUTE_LIGHT; i++)
+		{
+			lights[i].setBrightness(i == activeSourceAssign - 1);
+		}
 
+		lights[OSC_MIX_ROUTE_LIGHT].setBrightness(oscMixRouteActive);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -397,7 +463,7 @@ struct Synth : Module {
 
 			// update activeSourceAssign and oscMixRouteActive
 			size_t newActiveSourceAssign = 0;
-			for (size_t i = 0; i < PARAMS_MODULATABLE_PARAMS; i++)
+			for (size_t i = 0; i < ENV1_A_PARAM; i++)
 			{
 				if (params[i].getValue())
 				{
@@ -406,7 +472,7 @@ struct Synth : Module {
 				}
 			}
 
-			bool newOscMixRouteActive = params[OSC_MIX_ROUTE_PARAM].getValue();
+			bool newOscMixRouteActive = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5f;
 
 			// adapt UI if  activeSourceAssign or oscMixRouteActive have changed
 			if (activeSourceAssign != newActiveSourceAssign || oscMixRouteActive != newOscMixRouteActive)
@@ -416,10 +482,27 @@ struct Synth : Module {
 				configureUi();
 			}
 
-
-			// adapt UI if assign button is pressed
-
 			// update mod matrix elements
+//			for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
+//			{
+//				modMatrix[activeSourceAssign][i] = params[ENV1_A_PARAM + i].getValue();
+//			}
+//
+//			if (oscMixRouteActive)
+//			{
+//				for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
+//				{
+//					modMatrix[activeSourceAssign][i + nMixChannels] = params[ENV1_A_PARAM + i].getValue();
+//				}
+//			}
+//			else
+//			{
+//				for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
+//				{
+//					modMatrix[activeSourceAssign][i] = params[ENV1_A_PARAM + i].getValue();
+//				}
+//			}
+
 
 			// set non-modulatable parameters
 		}
@@ -434,17 +517,17 @@ struct Synth : Module {
 
 		}
 
-		outputs[OUT_L_OUTPUT].setVoltage(params[OSC_MIX_ROUTE_PARAM].getValue());
-		outputs[OUT_R_OUTPUT].setVoltage(params[OSC1_VOL_PARAM].getValue());
+		outputs[OUT_L_OUTPUT].setVoltage(oscMixRouteActive);
+		outputs[OUT_R_OUTPUT].setVoltage(activeSourceAssign);
 	}
 
-	json_t* dataToJson() override {
-		// TODO store mod matrix, mixLevels, mixFilterBalances
-	}
-
-	void dataFromJson(json_t* rootJ) override {
-		// TODO load mod matrix, mixLevels, mixFilterBalances
-	}
+//	json_t* dataToJson() override {
+//		// TODO store mod matrix, mixLevels, mixFilterBalances
+//	}
+//
+//	void dataFromJson(json_t* rootJ) override {
+//		// TODO load mod matrix, mixLevels, mixFilterBalances
+//	}
 };
 
 
@@ -453,48 +536,50 @@ struct SynthWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Synth.svg"), asset::plugin(pluginInstance, "res/Synth-dark.svg")));
 
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 8.557)), module, Synth::VOCT_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 18.182)), module, Synth::GATE_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 27.807)), module, Synth::VELOCITY_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 37.433)), module, Synth::AFTERTOUCH_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 47.058)), module, Synth::PITCH_WHEEL_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 56.683)), module, Synth::MOD_WHEEL_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 66.309)), module, Synth::EXPRESSION_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 75.934)), module, Synth::INDIVIDUAL_MOD_1_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 85.56)), module, Synth::INDIVIDUAL_MOD_2_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 95.185)), module, Synth::VOICE_NR_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 104.81)), module, Synth::RANDOM_ASSIGN_PARAM));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 8.557)), module, Synth::VOCT_ASSIGN_PARAM, Synth::VOCT_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 18.182)), module, Synth::GATE_ASSIGN_PARAM, Synth::GATE_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 27.807)), module, Synth::VELOCITY_ASSIGN_PARAM, Synth::VELOCITY_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 37.433)), module, Synth::AFTERTOUCH_ASSIGN_PARAM, Synth::AFTERTOUCH_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 47.058)), module, Synth::PITCH_WHEEL_ASSIGN_PARAM, Synth::PITCH_WHEEL_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 56.683)), module, Synth::MOD_WHEEL_ASSIGN_PARAM, Synth::MOD_WHEEL_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 66.309)), module, Synth::EXPRESSION_ASSIGN_PARAM, Synth::EXPRESSION_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 75.934)), module, Synth::INDIVIDUAL_MOD_1_ASSIGN_PARAM, Synth::INDIVIDUAL_MOD_1_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 85.56)), module, Synth::INDIVIDUAL_MOD_2_ASSIGN_PARAM, Synth::INDIVIDUAL_MOD_2_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 95.185)), module, Synth::VOICE_NR_ASSIGN_PARAM, Synth::VOICE_NR_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(27.0, 104.81)), module, Synth::RANDOM_ASSIGN_PARAM, Synth::RANDOM_ASSIGN_LIGHT));
+
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(127.5, 12.088)), module, Synth::ENV1_ASSIGN_PARAM, Synth::ENV1_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(127.5, 37.188)), module, Synth::ENV2_ASSIGN_PARAM, Synth::ENV2_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 6.101)), module, Synth::LFO1_UNIPOLAR_ASSIGN_PARAM, Synth::LFO1_UNIPOLAR_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 17.662)), module, Synth::LFO1_BIPOLAR_ASSIGN_PARAM, Synth::LFO1_BIPOLAR_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 31.201)), module, Synth::LFO2_UNIPOLAR_ASSIGN_PARAM, Synth::LFO2_UNIPOLAR_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 42.762)), module, Synth::LFO2_BIPOLAR_ASSIGN_PARAM, Synth::LFO2_BIPOLAR_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(263.0, 12.088)), module, Synth::GLOBAL_LFO_ASSIGN_PARAM, Synth::GLOBAL_LFO_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(263.0, 33.843)), module, Synth::DRIFT_1_ASSIGN_PARAM, Synth::DRIFT_1_ASSIGN_LIGHT));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(263.0, 44.742)), module, Synth::DRIFT_2_ASSIGN_PARAM, Synth::DRIFT_2_ASSIGN_LIGHT));
+
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(47.029, 12.088)), module, Synth::ENV1_A_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(64.029, 12.088)), module, Synth::ENV1_D_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(81.029, 12.088)), module, Synth::ENV1_S_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(98.029, 12.088)), module, Synth::ENV1_R_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(115.029, 12.088)), module, Synth::ENV1_VEL_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(127.5, 12.088)), module, Synth::ENV1_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(47.029, 37.188)), module, Synth::ENV2_A_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(64.029, 37.188)), module, Synth::ENV2_D_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(81.029, 37.188)), module, Synth::ENV2_S_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(98.029, 37.188)), module, Synth::ENV2_R_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(115.029, 37.188)), module, Synth::ENV2_VEL_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(127.5, 37.188)), module, Synth::ENV2_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 6.101)), module, Synth::LFO1_UNIPOLAR_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(149.0, 12.088)), module, Synth::LFO1_FREQ_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(166.0, 12.088)), module, Synth::LFO1_SHAPE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(183.0, 12.088)), module, Synth::LFO1_AMOUNT_PARAM));
 	    addParam(createParamCentered<NKK>(mm2px(Vec(198.0, 12.088)), module, Synth::LFO1_MODE_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 17.662)), module, Synth::LFO1_BIPOLAR_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 31.201)), module, Synth::LFO2_UNIPOLAR_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(149.0, 37.188)), module, Synth::LFO2_FREQ_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(166.0, 37.188)), module, Synth::LFO2_SHAPE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(183.0, 37.188)), module, Synth::LFO2_AMOUNT_PARAM));
 	    addParam(createParamCentered<NKK>(mm2px(Vec(198.0, 37.188)), module, Synth::LFO2_MODE_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(210.0, 42.762)), module, Synth::LFO2_BIPOLAR_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(231.0, 12.088)), module, Synth::GLOBAL_LFO_FREQ_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(248.0, 12.088)), module, Synth::GLOBAL_LFO_AMT_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(263.0, 12.088)), module, Synth::GLOBAL_LFO_ASSIGN_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(263.0, 33.843)), module, Synth::DRIFT_1_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(231.0, 37.188)), module, Synth::DRIFT_RATE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(248.0, 37.188)), module, Synth::DRIFT_BALANCE_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<BlueLight>>>(mm2px(Vec(263.0, 44.742)), module, Synth::DRIFT_2_ASSIGN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(284.578, 12.088)), module, Synth::INDIVIDUAL_MOD_OUT_1_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(284.578, 37.188)), module, Synth::INDIVIDUAL_MOD_OUT_2_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(284.578, 62.288)), module, Synth::INDIVIDUAL_MOD_OUT_3_PARAM));
