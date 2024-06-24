@@ -170,6 +170,8 @@ struct Synth : Module {
 		// mix route light
 		OSC_MIX_ROUTE_LIGHT,
 
+		OSC_SYNC_LIGHT,
+
 		LIGHTS_LEN
 	};
 
@@ -183,7 +185,7 @@ struct Synth : Module {
 	dsp::ClockDivider modDivider;
 
 	// mod matrix
-	static constexpr size_t nSources = ENV1_A_PARAM; // number of modulation sources, + 1 for base vale
+	static constexpr size_t nSources = ENV1_A_PARAM + 1; // number of modulation sources, + 1 for base vale
 	static constexpr size_t nMixChannels = 6;
 	static constexpr size_t nDestinations = ENV1_VEL_PARAM - ENV1_A_PARAM + nMixChannels; // number of modulation destinations, additional 6 for mix to filter balance
 
@@ -196,7 +198,7 @@ struct Synth : Module {
 	float_4 modMatrixInputs[nSources][4] = {0};
 	float_4 modMatrixOutputs[nDestinations][4] = {0};
 
-	float modMatrix[nSources][nDestinations] = {0}; // the mod matrix
+	float modMatrix[nDestinations][nSources] = {0}; // the mod matrix
 
 	bool mustCalculateDestination[nDestinations] = {false}; // false if all but the first entry of the mod matrix column are 0
 
@@ -227,7 +229,7 @@ struct Synth : Module {
 		configParam(OSC1_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "Oscillator 1 octave");
 		configParam(OSC2_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "Oscillator 2 octave");
 		configSwitch(OSC_SYNC_PARAM, 0,   1,   0,  "Sync", {"Off", "Sync oscillator 2 to oscillator 1"});
-		configSwitch(OSC_MIX_ROUTE_PARAM, 0, 1, 0, "Adjust filter 1 / filter 2 input balance", {"", "active"});
+		configSwitch(OSC_MIX_ROUTE_PARAM, 0, 1, 0, "Adjust mixer routing to filter 1 / filter 2", {"", "active"});
 		configSwitch(FILTER1_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 1 type", FilterBlock::getModeLabels());
 		configSwitch(FILTER2_CUTOFF_MODE_PARAM, 0, 2, 0, "Filter 2 cutoff mode", {"individual", "offset", "space"});
 		configSwitch(FILTER2_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 2 type", FilterBlock::getModeLabels());
@@ -365,7 +367,7 @@ struct Synth : Module {
 		const auto& destinationLabels = getDestinationLabels();
 
 
-		for (size_t i = 0; i < destinationLabels.size() - 2 * nMixChannels; i++)
+		for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
 		{
 			if (activeSourceAssign)
 			{
@@ -387,10 +389,10 @@ struct Synth : Module {
 				param->bipolar = false; // TODO must be true for some params
 				param->color = SCHEME_GREEN;
 			}
-//			params[ENV1_A_PARAM + i].setValue(modMatrix[activeSourceAssign][ENV1_A_PARAM + i]);
+			getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
 		}
 
-		for (size_t i = destinationLabels.size() - 2 * nMixChannels; i < destinationLabels.size() - nMixChannels; i++)
+		for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
 		{
 			if (oscMixRouteActive)
 			{
@@ -416,7 +418,7 @@ struct Synth : Module {
 					param->bipolar = true;
 					param->color = SCHEME_RED;
 				}
-//				params[ENV1_A_PARAM + i].setValue(modMatrix[activeSourceAssign][ENV1_A_PARAM + nMixChannels + i]);
+				getParam(ENV1_A_PARAM + i).setValue(modMatrix[nMixChannels + i][activeSourceAssign]);
 			}
 			else
 			{
@@ -442,17 +444,68 @@ struct Synth : Module {
 					param->bipolar = false;
 					param->color = SCHEME_GREEN;
 				}
-//				params[ENV1_A_PARAM + i].setValue(modMatrix[activeSourceAssign][ENV1_A_PARAM + i]);
+				getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
 			}
 		}
 
 		// set lights
 		for (size_t i = 0; i < OSC_MIX_ROUTE_LIGHT; i++)
 		{
-			lights[i].setBrightness(i == activeSourceAssign - 1);
+			bool isModulating = false;
+
+			for (size_t iDest = 0; iDest < nDestinations; iDest++)
+			{
+				if (modMatrix[iDest][i + 1] != 0.f)
+				{
+					isModulating = true;
+					break;
+				}
+			}
+
+			if (i == activeSourceAssign - 1)
+			{
+				lights[i].setBrightness(1.f);
+			}
+			else if (isModulating)
+			{
+				lights[i].setBrightness(0.25f);
+			}
+			else
+			{
+				lights[i].setBrightness(0.f);
+			}
 		}
 
-		lights[OSC_MIX_ROUTE_LIGHT].setBrightness(oscMixRouteActive);
+		if (oscMixRouteActive)
+		{
+			lights[OSC_MIX_ROUTE_LIGHT].setBrightness(1.f);
+		}
+		else if (activeSourceAssign == 0)
+		{
+			lights[OSC_MIX_ROUTE_LIGHT].setBrightness(0.f);
+		}
+		else
+		{
+			bool isModulatingMixRoute = false;
+
+			for (size_t iDest = nDestinations - nMixChannels; iDest < nDestinations; iDest++)
+			{
+				if (modMatrix[iDest][activeSourceAssign] != 0.f)
+				{
+					isModulatingMixRoute = true;
+					break;
+				}
+			}
+
+			if (isModulatingMixRoute)
+			{
+				lights[OSC_MIX_ROUTE_LIGHT].setBrightness(0.25f);
+			}
+			else
+			{
+				lights[OSC_MIX_ROUTE_LIGHT].setBrightness(0.f);
+			}
+		}
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -483,25 +536,39 @@ struct Synth : Module {
 			}
 
 			// update mod matrix elements
-//			for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
-//			{
-//				modMatrix[activeSourceAssign][i] = params[ENV1_A_PARAM + i].getValue();
-//			}
-//
-//			if (oscMixRouteActive)
-//			{
-//				for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
-//				{
-//					modMatrix[activeSourceAssign][i + nMixChannels] = params[ENV1_A_PARAM + i].getValue();
-//				}
-//			}
-//			else
-//			{
-//				for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
-//				{
-//					modMatrix[activeSourceAssign][i] = params[ENV1_A_PARAM + i].getValue();
-//				}
-//			}
+			for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
+			{
+				modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue();
+			}
+
+			if (oscMixRouteActive)
+			{
+				for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
+				{
+					modMatrix[i + nMixChannels][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue();
+				}
+			}
+			else
+			{
+				for (size_t i = nDestinations - 2 * nMixChannels; i < nDestinations - nMixChannels; i++)
+				{
+					modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue();
+				}
+			}
+
+			// update mustCalculateDestination
+			for (size_t iDest = 1; iDest < nDestinations; iDest++)
+			{
+				mustCalculateDestination[iDest] = false;
+				for (size_t iSource = 0; iSource < nSources; iSource++)
+				{
+					if (modMatrix[iDest][iSource] != 0.f)
+					{
+						mustCalculateDestination[iDest] = true;
+						break;
+					}
+				}
+			}
 
 
 			// set non-modulatable parameters
@@ -599,12 +666,12 @@ struct SynthWidget : ModuleWidget {
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(98.335, 112.488)), module, Synth::OSC2_SHAPE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(119.039, 112.488)), module, Synth::OSC2_PW_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(140.626, 112.488)), module, Synth::OSC2_VOL_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(95.441, 87.388)), module, Synth::OSC_SYNC_PARAM));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<WhiteLight>>>(mm2px(Vec(95.441, 87.388)), module, Synth::OSC_SYNC_PARAM, Synth::OSC_SYNC_LIGHT));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(109.004, 87.388)), module, Synth::OSC_FM_AMOUNT_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(140.626, 87.388)), module, Synth::OSC_RM_VOL_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(157.626, 87.388)), module, Synth::OSC_NOISE_VOL_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(157.626, 112.488)), module, Synth::OSC_EXT_VOL_PARAM));
-	    addParam(createParamCentered<VCVLightLatch<MediumSimpleLight<RedLight>>>(mm2px(Vec(126.9, 87.388)), module, Synth::OSC_MIX_ROUTE_PARAM));
+	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<RedLight>>>(mm2px(Vec(126.9, 87.388)), module, Synth::OSC_MIX_ROUTE_PARAM, Synth::OSC_MIX_ROUTE_LIGHT));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(194.912, 62.288)), module, Synth::FILTER1_CUTOFF_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(211.912, 62.288)), module, Synth::FILTER1_RESONANCE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(227.325, 62.288)), module, Synth::FILTER1_TYPE_PARAM));
