@@ -408,7 +408,7 @@ struct ModMatrix : Module {
 		Module::onAdd(e);
 		for (size_t j = 0; j < columns; j++)
 		{
-			controlKnobBaseValues[j] =controlKnobs[j]->getValue();
+			controlKnobBaseValues[j] = controlKnobs[j]->getValue();
 			currentControlKnobValues[j] = controlKnobs[j]->getValue();
 			previousControlKnobValues[j] = controlKnobs[j]->getValue();
 			midiControlKnobValues[j] = -2;
@@ -421,7 +421,7 @@ struct ModMatrix : Module {
 		Module::onRandomize(e);
 		for (size_t j = 0; j < columns; j++)
 		{
-			controlKnobBaseValues[j] =controlKnobs[j]->getValue();
+			controlKnobBaseValues[j] = controlKnobs[j]->getValue();
 			currentControlKnobValues[j] = controlKnobs[j]->getValue();
 			previousControlKnobValues[j] = controlKnobs[j]->getValue();
 			midiControlKnobValues[j] = -2;
