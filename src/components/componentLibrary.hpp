@@ -85,7 +85,7 @@ private:
 		Vec cVec = box.size.div(2.0f);
 		float r = (box.size.x * 1.3f) / 2.0f; // arc radius
 
-		// color // TODO must be a light!
+		// color
 		nvgBeginPath(args.vg);
 		nvgLineCap(args.vg, NVG_ROUND);
 		nvgArc(args.vg, cVec.x, cVec.y, r, a0, a1, dir);
