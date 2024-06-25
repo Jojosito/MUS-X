@@ -743,13 +743,84 @@ struct Synth : Module {
 //		outputs[OUT_R_OUTPUT].setVoltage(activeSourceAssign);
 	}
 
-//	json_t* dataToJson() override {
-//		// TODO store mod matrix, mixLevels, mixFilterBalances
-//	}
-//
-//	void dataFromJson(json_t* rootJ) override {
-//		// TODO load mod matrix, mixLevels, mixFilterBalances
-//	}
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+
+		json_t* modMatrixJ = json_array();
+		for (size_t iDest = 0; iDest < nDestinations; iDest++)
+		{
+			for (size_t iSource = 0; iSource < nSources; iSource++)
+			{
+				json_t* entryJ = json_real(modMatrix[iDest][iSource]);
+				json_array_insert_new(modMatrixJ, iDest * nSources + iSource, entryJ);
+			}
+		}
+		json_object_set_new(rootJ, "modMatrix", modMatrixJ);
+
+		json_t* mixLevelsJ = json_array();
+		for (size_t i = 0; i < nMixChannels; i++)
+		{
+			json_t* entryJ = json_real(mixLevels[i]);
+			json_array_insert_new(mixLevelsJ, i, entryJ);
+		}
+		json_object_set_new(rootJ, "mixLevels", mixLevelsJ);
+
+		json_t* mixFilterBalancesJ = json_array();
+		for (size_t i = 0; i < nMixChannels; i++)
+		{
+			json_t* entryJ = json_real(mixFilterBalances[i]);
+			json_array_insert_new(mixFilterBalancesJ, i, entryJ);
+		}
+		json_object_set_new(rootJ, "mixFilterBalances", mixFilterBalancesJ);
+
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* modMatrixJ = json_object_get(rootJ, "modMatrix");
+		if (modMatrixJ)
+		{
+			for (size_t iDest = 0; iDest < nDestinations; iDest++)
+			{
+				for (size_t iSource = 0; iSource < nSources; iSource++)
+				{
+					json_t* entryJ = json_array_get(modMatrixJ, iDest * nSources + iSource);
+					if (entryJ)
+					{
+						modMatrix[iDest][iSource] = json_real_value(entryJ);
+					}
+				}
+			}
+		}
+
+		json_t* mixLevelsJ = json_object_get(rootJ, "mixLevels");
+		if (mixLevelsJ)
+		{
+			for (size_t i = 0; i < nMixChannels; i++)
+			{
+				json_t* entryJ = json_array_get(mixLevelsJ, i);
+				if (entryJ)
+				{
+					mixLevels[i] = json_real_value(entryJ);
+				}
+			}
+		}
+
+		json_t* mixFilterBalancesJ = json_object_get(rootJ, "mixFilterBalances");
+		if (mixFilterBalancesJ)
+		{
+			for (size_t i = 0; i < nMixChannels; i++)
+			{
+				json_t* entryJ = json_array_get(mixFilterBalancesJ, i);
+				if (entryJ)
+				{
+					mixFilterBalances[i] = json_real_value(entryJ);
+				}
+			}
+		}
+
+		configureUi();
+	}
 };
 
 
