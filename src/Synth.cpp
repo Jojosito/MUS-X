@@ -399,13 +399,20 @@ struct Synth : Module {
 				switch(ENV1_A_PARAM + i)
 				{
 				case OSC1_TUNE_SEMI_PARAM:
+				case OSC2_TUNE_SEMI_PARAM:
+					param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -12.f, 12.f, 0.f,
+							destinationLabel,
+							" semitones");
+					param->bipolar = true;
+					param->snapEnabled = true;
+					param->smoothEnabled = false;
+					break;
 				case OSC1_TUNE_FINE_PARAM:
 				case INDIVIDUAL_MOD_OUT_1_PARAM:
 				case INDIVIDUAL_MOD_OUT_2_PARAM:
 				case INDIVIDUAL_MOD_OUT_3_PARAM:
 				case INDIVIDUAL_MOD_OUT_4_PARAM:
 				case OSC2_TUNE_GLIDE_PARAM:
-				case OSC2_TUNE_SEMI_PARAM:
 				case OSC2_TUNE_FINE_PARAM:
 				case FILTER1_PAN_PARAM:
 				case FILTER2_PAN_PARAM:
@@ -448,9 +455,9 @@ struct Synth : Module {
 				{
 					std::string destinationLabel = destinationLabels[i];
 					destinationLabel[0] = toupper(destinationLabel[0]);
-					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -5.f, 5.f, 0.f,
 							destinationLabel + " routing (filter 1 / filter 2)",
-							" %", 0, 100.);
+							" %", 0, 20.);
 
 					param->bipolar = true;
 					param->color = SCHEME_RED;
@@ -474,9 +481,9 @@ struct Synth : Module {
 				{
 					std::string destinationLabel = destinationLabels[i];
 					destinationLabel[0] = toupper(destinationLabel[0]);
-					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, 0.f, 1.f, 0.f,
+					BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, 0.f, 10.f, 0.f,
 							destinationLabel + " volume",
-							" %", 0, 100.);
+							" %", 0, 10.);
 
 					param->bipolar = false;
 					param->color = SCHEME_GREEN;
@@ -622,7 +629,15 @@ struct Synth : Module {
 			// update mod matrix elements
 			for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
 			{
-				modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue();
+				if (activeSourceAssign == 0 &&
+						(ENV1_A_PARAM + i == OSC1_TUNE_SEMI_PARAM || ENV1_A_PARAM + i == OSC2_TUNE_SEMI_PARAM))
+				{
+					modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue() / 12.f;
+				}
+				else
+				{
+					modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue();
+				}
 			}
 
 			if (oscMixRouteActive)
@@ -693,7 +708,9 @@ struct Synth : Module {
 						}
 
 					}
+//					std::cerr << modMatrixOutputs[iDest][c/4][0] << "\t";
 				}
+//				std::cerr << "\n";
 
 
 				// set modulated parameters
@@ -702,11 +719,14 @@ struct Synth : Module {
 				outputs[INDIVIDUAL_MOD_3_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_3_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_4_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_4_PARAM - ENV1_A_PARAM][c/4], c);
 
-				oscillators[c/4].setOsc1FreqVOct(modMatrixOutputs[OSC1_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4]);
+				float_4 osc1FreVOct = getParam(OSC1_TUNE_OCT_PARAM).getValue() +
+						modMatrixOutputs[OSC1_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4] +
+						modMatrixOutputs[OSC1_TUNE_FINE_PARAM - ENV1_A_PARAM][c/4] / 5.f / 12.f;
+				oscillators[c/4].setOsc1FreqVOct(osc1FreVOct);
 
-				oscillators[c/4].setOsc1Shape(modMatrixOutputs[OSC1_SHAPE_PARAM - ENV1_A_PARAM][c/4]);
-				oscillators[c/4].setOsc1PW(modMatrixOutputs[OSC1_PW_PARAM - ENV1_A_PARAM][c/4]);
-				oscillators[c/4].setOsc1Vol(modMatrixOutputs[OSC1_VOL_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc1Shape(0.2f * modMatrixOutputs[OSC1_SHAPE_PARAM - ENV1_A_PARAM][c/4] - 1.f);
+				oscillators[c/4].setOsc1PW(0.2f * modMatrixOutputs[OSC1_PW_PARAM - ENV1_A_PARAM][c/4] - 1.f);
+				oscillators[c/4].setOsc1Vol(0.1f * modMatrixOutputs[OSC1_VOL_PARAM - ENV1_A_PARAM][c/4]);
 
 				// TODO
 			}
