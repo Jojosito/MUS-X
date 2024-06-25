@@ -5,6 +5,8 @@
 #include "blocks/FilterBlock.hpp"
 #include "blocks/OscillatorsBlock.hpp"
 
+#include <iostream>
+
 namespace musx {
 
 using namespace rack;
@@ -182,6 +184,7 @@ struct Synth : Module {
 
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
+	size_t oversamplingRate = 1;
 
 	dsp::ClockDivider uiDivider;
 	dsp::ClockDivider modDivider;
@@ -227,15 +230,20 @@ struct Synth : Module {
 		configParam(LFO2_SHAPE_PARAM, 0.f, 1.f, 0.f, "LFO 2 shape");
 		configSwitch(LFO2_MODE_PARAM, 0, 2, 0, "LFO 2 mode", {"free running", "retrigger", "retrigger, single cycle"});
 		configParam(DRIFT_RATE_PARAM, 0.f, 1.f, 0.f, "Drift rate", " Hz");
-		configParam(DRIFT_BALANCE_PARAM, 0.f, 1.f, 0.f, "Random constant offset / drift balance");
-		configParam(OSC1_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "Oscillator 1 octave");
-		configParam(OSC2_TUNE_OCT_PARAM, 0.f, 1.f, 0.f, "Oscillator 2 octave");
+		configParam(DRIFT_BALANCE_PARAM, -1.f, 1.f, 0.f, "Random constant offset / drift balance", " %", 100.);
+		configParam(OSC1_TUNE_OCT_PARAM, -4, 4, 0, "Oscillator 1 octave");
+		getParamQuantity(OSC1_TUNE_OCT_PARAM)->snapEnabled = true;
+		getParamQuantity(OSC1_TUNE_OCT_PARAM)->smoothEnabled = false;
+		configParam(OSC2_TUNE_OCT_PARAM, -4, 4, 0, "Oscillator 2 octave");
+		getParamQuantity(OSC2_TUNE_OCT_PARAM)->snapEnabled = true;
+		getParamQuantity(OSC2_TUNE_OCT_PARAM)->smoothEnabled = false;
 		configSwitch(OSC_SYNC_PARAM, 0,   1,   0,  "Sync", {"Off", "Sync oscillator 2 to oscillator 1"});
 		configSwitch(OSC_MIX_ROUTE_PARAM, 0, 1, 0, "Adjust mixer routing to filter 1 / filter 2", {"", "active"});
 		configSwitch(FILTER1_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 1 type", FilterBlock::getModeLabels());
 		configSwitch(FILTER2_CUTOFF_MODE_PARAM, 0, 2, 0, "Filter 2 cutoff mode", {"individual", "offset", "space"});
 		configSwitch(FILTER2_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 2 type", FilterBlock::getModeLabels());
 		configSwitch(DELAY_TAP_PARAM, 0, 1, 0, "Delay tap tempo");
+
 		configInput(VOCT_INPUT, "V/Oct");
 		configInput(GATE_INPUT, "Gate");
 		configInput(VELOCITY_INPUT, "Velocity");
@@ -386,9 +394,36 @@ struct Synth : Module {
 			{
 				std::string destinationLabel = destinationLabels[i];
 				destinationLabel[0] = toupper(destinationLabel[0]);
-				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, 0.f, 1.f, 0.f, destinationLabel); // TODO unit label
+				BipolarColorParamQuantity* param;
 
-				param->bipolar = false; // TODO must be true for some params
+				switch(ENV1_A_PARAM + i)
+				{
+				case OSC1_TUNE_SEMI_PARAM:
+				case OSC1_TUNE_FINE_PARAM:
+				case INDIVIDUAL_MOD_OUT_1_PARAM:
+				case INDIVIDUAL_MOD_OUT_2_PARAM:
+				case INDIVIDUAL_MOD_OUT_3_PARAM:
+				case INDIVIDUAL_MOD_OUT_4_PARAM:
+				case OSC2_TUNE_GLIDE_PARAM:
+				case OSC2_TUNE_SEMI_PARAM:
+				case OSC2_TUNE_FINE_PARAM:
+				case FILTER1_PAN_PARAM:
+				case FILTER2_PAN_PARAM:
+				case DELAY_MIX_PARAM:
+					// bipolar
+					param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -5.f, 5.f, 0.f,
+							destinationLabel,
+							" %", 0, 20.f); // TODO proper unit label ?
+					param->bipolar = true;
+					break;
+				default:
+					// unipolar
+					param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, 0.f, 10.f, 0.f,
+							destinationLabel,
+							" %", 0, 10.f); // TODO proper unit label ?
+					param->bipolar = false;
+				}
+
 				param->color = SCHEME_GREEN;
 			}
 			getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
@@ -621,7 +656,17 @@ struct Synth : Module {
 
 
 			// set non-modulatable parameters
-			// TODO
+			for (int c = 0; c < channels; c += 4) {
+				// TODO
+
+				oscillators[c/4].setSampleRate(args.sampleRate);
+				oscillators[c/4].setOversamplingRate(oversamplingRate);
+
+				oscillators[c/4].setSync(getParam(OSC_SYNC_PARAM).getValue());
+			}
+
+			// sync light
+			lights[OSC_SYNC_LIGHT].setBrightness(getParam(OSC_SYNC_PARAM).getValue());
 		}
 
 		if (modDivider.process())
@@ -634,6 +679,7 @@ struct Synth : Module {
 				}
 
 				// process modulation blocks
+				// TODO
 
 				// matrix multiplication
 				for (size_t iDest = 0; iDest < nDestinations; iDest++)
@@ -645,18 +691,35 @@ struct Synth : Module {
 						{
 							modMatrixOutputs[iDest][c/4] += modMatrix[iDest][iSource] * modMatrixInputs[iSource][c/4];
 						}
+
 					}
 				}
+
 
 				// set modulated parameters
 				outputs[INDIVIDUAL_MOD_1_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_1_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_2_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_2_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_3_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_3_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_4_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_4_PARAM - ENV1_A_PARAM][c/4], c);
+
+				oscillators[c/4].setOsc1FreqVOct(modMatrixOutputs[OSC1_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4]);
+
+				oscillators[c/4].setOsc1Shape(modMatrixOutputs[OSC1_SHAPE_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc1PW(modMatrixOutputs[OSC1_PW_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc1Vol(modMatrixOutputs[OSC1_VOL_PARAM - ENV1_A_PARAM][c/4]);
+
+				// TODO
 			}
 		}
 
-		outputs[OUT_L_OUTPUT].setVoltage(channels);
+		float_4 buffer[4][maxOversamplingRate];
+
+		for (int c = 0; c < channels; c += 4)
+		{
+			oscillators[c/4].processBandlimited(buffer[c/4]);
+		}
+
+		outputs[OUT_L_OUTPUT].setVoltage(buffer[0][0][0]);
 //		outputs[OUT_R_OUTPUT].setVoltage(activeSourceAssign);
 	}
 
