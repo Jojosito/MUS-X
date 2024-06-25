@@ -5,6 +5,9 @@
 #include "blocks/FilterBlock.hpp"
 #include "blocks/OscillatorsBlock.hpp"
 
+#include "dsp/decimator.hpp"
+#include "dsp/filters.hpp"
+
 #include <iostream>
 
 namespace musx {
@@ -185,6 +188,8 @@ struct Synth : Module {
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
 	size_t oversamplingRate = 1;
+
+	HalfBandDecimatorCascade<float_4> decimator;
 
 	dsp::ClockDivider uiDivider;
 	dsp::ClockDivider modDivider;
@@ -673,6 +678,8 @@ struct Synth : Module {
 			// set non-modulatable parameters
 			for (int c = 0; c < channels; c += 4) {
 				// TODO
+				env1[c/4].setVelocityScaling(getParam(ENV1_VEL_PARAM).getValue());
+				env2[c/4].setVelocityScaling(getParam(ENV2_VEL_PARAM).getValue());
 
 				oscillators[c/4].setSampleRate(args.sampleRate);
 				oscillators[c/4].setOversamplingRate(oversamplingRate);
@@ -688,25 +695,40 @@ struct Synth : Module {
 		{
 			for (int c = 0; c < channels; c += 4) {
 				// get modulation inputs
-				for (size_t iInput = 0; iInput < INDIVIDUAL_MOD_2_INPUT; iInput++)
+				for (size_t iInput = 0; iInput < INDIVIDUAL_MOD_2_ASSIGN_PARAM; iInput++)
 				{
 					modMatrixInputs[iInput + 1][c/4] = inputs[iInput].getPolyVoltageSimd<float_4>(c);
 				}
 
 				// process modulation blocks
+				env1[c/4].setGate(inputs[GATE_INPUT].getPolyVoltageSimd<float_4>(c));
+				env1[c/4].setRetrigger(inputs[RETRIGGER_INPUT].getPolyVoltageSimd<float_4>(c));
+				env1[c/4].setVelocity(inputs[VELOCITY_INPUT].getPolyVoltageSimd<float_4>(c));
+				modMatrixInputs[ENV1_ASSIGN_PARAM + 1][c/4] = env1[c/4].process(args.sampleTime * modDivider.getDivision());
+
+				env2[c/4].setGate(inputs[GATE_INPUT].getPolyVoltageSimd<float_4>(c));
+				env2[c/4].setRetrigger(inputs[RETRIGGER_INPUT].getPolyVoltageSimd<float_4>(c));
+				env2[c/4].setVelocity(inputs[VELOCITY_INPUT].getPolyVoltageSimd<float_4>(c));
+				modMatrixInputs[ENV2_ASSIGN_PARAM + 1][c/4] = env2[c/4].process(args.sampleTime * modDivider.getDivision());
 				// TODO
 
 				// matrix multiplication
 				for (size_t iDest = 0; iDest < nDestinations; iDest++)
 				{
 					modMatrixOutputs[iDest][c/4] = modMatrix[iDest][0];
-					if (mustCalculateDestination[iDest])
+					if (iDest == AMP_VOL_PARAM - ENV1_A_PARAM)
+					{
+						for (size_t iSource = 1; iSource < nSources; iSource++)
+						{
+							modMatrixOutputs[iDest][c/4] *= 0.1f * (10.f + modMatrix[iDest][iSource] * (modMatrixInputs[iSource][c/4] - 10.f));
+						}
+					}
+					else if (mustCalculateDestination[iDest])
 					{
 						for (size_t iSource = 1; iSource < nSources; iSource++)
 						{
 							modMatrixOutputs[iDest][c/4] += modMatrix[iDest][iSource] * modMatrixInputs[iSource][c/4];
 						}
-
 					}
 //					std::cerr << modMatrixOutputs[iDest][c/4][0] << "\t";
 				}
@@ -714,6 +736,16 @@ struct Synth : Module {
 
 
 				// set modulated parameters
+				env1[c/4].setAttackTime(0.1f * modMatrixOutputs[ENV1_A_PARAM - ENV1_A_PARAM][c/4]);
+				env1[c/4].setDecayTime(0.1f * modMatrixOutputs[ENV1_D_PARAM - ENV1_A_PARAM][c/4]);
+				env1[c/4].setSustainLevel(0.1f * modMatrixOutputs[ENV1_S_PARAM - ENV1_A_PARAM][c/4]);
+				env1[c/4].setReleaseTime(0.1f * modMatrixOutputs[ENV1_R_PARAM - ENV1_A_PARAM][c/4]);
+
+				env2[c/4].setAttackTime(0.1f * modMatrixOutputs[ENV2_A_PARAM - ENV1_A_PARAM][c/4]);
+				env2[c/4].setDecayTime(0.1f * modMatrixOutputs[ENV2_D_PARAM - ENV1_A_PARAM][c/4]);
+				env2[c/4].setSustainLevel(0.1f * modMatrixOutputs[ENV2_S_PARAM - ENV1_A_PARAM][c/4]);
+				env2[c/4].setReleaseTime(0.1f * modMatrixOutputs[ENV2_R_PARAM - ENV1_A_PARAM][c/4]);
+
 				outputs[INDIVIDUAL_MOD_1_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_1_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_2_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_2_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_3_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_3_PARAM - ENV1_A_PARAM][c/4], c);
@@ -732,15 +764,34 @@ struct Synth : Module {
 			}
 		}
 
-		float_4 buffer[4][maxOversamplingRate];
+		float_4 buffer[4][oversamplingRate];
+		float_4* bufferLR = decimator.getInputArray(oversamplingRate);
+		std::memset(bufferLR, 0, oversamplingRate * sizeof(float_4));
 
 		for (int c = 0; c < channels; c += 4)
 		{
 			oscillators[c/4].processBandlimited(buffer[c/4]);
+
+			// amp
+			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			{
+				buffer[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+
+				// sum to stereo
+				for (size_t j = 0; j < 4; j++)
+				{
+					bufferLR[iSample][0] += buffer[c/4][iSample][j];
+					bufferLR[iSample][1] += buffer[c/4][iSample][j];
+				}
+			}
+
 		}
 
-		outputs[OUT_L_OUTPUT].setVoltage(buffer[0][0][0]);
-//		outputs[OUT_R_OUTPUT].setVoltage(activeSourceAssign);
+		// downsampling
+		float_4 outLR = decimator.process(oversamplingRate);
+
+		outputs[OUT_L_OUTPUT].setVoltage(outLR[0]);
+		outputs[OUT_R_OUTPUT].setVoltage(outLR[1]);
 	}
 
 	json_t* dataToJson() override {
