@@ -387,10 +387,35 @@ struct Synth : Module {
 			if (activeSourceAssign)
 			{
 				std::string sourceLabel = sourceLabels[activeSourceAssign - 1];
+				BipolarColorParamQuantity* param;
 
-				BipolarColorParamQuantity* param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
-						"Assign " + sourceLabel + " to " + destinationLabels[i],
-						" %", 0, 100.);
+				switch(ENV1_A_PARAM + i)
+				{
+				case OSC1_TUNE_SEMI_PARAM:
+				case OSC2_TUNE_SEMI_PARAM:
+					switch (activeSourceAssign - 1)
+					{
+					case VOCT_ASSIGN_PARAM:
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -10.f, 10.f, 5.f,
+								"Assign " + sourceLabel + " to " + destinationLabels[i],
+								" %", 0, 10.);
+						break;
+					case PITCH_WHEEL_ASSIGN_PARAM:
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.083333333f,
+								"Assign " + sourceLabel + " to " + destinationLabels[i],
+								" %", 0, 100.);
+						break;
+					default:
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+								"Assign " + sourceLabel + " to " + destinationLabels[i],
+								" %", 0, 100.);
+					}
+					break;
+				default:
+					param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+							"Assign " + sourceLabel + " to " + destinationLabels[i],
+							" %", 0, 100.);
+				}
 
 				param->bipolar = true;
 				param->color = SCHEME_BLUE;
@@ -637,7 +662,7 @@ struct Synth : Module {
 				if (activeSourceAssign == 0 &&
 						(ENV1_A_PARAM + i == OSC1_TUNE_SEMI_PARAM || ENV1_A_PARAM + i == OSC2_TUNE_SEMI_PARAM))
 				{
-					modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue() / 12.f;
+					modMatrix[i][activeSourceAssign] = getParam(ENV1_A_PARAM + i).getValue() * 5.f / 12.f;
 				}
 				else
 				{
@@ -752,7 +777,7 @@ struct Synth : Module {
 				outputs[INDIVIDUAL_MOD_4_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_4_PARAM - ENV1_A_PARAM][c/4], c);
 
 				float_4 osc1FreVOct = getParam(OSC1_TUNE_OCT_PARAM).getValue() +
-						modMatrixOutputs[OSC1_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4] +
+						modMatrixOutputs[OSC1_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4] / 5.f +
 						modMatrixOutputs[OSC1_TUNE_FINE_PARAM - ENV1_A_PARAM][c/4] / 5.f / 12.f;
 				oscillators[c/4].setOsc1FreqVOct(osc1FreVOct);
 
