@@ -221,7 +221,9 @@ struct Synth : Module {
 	musx::ADSRBlock env2[4] = {musx::ADSRBlock(MIN_TIME, MAX_TIME, ATT_TARGET)};
 
 	// audio blocks
-	OscillatorsBlock<maxOversamplingRate> oscillators[4];
+	musx::TOnePoleZDF<float_4> glide1[4];
+	musx::TOnePoleZDF<float_4> glide2[4];
+	musx::OscillatorsBlock<maxOversamplingRate> oscillators[4];
 
 	musx::FilterBlock filter1[4];
 	musx::FilterBlock filter2[4];
@@ -776,14 +778,34 @@ struct Synth : Module {
 				outputs[INDIVIDUAL_MOD_3_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_3_PARAM - ENV1_A_PARAM][c/4], c);
 				outputs[INDIVIDUAL_MOD_4_OUTPUT].setVoltageSimd(modMatrixOutputs[INDIVIDUAL_MOD_OUT_4_PARAM - ENV1_A_PARAM][c/4], c);
 
-				float_4 osc1FreVOct = getParam(OSC1_TUNE_OCT_PARAM).getValue() +
+
+				float_4 osc1FreqVOct = getParam(OSC1_TUNE_OCT_PARAM).getValue() +
 						modMatrixOutputs[OSC1_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4] / 5.f +
 						modMatrixOutputs[OSC1_TUNE_FINE_PARAM - ENV1_A_PARAM][c/4] / 5.f / 12.f;
-				oscillators[c/4].setOsc1FreqVOct(osc1FreVOct);
+
+				glide1[c/4].setCutoffFreq(getGlideFreq(modMatrixOutputs[OSC1_TUNE_GLIDE_PARAM - ENV1_A_PARAM][c/4], args.sampleRate));
+				osc1FreqVOct = glide1[c/4].processLowpass(osc1FreqVOct);
+				oscillators[c/4].setOsc1FreqVOct(osc1FreqVOct);
 
 				oscillators[c/4].setOsc1Shape(0.2f * modMatrixOutputs[OSC1_SHAPE_PARAM - ENV1_A_PARAM][c/4] - 1.f);
 				oscillators[c/4].setOsc1PW(0.2f * modMatrixOutputs[OSC1_PW_PARAM - ENV1_A_PARAM][c/4] - 1.f);
 				oscillators[c/4].setOsc1Vol(0.1f * modMatrixOutputs[OSC1_VOL_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc1Subvol(0.1f * modMatrixOutputs[OSC1_SUB_VOL_PARAM - ENV1_A_PARAM][c/4]);
+
+				float_4 osc2FreqVOct = getParam(OSC2_TUNE_OCT_PARAM).getValue() +
+						modMatrixOutputs[OSC2_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4] / 5.f +
+						modMatrixOutputs[OSC2_TUNE_FINE_PARAM - ENV1_A_PARAM][c/4] / 5.f / 12.f;
+
+				glide2[c/4].setCutoffFreq(getGlideFreq(modMatrixOutputs[OSC1_TUNE_GLIDE_PARAM - ENV1_A_PARAM][c/4] + modMatrixOutputs[OSC2_TUNE_GLIDE_PARAM - ENV1_A_PARAM][c/4], args.sampleRate));
+				osc2FreqVOct = glide2[c/4].processLowpass(osc2FreqVOct);
+				oscillators[c/4].setOsc2FreqVOct(osc2FreqVOct);
+
+				oscillators[c/4].setOsc2Shape(0.2f * modMatrixOutputs[OSC2_SHAPE_PARAM - ENV1_A_PARAM][c/4] - 1.f);
+				oscillators[c/4].setOsc2PW(0.2f * modMatrixOutputs[OSC2_PW_PARAM - ENV1_A_PARAM][c/4] - 1.f);
+				oscillators[c/4].setOsc2Vol(0.1f * modMatrixOutputs[OSC2_VOL_PARAM - ENV1_A_PARAM][c/4]);
+
+				oscillators[c/4].setFmAmount(0.1f * modMatrixOutputs[OSC_FM_AMOUNT_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setRingmodVol(0.1f * modMatrixOutputs[OSC_RM_VOL_PARAM - ENV1_A_PARAM][c/4]);
 
 				// TODO
 			}
@@ -803,7 +825,7 @@ struct Synth : Module {
 				buffer[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
 
 				// sum to stereo
-				for (size_t j = 0; j < 4; j++)
+				for (int j = 0; j < std::min(channels - c, 4); j++)
 				{
 					bufferLR[iSample][0] += buffer[c/4][iSample][j];
 					bufferLR[iSample][1] += buffer[c/4][iSample][j];
@@ -896,6 +918,16 @@ struct Synth : Module {
 		}
 
 		configureUi();
+	}
+
+private:
+	float_4 getGlideFreq(float_4 glideValue, float sampleRate)
+	{
+		const float glideScale = 1.5f;
+		float_4 glideFreq = clamp(10.f - glideValue, 0.f, 10.f); // 10..0
+		glideFreq = dsp::exp2_taylor5(glideScale * glideFreq) / dsp::exp2_taylor5(glideScale * 10.f); // 1..0
+		glideFreq *= modDivider.getDivision() / sampleRate * 4096.f;
+		return glideFreq;
 	}
 };
 
