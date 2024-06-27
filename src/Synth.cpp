@@ -187,7 +187,7 @@ struct Synth : Module {
 
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
-	size_t oversamplingRate = 1;
+	size_t oversamplingRate = 2;
 
 	HalfBandDecimatorCascade<float_4> decimator;
 
@@ -277,7 +277,7 @@ struct Synth : Module {
 
 		configureUi();
 
-		uiDivider.setDivision(128);
+		uiDivider.setDivision(1024);
 		modDivider.setDivision(2);
 	}
 
@@ -644,6 +644,8 @@ struct Synth : Module {
 
 		Module::onReset(e);
 
+		// TODO set default values
+
 		configureUi();
 	}
 
@@ -682,16 +684,30 @@ struct Synth : Module {
 			size_t newActiveSourceAssign = 0;
 			for (size_t i = 0; i < ENV1_A_PARAM; i++)
 			{
-				if (params[i].getValue())
+				if (params[i].getValue() && i + 1 != activeSourceAssign)
 				{
 					newActiveSourceAssign = i + 1;
 					break;
 				}
 			}
+			if (newActiveSourceAssign == 0 && params[activeSourceAssign - 1].getValue())
+			{
+				newActiveSourceAssign = activeSourceAssign;
+			}
+
+			// switch off other source assign buttons
+			for (size_t i = 0; i < ENV1_A_PARAM; i++)
+			{
+				if (i + 1 != newActiveSourceAssign)
+				{
+					params[i].setValue(0);
+				}
+			}
+
 
 			bool newOscMixRouteActive = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5f;
 
-			// adapt UI if  activeSourceAssign or oscMixRouteActive have changed
+			// adapt UI if activeSourceAssign or oscMixRouteActive have changed
 			bool reconfigureUi = false;
 			if (activeSourceAssign != newActiveSourceAssign || oscMixRouteActive != newOscMixRouteActive)
 			{
@@ -749,6 +765,7 @@ struct Synth : Module {
 
 			if (reconfigureUi)
 			{
+				// configure UI again to set tooltips
 				configureUi();
 			}
 
