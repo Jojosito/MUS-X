@@ -9,8 +9,10 @@ using namespace rack;
 struct BipolarColorParamQuantity : ParamQuantity
 {
 	NVGcolor color = nvgRGB(0, 255, 0);
+	NVGcolor indicatorColor = nvgRGB(0, 255, 0);
 	bool bipolar = false;
 	bool disabled = false;
+	bool indicator = false;
 
 };
 
@@ -61,6 +63,11 @@ public:
 				float a1 = TOP_ANGLE + math::rescale(paramQuantity->getValue(), paramQuantity->getMinValue(), paramQuantity->getMaxValue(), minAngle, maxAngle);
 
 				drawArc(args, a0, a1, paramQuantity->color);
+
+				if (paramQuantity->indicator)
+				{
+					drawIndicator(args, paramQuantity->indicatorColor);
+				}
 			}
 		}
 	}
@@ -79,6 +86,23 @@ private:
 		nvgStrokeWidth(args.vg, arcThickness * 3.f);
 		nvgStrokeColor(args.vg, color);
 		nvgStroke(args.vg);
+
+		// indicator bg
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, cVec.x, cVec.y + 0.5f * 1.3f * box.size.y, arcThickness * 1.5f);
+		nvgFillColor(args.vg, color);
+		nvgFill(args.vg);
+	}
+
+	void drawIndicator(const DrawArgs &args, NVGcolor color) {
+
+		Vec cVec = box.size.div(2.0f);
+
+		// indicator
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, cVec.x, cVec.y + 0.5f * 1.3f * box.size.y, arcThickness);
+		nvgFillColor(args.vg, color);
+		nvgFill(args.vg);
 	}
 
 	void drawArc(const DrawArgs &args, float a0, float a1, NVGcolor arcColor) {

@@ -383,7 +383,6 @@ struct Synth : Module {
 		const auto& sourceLabels = getSourceLabels();
 		const auto& destinationLabels = getDestinationLabels();
 
-
 		for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
 		{
 			if (activeSourceAssign)
@@ -403,14 +402,14 @@ struct Synth : Module {
 								" %", 0, 10.);
 						break;
 					case PITCH_WHEEL_ASSIGN_PARAM:
-						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.083333333f,
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -2.f, 2.f, 0.16666666f,
 								"Assign " + sourceLabel + " to " + destinationLabels[i],
-								" %", 0, 100.);
+								" %", 0, 50.);
 						break;
 					default:
-						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -1.f, 1.f, 0.f,
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -2.f, 2.f, 0.f,
 								"Assign " + sourceLabel + " to " + destinationLabels[i],
-								" %", 0, 100.);
+								" %", 0, 50.);
 					}
 					break;
 				default:
@@ -464,6 +463,8 @@ struct Synth : Module {
 				}
 
 				param->color = SCHEME_GREEN;
+				param->indicator = mustCalculateDestination[i];
+				param->indicatorColor = SCHEME_BLUE;
 			}
 			getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
 		}
@@ -493,6 +494,8 @@ struct Synth : Module {
 
 					param->bipolar = true;
 					param->color = SCHEME_RED;
+					param->indicator = mustCalculateDestination[i];
+					param->indicatorColor = SCHEME_PURPLE;
 				}
 				getParam(ENV1_A_PARAM + i).setValue(modMatrix[nMixChannels + i][activeSourceAssign]);
 			}
@@ -519,6 +522,8 @@ struct Synth : Module {
 
 					param->bipolar = false;
 					param->color = SCHEME_GREEN;
+					param->indicator = mustCalculateDestination[i];
+					param->indicatorColor = SCHEME_BLUE;
 				}
 				getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
 			}
@@ -688,8 +693,10 @@ struct Synth : Module {
 			}
 
 			// update mustCalculateDestination
+			bool reconfigureUi = false;
 			for (size_t iDest = 0; iDest < nDestinations; iDest++)
 			{
+				bool oldMustCalculateDestination = mustCalculateDestination[iDest];
 				mustCalculateDestination[iDest] = false;
 				for (size_t iSource = 1; iSource < nSources; iSource++)
 				{
@@ -699,6 +706,13 @@ struct Synth : Module {
 						break;
 					}
 				}
+
+				reconfigureUi |= oldMustCalculateDestination != mustCalculateDestination[iDest];
+			}
+
+			if (reconfigureUi)
+			{
+				configureUi();
 			}
 
 
