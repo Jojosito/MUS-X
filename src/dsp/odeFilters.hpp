@@ -226,7 +226,7 @@ public:
 
 	void setResonance(T res)
 	{
-		resonance = res;
+		resonance = fmax(0.f, res);
 	}
 
 	void process(T input, T dt)

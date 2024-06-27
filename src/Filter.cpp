@@ -93,7 +93,6 @@ struct Filter : Module {
 
 			// resonance
 			float_4 resonance = 5. * (params[RESONANCE_PARAM].getValue() + 0.1f * inputs[RESONANCE_INPUT].getPolyVoltageSimd<float_4>(c));
-			resonance = fmax(0.f, resonance);
 
 			int mode = (int)params[MODE_PARAM].getValue();
 			filterBlock[c/4].setMode(mode);

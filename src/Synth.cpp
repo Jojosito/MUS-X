@@ -117,9 +117,9 @@ struct Synth : Module {
 		OSC_MIX_ROUTE_PARAM,
 		OSC_SYNC_PARAM,
 
-		FILTER1_TYPE_PARAM,
+		FILTER1_MODE_PARAM,
 		FILTER2_CUTOFF_MODE_PARAM,
-		FILTER2_TYPE_PARAM,
+		FILTER2_MODE_PARAM,
 
 		DELAY_TAP_PARAM,
 
@@ -187,7 +187,7 @@ struct Synth : Module {
 
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
-	size_t oversamplingRate = 2;
+	size_t oversamplingRate = 8;
 
 	HalfBandDecimatorCascade<float_4> decimator;
 
@@ -225,6 +225,11 @@ struct Synth : Module {
 	musx::TOnePoleZDF<float_4> glide2[4];
 	musx::OscillatorsBlock<maxOversamplingRate> oscillators[4];
 
+	const float filterMinFreq = 20.f; // min freq [Hz]
+	const float filterMaxFreq = 20480.f; // max freq [Hz] // must be 10 octaves for 1V/Oct cutoff CV scaling to work!
+	const float filterBase = filterMaxFreq/filterMinFreq; // max freq/min freq
+	const float filterLogBase = std::log(filterBase);
+
 	musx::FilterBlock filter1[4];
 	musx::FilterBlock filter2[4];
 
@@ -246,9 +251,9 @@ struct Synth : Module {
 		getParamQuantity(OSC2_TUNE_OCT_PARAM)->smoothEnabled = false;
 		configSwitch(OSC_SYNC_PARAM, 0,   1,   0,  "Sync", {"Off", "Sync oscillator 2 to oscillator 1"});
 		configSwitch(OSC_MIX_ROUTE_PARAM, 0, 1, 0, "Adjust mixer routing to filter 1 / filter 2", {"", "active"});
-		configSwitch(FILTER1_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 1 type", FilterBlock::getModeLabels());
+		configSwitch(FILTER1_MODE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 1 mode", FilterBlock::getModeLabels());
 		configSwitch(FILTER2_CUTOFF_MODE_PARAM, 0, 2, 0, "Filter 2 cutoff mode", {"individual", "offset", "space"});
-		configSwitch(FILTER2_TYPE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 2 type", FilterBlock::getModeLabels());
+		configSwitch(FILTER2_MODE_PARAM, 0, FilterBlock::getModeLabels().size() - 1, 8, "Filter 2 mode", FilterBlock::getModeLabels());
 		configSwitch(DELAY_TAP_PARAM, 0, 1, 0, "Delay tap tempo");
 
 		configInput(VOCT_INPUT, "V/Oct");
@@ -277,7 +282,7 @@ struct Synth : Module {
 
 		configureUi();
 
-		uiDivider.setDivision(1024);
+		uiDivider.setDivision(256);
 		modDivider.setDivision(2);
 	}
 
@@ -780,6 +785,9 @@ struct Synth : Module {
 				oscillators[c/4].setOversamplingRate(oversamplingRate);
 
 				oscillators[c/4].setSync(getParam(OSC_SYNC_PARAM).getValue());
+
+				filter1[c/4].setMode(getParam(FILTER1_MODE_PARAM).getValue());
+				filter2[c/4].setMode(getParam(FILTER2_MODE_PARAM).getValue());
 			}
 
 			// sync light
@@ -879,6 +887,18 @@ struct Synth : Module {
 				oscillators[c/4].setRingmodVol(0.1f * modMatrixOutputs[OSC_RM_VOL_PARAM - ENV1_A_PARAM][c/4]);
 				oscillators[c/4].setRingmodPan(0.2f * modMatrixOutputs[OSC_RM_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4]);
 
+				float_4 filterFrequency = simd::exp(filterLogBase * 0.1f * modMatrixOutputs[FILTER1_CUTOFF_PARAM - ENV1_A_PARAM][c/4]) * filterMinFreq;
+				filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * oversamplingRate * 0.18f));
+				filter1[c/4].setCutoffFrequencyAndResonance(
+						filterFrequency,
+						0.5f * modMatrixOutputs[FILTER1_RESONANCE_PARAM - ENV1_A_PARAM][c/4]);
+
+				filterFrequency = simd::exp(filterLogBase * 0.1f * modMatrixOutputs[FILTER2_CUTOFF_PARAM - ENV1_A_PARAM][c/4]) * filterMinFreq;
+								filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * oversamplingRate * 0.18f));
+				filter2[c/4].setCutoffFrequencyAndResonance(
+						filterFrequency,
+						0.5f * modMatrixOutputs[FILTER2_RESONANCE_PARAM - ENV1_A_PARAM][c/4]);
+
 				// TODO
 			}
 		}
@@ -892,11 +912,14 @@ struct Synth : Module {
 		{
 			oscillators[c/4].processBandlimited(buffer1[c/4], buffer2[c/4]);
 
+			filter1[c/4].processBlock(buffer1[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+			filter2[c/4].processBlock(buffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+
 			// amp
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer1[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
-				buffer2[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+				buffer1[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+				buffer2[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
 
 				// sum to stereo
 				for (int j = 0; j < std::min(channels - c, 4); j++)
@@ -1087,12 +1110,12 @@ struct SynthWidget : ModuleWidget {
 	    addParam(createLightParamCentered<VCVLightLatch<MediumSimpleLight<RedLight>>>(mm2px(Vec(126.9, 87.388)), module, Synth::OSC_MIX_ROUTE_PARAM, Synth::OSC_MIX_ROUTE_LIGHT));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(194.912, 62.288)), module, Synth::FILTER1_CUTOFF_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(211.912, 62.288)), module, Synth::FILTER1_RESONANCE_PARAM));
-	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(227.325, 62.288)), module, Synth::FILTER1_TYPE_PARAM));
+	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(227.325, 62.288)), module, Synth::FILTER1_MODE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(259.737, 62.288)), module, Synth::FILTER1_PAN_PARAM));
 	    addParam(createParamCentered<NKK>(mm2px(Vec(180.413, 75.237)), module, Synth::FILTER2_CUTOFF_MODE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(194.912, 87.388)), module, Synth::FILTER2_CUTOFF_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(211.912, 87.388)), module, Synth::FILTER2_RESONANCE_PARAM));
-	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(227.325, 87.388)), module, Synth::FILTER2_TYPE_PARAM));
+	    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(227.325, 87.388)), module, Synth::FILTER2_MODE_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(259.737, 87.388)), module, Synth::FILTER2_PAN_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(242.737, 75.237)), module, Synth::FILTER_SERIAL_PARALLEL_PARAM));
 	    addParam(createParamCentered<RoundBlackKnobWithArc>(mm2px(Vec(183.587, 112.488)), module, Synth::AMP_VOL_PARAM));
