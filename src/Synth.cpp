@@ -465,6 +465,18 @@ struct Synth : Module {
 				param->color = SCHEME_GREEN;
 				param->indicator = mustCalculateDestination[i];
 				param->indicatorColor = SCHEME_BLUE;
+
+				param->modulatedByTooltips.clear();
+				if (mustCalculateDestination[i])
+				{
+					for (size_t iSource = 1; iSource < nSources; iSource++)
+					{
+						if (modMatrix[i][iSource] != 0.f)
+						{
+							param->modulatedByTooltips.push_back(sourceLabels[iSource - 1]);
+						}
+					}
+				}
 			}
 			getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
 		}
@@ -494,8 +506,20 @@ struct Synth : Module {
 
 					param->bipolar = true;
 					param->color = SCHEME_RED;
-					param->indicator = mustCalculateDestination[i];
+					param->indicator = mustCalculateDestination[nMixChannels + i];
 					param->indicatorColor = SCHEME_PURPLE;
+
+					param->modulatedByTooltips.clear();
+					if (mustCalculateDestination[nMixChannels + i])
+					{
+						for (size_t iSource = 1; iSource < nSources; iSource++)
+						{
+							if (modMatrix[nMixChannels + i][iSource] != 0.f)
+							{
+								param->modulatedByTooltips.push_back(sourceLabels[iSource - 1]);
+							}
+						}
+					}
 				}
 				getParam(ENV1_A_PARAM + i).setValue(modMatrix[nMixChannels + i][activeSourceAssign]);
 			}
@@ -524,6 +548,18 @@ struct Synth : Module {
 					param->color = SCHEME_GREEN;
 					param->indicator = mustCalculateDestination[i];
 					param->indicatorColor = SCHEME_BLUE;
+
+					param->modulatedByTooltips.clear();
+					if (mustCalculateDestination[i])
+					{
+						for (size_t iSource = 1; iSource < nSources; iSource++)
+						{
+							if (modMatrix[i][iSource] != 0.f)
+							{
+								param->modulatedByTooltips.push_back(sourceLabels[iSource - 1]);
+							}
+						}
+					}
 				}
 				getParam(ENV1_A_PARAM + i).setValue(modMatrix[i][activeSourceAssign]);
 			}
@@ -656,10 +692,12 @@ struct Synth : Module {
 			bool newOscMixRouteActive = params[OSC_MIX_ROUTE_PARAM].getValue() > 0.5f;
 
 			// adapt UI if  activeSourceAssign or oscMixRouteActive have changed
+			bool reconfigureUi = false;
 			if (activeSourceAssign != newActiveSourceAssign || oscMixRouteActive != newOscMixRouteActive)
 			{
 				activeSourceAssign = newActiveSourceAssign;
 				oscMixRouteActive = newOscMixRouteActive;
+				reconfigureUi = true;
 				configureUi();
 			}
 
@@ -693,7 +731,6 @@ struct Synth : Module {
 			}
 
 			// update mustCalculateDestination
-			bool reconfigureUi = false;
 			for (size_t iDest = 0; iDest < nDestinations; iDest++)
 			{
 				bool oldMustCalculateDestination = mustCalculateDestination[iDest];

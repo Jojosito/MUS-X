@@ -2,6 +2,8 @@
 
 #include <rack.hpp>
 
+#include <vector>
+
 namespace musx {
 
 using namespace rack;
@@ -13,7 +15,22 @@ struct BipolarColorParamQuantity : ParamQuantity
 	bool bipolar = false;
 	bool disabled = false;
 	bool indicator = false;
+	std::vector<std::string> modulatedByTooltips = {};
 
+	std::string getString() override
+	{
+		std::string tooltip = ParamQuantity::getString();
+		if (modulatedByTooltips.size())
+		{
+			tooltip += "\n\nModulated by:";
+			for (auto& str : modulatedByTooltips)
+			{
+				str[0] = toupper(str[0]);
+				tooltip += "\n" + str;
+			}
+		}
+		return tooltip;
+	}
 };
 
 class RoundBlackKnobWithArc : public RoundBlackKnob {
@@ -71,7 +88,6 @@ public:
 			}
 		}
 	}
-
 
 private:
 	void drawBg(const DrawArgs &args, NVGcolor color) {
