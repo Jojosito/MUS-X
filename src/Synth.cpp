@@ -858,7 +858,9 @@ struct Synth : Module {
 				oscillators[c/4].setOsc1Shape(0.2f * modMatrixOutputs[OSC1_SHAPE_PARAM - ENV1_A_PARAM][c/4] - 1.f);
 				oscillators[c/4].setOsc1PW(0.2f * modMatrixOutputs[OSC1_PW_PARAM - ENV1_A_PARAM][c/4] - 1.f);
 				oscillators[c/4].setOsc1Vol(0.1f * modMatrixOutputs[OSC1_VOL_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc1Pan(0.2f * modMatrixOutputs[OSC1_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4]);
 				oscillators[c/4].setOsc1Subvol(0.1f * modMatrixOutputs[OSC1_SUB_VOL_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc1SubPan(0.2f * modMatrixOutputs[OSC1_SUB_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4]);
 
 				float_4 osc2FreqVOct = getParam(OSC2_TUNE_OCT_PARAM).getValue() +
 						modMatrixOutputs[OSC2_TUNE_SEMI_PARAM - ENV1_A_PARAM][c/4] / 5.f +
@@ -871,32 +873,36 @@ struct Synth : Module {
 				oscillators[c/4].setOsc2Shape(0.2f * modMatrixOutputs[OSC2_SHAPE_PARAM - ENV1_A_PARAM][c/4] - 1.f);
 				oscillators[c/4].setOsc2PW(0.2f * modMatrixOutputs[OSC2_PW_PARAM - ENV1_A_PARAM][c/4] - 1.f);
 				oscillators[c/4].setOsc2Vol(0.1f * modMatrixOutputs[OSC2_VOL_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setOsc2Pan(0.2f * modMatrixOutputs[OSC2_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4]);
 
 				oscillators[c/4].setFmAmount(0.1f * modMatrixOutputs[OSC_FM_AMOUNT_PARAM - ENV1_A_PARAM][c/4]);
 				oscillators[c/4].setRingmodVol(0.1f * modMatrixOutputs[OSC_RM_VOL_PARAM - ENV1_A_PARAM][c/4]);
+				oscillators[c/4].setRingmodPan(0.2f * modMatrixOutputs[OSC_RM_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4]);
 
 				// TODO
 			}
 		}
 
-		float_4 buffer[4][oversamplingRate];
+		float_4 buffer1[4][oversamplingRate];
+		float_4 buffer2[4][oversamplingRate];
 		float_4* bufferLR = decimator.getInputArray(oversamplingRate);
 		std::memset(bufferLR, 0, oversamplingRate * sizeof(float_4));
 
 		for (int c = 0; c < channels; c += 4)
 		{
-			oscillators[c/4].processBandlimited(buffer[c/4]);
+			oscillators[c/4].processBandlimited(buffer1[c/4], buffer2[c/4]);
 
 			// amp
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+				buffer1[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+				buffer2[c/4][iSample] *= modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
 
 				// sum to stereo
 				for (int j = 0; j < std::min(channels - c, 4); j++)
 				{
-					bufferLR[iSample][0] += buffer[c/4][iSample][j];
-					bufferLR[iSample][1] += buffer[c/4][iSample][j];
+					bufferLR[iSample][0] += buffer1[c/4][iSample][j];
+					bufferLR[iSample][1] += buffer2[c/4][iSample][j];
 				}
 			}
 

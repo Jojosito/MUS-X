@@ -34,18 +34,22 @@ private:
 	float_4 osc1Shape = {0};
 	float_4 osc1PW = {0};
 	float_4 osc1Vol = {0};
+	float_4 osc1Pan = {0};
 	float_4 osc1Subvol = {0};
+	float_4 osc1SubPan = {0};
 
 	float_4 osc2Freq = {440.}; // [Hz]
 	float_4 osc2Shape = {0};
 	float_4 osc2PW = {0};
 	float_4 osc2Vol = {0};
+	float_4 osc2Pan = {0};
 
 	float_4 syncMask = {0};
 	int calcFm = 0;
 	float_4 fmUnscaled = {0};
 	float_4 fmAmt = {0};
 	float_4 ringmodVol = {0};
+	float_4 ringmodPan = {0};
 
 	// more parameters
 	int32_4 phase1SubInc = {0};
@@ -188,6 +192,12 @@ public:
 		osc1Vol *= 10.f / INT32_MAX;
 	}
 
+	// set oscillator 1 pan [-1..1]
+	inline void setOsc1Pan(float_4 pan)
+	{
+		osc1Pan = simd::clamp(pan, -1.f, 1.f);
+	}
+
 	// set oscillator 1 suboscillator volume [0..1]
 	inline void setOsc1Subvol(float_4 vol)
 	{
@@ -197,6 +207,11 @@ public:
 		calcSub = simd::movemask(osc1Subvol > 0);
 	}
 
+	// set oscillator 1 suboscillator pan [-1..1]
+	inline void setOsc1SubPan(float_4 pan)
+	{
+		osc1SubPan = simd::clamp(pan, -1.f, 1.f);
+	}
 
 	// set oscillator 2 frequency in V/Oct. 0 V = C4 [V]
 	inline void setOsc2FreqVOct(float_4 freq)
@@ -250,6 +265,12 @@ public:
 		osc2Vol *= 10.f / INT32_MAX;
 	}
 
+	// set oscillator 2 pan [-1..1]
+	inline void setOsc2Pan(float_4 pan)
+	{
+		osc2Pan = simd::clamp(pan, -1.f, 1.f);
+	}
+
 
 	// set if oscillator 2 should be synced to oscillator 1 [0, 1]
 	inline void setSync(float_4 s)
@@ -281,6 +302,12 @@ public:
 	{
 		ringmodVol  = simd::clamp(vol, 0.f, 1.f);
 		ringmodVol *= 10.f / INT32_MAX / INT32_MAX;
+	}
+
+	// set ringmodulator pan [-1..1]
+	inline void setRingmodPan(float_4 pan)
+	{
+		ringmodPan = simd::clamp(pan, -1.f, 1.f);
 	}
 
 
@@ -329,7 +356,7 @@ public:
 	// output can have DC offset when using fm or ringmod
 	// output in NOT bound to +-10V. The individual components (osc1, subosc, osc2, ringmod) are within +-10V
 	// it is recommended to feed the output through a DC blocker and saturator
-	void processBandlimited(float_4* buffer)
+	void processBandlimited(float_4* bufferLMono, float_4* bufferR = nullptr)
 	{
 		// calculate the oversampled oscillators and mix
 		for (int i = 0; i < oversamplingRate; ++i)
@@ -337,7 +364,8 @@ public:
 			float_4 sub1 = 0;
 			float_4 wave1 = 0;
 			float_4 wave2 = 0;
-			float_4 out = 0;
+			float_4 outLMono = 0;
+			float_4 outR = 0;
 
 
 			//
@@ -404,7 +432,15 @@ public:
 						-INT32_MAX,
 						oversamplingRate);
 
-				out += osc1Subvol * (prevSub1[bufferReadIndex] + oscSubBlep.process());
+				if (bufferR)
+				{
+					outLMono += osc1Subvol * getLVol(osc1SubPan) * (prevSub1[bufferReadIndex] + oscSubBlep.process());
+					outR += osc1Subvol * getRVol(osc1SubPan) * (prevSub1[bufferReadIndex] + oscSubBlep.process());
+				}
+				else
+				{
+					outLMono += osc1Subvol * (prevSub1[bufferReadIndex] + oscSubBlep.process());
+				}
 			}
 
 			phasor1Sub += phase1SubInc;
@@ -489,9 +525,28 @@ public:
 
 
 			// mix
-			out += osc1Vol * prevWave1[bufferReadIndex] +
-					osc2Vol * prevWave2[bufferReadIndex] +
-					ringmodVol * prevWave1[bufferReadIndex] * prevWave2[bufferReadIndex]; // +-5V each
+			if (bufferR)
+			{
+				outLMono += osc1Vol * getLVol(osc1Pan) * prevWave1[bufferReadIndex] +
+						osc2Vol * getLVol(osc2Pan) * prevWave2[bufferReadIndex] +
+						ringmodVol * getLVol(ringmodPan) * prevWave1[bufferReadIndex] * prevWave2[bufferReadIndex]; // +-5V each
+
+				bufferLMono[i] = outLMono;
+
+				outR += osc1Vol * getRVol(osc1Pan) * prevWave1[bufferReadIndex] +
+						osc2Vol * getRVol(osc2Pan) * prevWave2[bufferReadIndex] +
+						ringmodVol * getRVol(ringmodPan) * prevWave1[bufferReadIndex] * prevWave2[bufferReadIndex]; // +-5V each
+
+				bufferR[i] = outR;
+			}
+			else
+			{
+				outLMono += osc1Vol * prevWave1[bufferReadIndex] +
+						osc2Vol * prevWave2[bufferReadIndex] +
+						ringmodVol * prevWave1[bufferReadIndex] * prevWave2[bufferReadIndex]; // +-5V each
+
+				bufferLMono[i] = outLMono;
+			}
 
 			// buffers
 			prevSub1 [bufferWriteIndex] = sub1;
@@ -501,7 +556,6 @@ public:
 			bufferReadIndex = (bufferReadIndex + 1) & (O * blepSize / 2 - 1);
 			bufferWriteIndex = (bufferReadIndex + oversamplingRate * blepSize / 2 - 1) & (O * blepSize / 2 - 1);
 
-			buffer[i] = out;
 		}
 	}
 
@@ -646,6 +700,15 @@ private:
 		return simd::ifelse(1.f * phaseInc > 0.f, phasorResetMaskFloatPos, phasorResetMaskFloatNeg);
 	}
 
+	float_4 getLVol(float_4 pan)
+	{
+		return 0.5f - 0.5f * pan;
+	}
+
+	float_4 getRVol(float_4 pan)
+	{
+		return 0.5f + 0.5f * pan;
+	}
 };
 
 }
