@@ -183,7 +183,7 @@ struct Synth : Module {
 	//
 	int channels = 1;
 
-	ModuleWidget* widget;
+	ModuleWidget* widget = nullptr;
 
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
@@ -273,12 +273,6 @@ struct Synth : Module {
 		configOutput(INDIVIDUAL_MOD_4_OUTPUT, "Indvidual modulation 4");
 		configOutput(OUT_L_OUTPUT, "Left/Mono");
 		configOutput(OUT_R_OUTPUT, "Right");
-
-		const auto& sourceLabels = getSourceLabels();
-		for (size_t i = 0; i < sourceLabels.size(); i++)
-		{
-			configSwitch(i, 0, 1, 0, "Assign " + sourceLabels[i], {"", "active"});
-		}
 
 		configureUi();
 
@@ -387,6 +381,64 @@ struct Synth : Module {
 	{
 		const auto& sourceLabels = getSourceLabels();
 		const auto& destinationLabels = getDestinationLabels();
+
+		// bring "Modulates:" labels into correct order
+		std::vector<size_t> destIds;
+		for (size_t i = 0; i < FILTER1_CUTOFF_PARAM - ENV1_A_PARAM; i++)
+		{
+			destIds.push_back(i);
+		}
+		for (size_t i = OSC1_VOL_PARAM - ENV1_A_PARAM; i < OSC1_VOL_PARAM - ENV1_A_PARAM + 2 * nMixChannels; i++)
+		{
+			destIds.push_back(i);
+		}
+		for (size_t i = FILTER1_CUTOFF_PARAM - ENV1_A_PARAM; i < OSC1_VOL_PARAM - ENV1_A_PARAM; i++)
+		{
+			destIds.push_back(i);
+		}
+
+		for (size_t iSource = 0; iSource < sourceLabels.size(); iSource++)
+		{
+			bool isModulating = false;
+			std::string modulatesLabel = "\n\nModulates:\n";
+			for (size_t iDest : destIds)
+			{
+				if (modMatrix[iDest][iSource + 1] != 0.f)
+				{
+					std::string label = "";
+					if (iDest >= nDestinations - nMixChannels)
+					{
+						label = destinationLabels[iDest - nMixChannels] + " routing (filter 1 / filter 2)";
+					}
+					else if (iDest >= nDestinations - 2 * nMixChannels)
+					{
+						label = destinationLabels[iDest] + " volume";
+					}
+					else
+					{
+						label = destinationLabels[iDest];
+					}
+					label += "\n";
+					label[0] = toupper(label[0]);
+					modulatesLabel += label;
+					isModulating = true;
+				}
+			}
+
+			if (isModulating)
+			{
+				configSwitch(iSource, 0, 1, 0, "Assign " + sourceLabels[iSource], {modulatesLabel, "active" + modulatesLabel});
+			}
+			else
+			{
+				configSwitch(iSource, 0, 1, 0, "Assign " + sourceLabels[iSource], {"", "active"});
+			}
+
+			if (iSource + 1 == activeSourceAssign)
+			{
+				params[iSource].setValue(1);
+			}
+		}
 
 		for (size_t i = 0; i < nDestinations - 2 * nMixChannels; i++)
 		{
