@@ -42,14 +42,6 @@ public:
 	void draw(const DrawArgs& args) override
 	{
 		RoundBlackKnob::draw(args);
-
-		BipolarColorParamQuantity* paramQuantity = dynamic_cast<BipolarColorParamQuantity*>(getParamQuantity());
-
-		if (!paramQuantity)
-		{
-			return;
-		}
-
 		drawBg(args, nvgRGB(32, 32, 32));
 	}
 
