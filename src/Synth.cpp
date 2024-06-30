@@ -286,7 +286,7 @@ struct Synth : Module {
 
 		configureUi();
 
-		uiDivider.setDivision(256);
+		uiDivider.setDivision(64);
 		modDivider.setDivision(2);
 	}
 
