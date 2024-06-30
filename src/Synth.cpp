@@ -1014,13 +1014,30 @@ struct Synth : Module {
 		{
 			oscillators[c/4].processBandlimited(buffer1[c/4], buffer2[c/4]);
 
+			// process filter 1
 			dcBlocker1[c/4].processHighpassBlock(buffer1[c/4], oversamplingRate);
 			aliasFilter1[c/4].processLowpassBlock(buffer1[c/4], oversamplingRate);
 			filter1[c/4].processBlock(buffer1[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
 
+			// serial routing
+			float_4 serPar = clamp(0.2f * modMatrixOutputs[FILTER_SERIAL_PARALLEL_PARAM - ENV1_A_PARAM][c/4] - 1.f, -1.f, 1.f);
+			float_4 serial = 0.5f - 0.5f * serPar; // [1..0]
+			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			{
+				buffer2[c/4][iSample] += serial * buffer1[c/4][iSample];
+			}
+
+			// process filter 2
 			dcBlocker2[c/4].processHighpassBlock(buffer2[c/4], oversamplingRate);
 			aliasFilter2[c/4].processLowpassBlock(buffer2[c/4], oversamplingRate);
 			filter2[c/4].processBlock(buffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+
+			// parallel routing
+			float_4 parallel = 0.5f + 0.5f * serPar; // [0..1]
+			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			{
+				buffer1[c/4][iSample] *= parallel;
+			}
 
 			// amp
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
