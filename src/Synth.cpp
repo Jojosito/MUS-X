@@ -1041,17 +1041,26 @@ struct Synth : Module {
 				buffer1[c/4][iSample] *= parallel;
 			}
 
-			// amp
+			// pan, amp
+			float_4 pan1 = clamp(0.2f * modMatrixOutputs[FILTER1_PAN_PARAM - ENV1_A_PARAM][c/4], -1.f, 1.f);
+			float_4 pan2 = clamp(0.2f * modMatrixOutputs[FILTER2_PAN_PARAM - ENV1_A_PARAM][c/4], -1.f, 1.f);
+			float_4 vol1L = 0.5f - 0.5f * pan1;
+			float_4 vol1R = 1.f - vol1L;
+			float_4 vol2L = 0.5f - 0.5f * pan2;
+			float_4 vol2R = 1.f - vol2L;
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
+				// amp
 				delayBuffer1[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
 				delayBuffer2[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
 
 				// sum to stereo
 				for (int j = 0; j < std::min(channels - c, 4); j++)
 				{
-					bufferLR[iSample][0] += delayBuffer1[c/4][iSample][j];
-					bufferLR[iSample][1] += delayBuffer2[c/4][iSample][j];
+					// L
+					bufferLR[iSample][0] += vol1L[j] * delayBuffer1[c/4][iSample][j] + vol2L[j] * delayBuffer2[c/4][iSample][j];
+					// R
+					bufferLR[iSample][1] += vol1R[j] * delayBuffer1[c/4][iSample][j] + vol2R[j] * delayBuffer2[c/4][iSample][j];
 				}
 			}
 		}
