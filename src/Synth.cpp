@@ -456,12 +456,32 @@ struct Synth : Module {
 					case VOCT_ASSIGN_PARAM:
 						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -10.f, 10.f, 5.f,
 								"Assign " + sourceLabel + " to " + destinationLabels[i],
-								" %", 0, 10.);
+								" %", 0, 20.);
 						break;
 					case PITCH_WHEEL_ASSIGN_PARAM:
 						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -2.f, 2.f, 0.16666666f,
 								"Assign " + sourceLabel + " to " + destinationLabels[i],
+								" semitones", 0, 12.);
+						break;
+					default:
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -2.f, 2.f, 0.f,
+								"Assign " + sourceLabel + " to " + destinationLabels[i],
 								" %", 0, 50.);
+					}
+					break;
+				case FILTER1_CUTOFF_PARAM:
+				case FILTER2_CUTOFF_PARAM:
+					switch (activeSourceAssign - 1)
+					{
+					case VOCT_ASSIGN_PARAM:
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -2.f, 2.f, 1.f,
+								"Assign " + sourceLabel + " to " + destinationLabels[i],
+								" %", 0, 100.);
+						break;
+					case PITCH_WHEEL_ASSIGN_PARAM:
+						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -0.4f, 0.4f, 0.033333333f,
+								"Assign " + sourceLabel + " to " + destinationLabels[i],
+								" semitones", 0, 60.);
 						break;
 					default:
 						param = configParam<BipolarColorParamQuantity>(ENV1_A_PARAM + i, -2.f, 2.f, 0.f,
