@@ -226,6 +226,12 @@ struct Synth : Module {
 	musx::TOnePoleZDF<float_4> glide2[4];
 	musx::OscillatorsBlock<maxOversamplingRate> oscillators[4];
 
+	float_4 noiseVol1[4] = {0.f};
+	float_4 noiseVol2[4] = {0.f};
+
+	float_4 extVol1[4] = {0.f};
+	float_4 extVol2[4] = {0.f};
+
 	const float filterMinFreq = 20.f; // min freq [Hz]
 	const float filterMaxFreq = 20480.f; // max freq [Hz] // must be 10 octaves for 1V/Oct cutoff CV scaling to work!
 	const float filterBase = filterMaxFreq/filterMinFreq; // max freq/min freq
@@ -234,12 +240,14 @@ struct Synth : Module {
 	musx::TOnePole<float_4> dcBlocker1[4];
 	musx::AliasReductionFilter<float_4> aliasFilter1[4];
 	musx::FilterBlock filter1[4];
+	musx::AntialiasedCheapSaturator<float_4> saturator1[4];
 	float_4 delayBuffer1[4][maxOversamplingRate] = {0.f};
 
 	float_4 delayBuffer2[4][maxOversamplingRate] = {0.f};
 	musx::TOnePole<float_4> dcBlocker2[4];
 	musx::AliasReductionFilter<float_4> aliasFilter2[4];
 	musx::FilterBlock filter2[4];
+	musx::AntialiasedCheapSaturator<float_4> saturator2[4];
 
 	Synth() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -944,6 +952,14 @@ struct Synth : Module {
 				}
 //				std::cerr << "\n";
 
+				// calculate further values
+				float_4 noiseAmp = clamp(0.1f * modMatrixOutputs[OSC_NOISE_VOL_PARAM - ENV1_A_PARAM][c/4], 0.f, 1.f);
+				float_4 noiseMix = clamp(0.2f * modMatrixOutputs[OSC_NOISE_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4], -1.f, 1.f);
+				noiseVol1[c/4] = 0.5f - 0.5f * noiseMix;
+				noiseVol2[c/4] = 1.f - noiseVol1[c/4];
+				noiseVol1[c/4] *= noiseAmp;
+				noiseVol2[c/4] *= noiseAmp;
+
 
 				// set modulated parameters
 				env1[c/4].setAttackTime(0.1f * modMatrixOutputs[ENV1_A_PARAM - ENV1_A_PARAM][c/4]);
@@ -1010,6 +1026,10 @@ struct Synth : Module {
 			}
 		}
 
+		//
+		// process audio
+		//
+
 		float_4 buffer1[4][oversamplingRate];
 		float_4 buffer2[4][oversamplingRate];
 		float_4* bufferLR = decimator.getInputArray(oversamplingRate);
@@ -1017,12 +1037,22 @@ struct Synth : Module {
 
 		for (int c = 0; c < channels; c += 4)
 		{
+			// oscillators
 			oscillators[c/4].processBandlimited(buffer1[c/4], buffer2[c/4]);
+
+			// noise
+			float_4 noise = random::normal();
+			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			{
+				buffer1[c/4][iSample] += noiseVol1[c/4] * noise;
+				buffer2[c/4][iSample] += noiseVol2[c/4] * noise;
+			}
 
 			// process filter 1
 			dcBlocker1[c/4].processHighpassBlock(buffer1[c/4], oversamplingRate);
 			aliasFilter1[c/4].processLowpassBlock(buffer1[c/4], oversamplingRate);
 			filter1[c/4].processBlock(buffer1[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+			saturator1[c/4].processBlockBandlimited(buffer1[c/4], oversamplingRate);
 
 			// serial routing
 			float_4 serPar = clamp(0.2f * modMatrixOutputs[FILTER_SERIAL_PARALLEL_PARAM - ENV1_A_PARAM][c/4] - 1.f, -1.f, 1.f);
@@ -1036,6 +1066,7 @@ struct Synth : Module {
 			dcBlocker2[c/4].processHighpassBlock(delayBuffer2[c/4], oversamplingRate);
 			aliasFilter2[c/4].processLowpassBlock(delayBuffer2[c/4], oversamplingRate);
 			filter2[c/4].processBlock(delayBuffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+			saturator2[c/4].processBlockBandlimited(delayBuffer2[c/4], oversamplingRate);
 
 			// parallel routing
 			float_4 parallel = 0.5f + 0.5f * serPar; // [0..1]
