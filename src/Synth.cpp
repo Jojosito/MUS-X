@@ -229,6 +229,7 @@ struct Synth : Module {
 	float_4 noiseVol1[4] = {0.f};
 	float_4 noiseVol2[4] = {0.f};
 
+	float_4 lastExtIn[4] = {0.f};
 	float_4 extVol1[4] = {0.f};
 	float_4 extVol2[4] = {0.f};
 
@@ -953,13 +954,19 @@ struct Synth : Module {
 //				std::cerr << "\n";
 
 				// calculate further values
-				float_4 noiseAmp = clamp(0.1f * modMatrixOutputs[OSC_NOISE_VOL_PARAM - ENV1_A_PARAM][c/4], 0.f, 1.f);
+				float_4 noiseAmp = clamp(modMatrixOutputs[OSC_NOISE_VOL_PARAM - ENV1_A_PARAM][c/4], 0.f, 10.f);
 				float_4 noiseMix = clamp(0.2f * modMatrixOutputs[OSC_NOISE_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4], -1.f, 1.f);
 				noiseVol1[c/4] = 0.5f - 0.5f * noiseMix;
 				noiseVol2[c/4] = 1.f - noiseVol1[c/4];
 				noiseVol1[c/4] *= noiseAmp;
 				noiseVol2[c/4] *= noiseAmp;
 
+				float_4 extAmp = clamp(0.1f * modMatrixOutputs[OSC_EXT_VOL_PARAM - ENV1_A_PARAM][c/4], 0.f, 1.f);
+				float_4 extMix = clamp(0.2f * modMatrixOutputs[OSC_EXT_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4], -1.f, 1.f);
+				extVol1[c/4] = 0.5f - 0.5f * extMix;
+				extVol2[c/4] = 1.f - extVol1[c/4];
+				extVol1[c/4] *= extAmp;
+				extVol2[c/4] *= extAmp;
 
 				// set modulated parameters
 				env1[c/4].setAttackTime(0.1f * modMatrixOutputs[ENV1_A_PARAM - ENV1_A_PARAM][c/4]);
@@ -1030,36 +1037,42 @@ struct Synth : Module {
 		// process audio
 		//
 
-		float_4 buffer1[4][oversamplingRate];
-		float_4 buffer2[4][oversamplingRate];
 		float_4* bufferLR = decimator.getInputArray(oversamplingRate);
 		std::memset(bufferLR, 0, oversamplingRate * sizeof(float_4));
 
 		for (int c = 0; c < channels; c += 4)
 		{
+			float_4 buffer1[oversamplingRate];
+			float_4 buffer2[oversamplingRate];
+
 			// oscillators
-			oscillators[c/4].processBandlimited(buffer1[c/4], buffer2[c/4]);
+			oscillators[c/4].processBandlimited(buffer1, buffer2);
 
 			// noise
 			float_4 noise = random::normal();
+			float_4 extIn = inputs[EXT_INPUT].getPolyVoltageSimd<float_4>(c);
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer1[c/4][iSample] += noiseVol1[c/4] * noise;
-				buffer2[c/4][iSample] += noiseVol2[c/4] * noise;
+				buffer1[iSample] += noiseVol1[c/4] * noise;
+				buffer2[iSample] += noiseVol2[c/4] * noise;
+
+				buffer1[iSample] += extVol1[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/oversamplingRate);
+				buffer2[iSample] += extVol2[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/oversamplingRate);
 			}
+			lastExtIn[c/4] = extIn;
 
 			// process filter 1
-			dcBlocker1[c/4].processHighpassBlock(buffer1[c/4], oversamplingRate);
-			aliasFilter1[c/4].processLowpassBlock(buffer1[c/4], oversamplingRate);
-			filter1[c/4].processBlock(buffer1[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
-			saturator1[c/4].processBlockBandlimited(buffer1[c/4], oversamplingRate);
+			dcBlocker1[c/4].processHighpassBlock(buffer1, oversamplingRate);
+			aliasFilter1[c/4].processLowpassBlock(buffer1, oversamplingRate);
+			filter1[c/4].processBlock(buffer1, args.sampleTime / oversamplingRate, oversamplingRate);
+			saturator1[c/4].processBlockBandlimited(buffer1, oversamplingRate);
 
 			// serial routing
 			float_4 serPar = clamp(0.2f * modMatrixOutputs[FILTER_SERIAL_PARALLEL_PARAM - ENV1_A_PARAM][c/4] - 1.f, -1.f, 1.f);
 			float_4 serial = 0.5f - 0.5f * serPar; // [1..0]
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				delayBuffer2[c/4][iSample] += serial * buffer1[c/4][iSample];
+				delayBuffer2[c/4][iSample] += serial * buffer1[iSample];
 			}
 
 			// process filter 2
@@ -1072,7 +1085,7 @@ struct Synth : Module {
 			float_4 parallel = 0.5f + 0.5f * serPar; // [0..1]
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer1[c/4][iSample] *= parallel;
+				buffer1[iSample] *= parallel;
 			}
 
 			// pan, amp
@@ -1097,11 +1110,12 @@ struct Synth : Module {
 					bufferLR[iSample][1] += vol1R[j] * delayBuffer1[c/4][iSample][j] + vol2R[j] * delayBuffer2[c/4][iSample][j];
 				}
 			}
+
+			// delay buffers to bring filter 1 and 2 in phase also with serial routing
+			std::memcpy(&delayBuffer1[c/4], &buffer1, sizeof(buffer1));
+			std::memcpy(&delayBuffer2[c/4], &buffer2, sizeof(buffer2));
 		}
 
-		// delay buffers to bring filter 1 and 2 in phase also with serial routing
-		std::memcpy(&delayBuffer1, &buffer1, sizeof(buffer1));
-		std::memcpy(&delayBuffer2, &buffer2, sizeof(buffer2));
 
 
 		// downsampling
