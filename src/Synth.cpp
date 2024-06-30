@@ -1053,11 +1053,14 @@ struct Synth : Module {
 			float_4 extIn = inputs[EXT_INPUT].getPolyVoltageSimd<float_4>(c);
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer1[iSample] += noiseVol1[c/4] * noise;
-				buffer2[iSample] += noiseVol2[c/4] * noise;
-
 				buffer1[iSample] += extVol1[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/oversamplingRate);
 				buffer2[iSample] += extVol2[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/oversamplingRate);
+
+				buffer1[iSample] *= 2.f;
+				buffer2[iSample] *= 2.f;
+
+				buffer1[iSample] += noiseVol1[c/4] * noise;
+				buffer2[iSample] += noiseVol2[c/4] * noise;
 			}
 			lastExtIn[c/4] = extIn;
 
