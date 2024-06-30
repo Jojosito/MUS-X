@@ -792,6 +792,8 @@ struct Synth : Module {
 
 	void process(const ProcessArgs& args) override {
 
+		size_t currentOversamplingRate = oversamplingRate;
+
 		if (uiDivider.process())
 		{
 			channels = std::max(1, inputs[VOCT_INPUT].getChannels());
@@ -1018,13 +1020,13 @@ struct Synth : Module {
 				oscillators[c/4].setRingmodPan(0.2f * modMatrixOutputs[OSC_RM_VOL_PARAM + nMixChannels - ENV1_A_PARAM][c/4]);
 
 				float_4 filterFrequency = simd::exp(filterLogBase * 0.1f * modMatrixOutputs[FILTER1_CUTOFF_PARAM - ENV1_A_PARAM][c/4]) * filterMinFreq;
-				filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * oversamplingRate * 0.18f));
+				filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * currentOversamplingRate * 0.18f));
 				filter1[c/4].setCutoffFrequencyAndResonance(
 						filterFrequency,
 						0.5f * modMatrixOutputs[FILTER1_RESONANCE_PARAM - ENV1_A_PARAM][c/4]);
 
 				filterFrequency = simd::exp(filterLogBase * 0.1f * modMatrixOutputs[FILTER2_CUTOFF_PARAM - ENV1_A_PARAM][c/4]) * filterMinFreq;
-								filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * oversamplingRate * 0.18f));
+								filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * currentOversamplingRate * 0.18f));
 				filter2[c/4].setCutoffFrequencyAndResonance(
 						filterFrequency,
 						0.5f * modMatrixOutputs[FILTER2_RESONANCE_PARAM - ENV1_A_PARAM][c/4]);
@@ -1037,13 +1039,13 @@ struct Synth : Module {
 		// process audio
 		//
 
-		float_4* bufferLR = decimator.getInputArray(oversamplingRate);
-		std::memset(bufferLR, 0, oversamplingRate * sizeof(float_4));
+		float_4* bufferLR = decimator.getInputArray(currentOversamplingRate);
+		std::memset(bufferLR, 0, currentOversamplingRate * sizeof(float_4));
 
 		for (int c = 0; c < channels; c += 4)
 		{
-			float_4 buffer1[oversamplingRate];
-			float_4 buffer2[oversamplingRate];
+			float_4 buffer1[currentOversamplingRate];
+			float_4 buffer2[currentOversamplingRate];
 
 			// oscillators
 			oscillators[c/4].processBandlimited(buffer1, buffer2);
@@ -1051,10 +1053,10 @@ struct Synth : Module {
 			// noise
 			float_4 noise = random::normal();
 			float_4 extIn = inputs[EXT_INPUT].getPolyVoltageSimd<float_4>(c);
-			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			for (size_t iSample = 0; iSample < currentOversamplingRate; iSample++)
 			{
-				buffer1[iSample] += extVol1[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/oversamplingRate);
-				buffer2[iSample] += extVol2[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/oversamplingRate);
+				buffer1[iSample] += extVol1[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/currentOversamplingRate);
+				buffer2[iSample] += extVol2[c/4] * crossfade(lastExtIn[c/4], extIn, (iSample + 1.f)/currentOversamplingRate);
 
 				buffer1[iSample] *= 2.f;
 				buffer2[iSample] *= 2.f;
@@ -1065,28 +1067,28 @@ struct Synth : Module {
 			lastExtIn[c/4] = extIn;
 
 			// process filter 1
-			dcBlocker1[c/4].processHighpassBlock(buffer1, oversamplingRate);
-			aliasFilter1[c/4].processLowpassBlock(buffer1, oversamplingRate);
-			filter1[c/4].processBlock(buffer1, args.sampleTime / oversamplingRate, oversamplingRate);
-			saturator1[c/4].processBlockBandlimited(buffer1, oversamplingRate);
+			dcBlocker1[c/4].processHighpassBlock(buffer1, currentOversamplingRate);
+			aliasFilter1[c/4].processLowpassBlock(buffer1, currentOversamplingRate);
+			filter1[c/4].processBlock(buffer1, args.sampleTime / currentOversamplingRate, currentOversamplingRate);
+			saturator1[c/4].processBlockBandlimited(buffer1, currentOversamplingRate);
 
 			// serial routing
 			float_4 serPar = clamp(0.2f * modMatrixOutputs[FILTER_SERIAL_PARALLEL_PARAM - ENV1_A_PARAM][c/4] - 1.f, -1.f, 1.f);
 			float_4 serial = 0.5f - 0.5f * serPar; // [1..0]
-			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			for (size_t iSample = 0; iSample < currentOversamplingRate; iSample++)
 			{
 				delayBuffer2[c/4][iSample] += serial * buffer1[iSample];
 			}
 
 			// process filter 2
-			dcBlocker2[c/4].processHighpassBlock(delayBuffer2[c/4], oversamplingRate);
-			aliasFilter2[c/4].processLowpassBlock(delayBuffer2[c/4], oversamplingRate);
-			filter2[c/4].processBlock(delayBuffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
-			saturator2[c/4].processBlockBandlimited(delayBuffer2[c/4], oversamplingRate);
+			dcBlocker2[c/4].processHighpassBlock(delayBuffer2[c/4], currentOversamplingRate);
+			aliasFilter2[c/4].processLowpassBlock(delayBuffer2[c/4], currentOversamplingRate);
+			filter2[c/4].processBlock(delayBuffer2[c/4], args.sampleTime / currentOversamplingRate, currentOversamplingRate);
+			saturator2[c/4].processBlockBandlimited(delayBuffer2[c/4], currentOversamplingRate);
 
 			// parallel routing
 			float_4 parallel = 0.5f + 0.5f * serPar; // [0..1]
-			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			for (size_t iSample = 0; iSample < currentOversamplingRate; iSample++)
 			{
 				buffer1[iSample] *= parallel;
 			}
@@ -1098,7 +1100,7 @@ struct Synth : Module {
 			float_4 vol1R = 1.f - vol1L;
 			float_4 vol2L = 0.5f - 0.5f * pan2;
 			float_4 vol2R = 1.f - vol2L;
-			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
+			for (size_t iSample = 0; iSample < currentOversamplingRate; iSample++)
 			{
 				// amp
 				delayBuffer1[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
@@ -1117,12 +1119,13 @@ struct Synth : Module {
 			// delay buffers to bring filter 1 and 2 in phase also with serial routing
 			std::memcpy(&delayBuffer1[c/4], &buffer1, sizeof(buffer1));
 			std::memcpy(&delayBuffer2[c/4], &buffer2, sizeof(buffer2));
+
+			// process stereo delay
+			// TODO
 		}
 
-
-
 		// downsampling
-		float_4 outLR = decimator.process(oversamplingRate);
+		float_4 outLR = decimator.process(currentOversamplingRate);
 
 		outputs[OUT_L_OUTPUT].setVoltage(outLR[0]);
 		outputs[OUT_R_OUTPUT].setVoltage(outLR[1]);
