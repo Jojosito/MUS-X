@@ -927,7 +927,10 @@ struct Synth : Module {
 					{
 						for (size_t iSource = 1; iSource < nSources; iSource++)
 						{
-							modMatrixOutputs[iDest][c/4] *= 0.1f * (10.f + modMatrix[iDest][iSource] * (modMatrixInputs[iSource][c/4] - 10.f));
+							float_4 mult = 0.1f * (10.f + modMatrix[iDest][iSource] * (modMatrixInputs[iSource][c/4] - sgn(modMatrix[iDest][iSource]) * 10.f));
+							mult -= (modMatrix[iDest][iSource] < 0.f) * modMatrix[iDest][iSource];
+							mult = clamp(mult, 0.f, 1.f);
+							modMatrixOutputs[iDest][c/4] *= mult;
 						}
 					}
 					else if (mustCalculateDestination[iDest])
