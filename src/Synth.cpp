@@ -234,7 +234,9 @@ struct Synth : Module {
 	musx::TOnePole<float_4> dcBlocker1[4];
 	musx::AliasReductionFilter<float_4> aliasFilter1[4];
 	musx::FilterBlock filter1[4];
+	float_4 delayBuffer1[4][maxOversamplingRate] = {0.f};
 
+	float_4 delayBuffer2[4][maxOversamplingRate] = {0.f};
 	musx::TOnePole<float_4> dcBlocker2[4];
 	musx::AliasReductionFilter<float_4> aliasFilter2[4];
 	musx::FilterBlock filter2[4];
@@ -1024,13 +1026,13 @@ struct Synth : Module {
 			float_4 serial = 0.5f - 0.5f * serPar; // [1..0]
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer2[c/4][iSample] += serial * buffer1[c/4][iSample];
+				delayBuffer2[c/4][iSample] += serial * buffer1[c/4][iSample];
 			}
 
 			// process filter 2
-			dcBlocker2[c/4].processHighpassBlock(buffer2[c/4], oversamplingRate);
-			aliasFilter2[c/4].processLowpassBlock(buffer2[c/4], oversamplingRate);
-			filter2[c/4].processBlock(buffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+			dcBlocker2[c/4].processHighpassBlock(delayBuffer2[c/4], oversamplingRate);
+			aliasFilter2[c/4].processLowpassBlock(delayBuffer2[c/4], oversamplingRate);
+			filter2[c/4].processBlock(delayBuffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
 
 			// parallel routing
 			float_4 parallel = 0.5f + 0.5f * serPar; // [0..1]
@@ -1042,18 +1044,22 @@ struct Synth : Module {
 			// amp
 			for (size_t iSample = 0; iSample < oversamplingRate; iSample++)
 			{
-				buffer1[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
-				buffer2[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+				delayBuffer1[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
+				delayBuffer2[c/4][iSample] *= 0.1f * modMatrixOutputs[AMP_VOL_PARAM - ENV1_A_PARAM][c/4];
 
 				// sum to stereo
 				for (int j = 0; j < std::min(channels - c, 4); j++)
 				{
-					bufferLR[iSample][0] += buffer1[c/4][iSample][j];
-					bufferLR[iSample][1] += buffer2[c/4][iSample][j];
+					bufferLR[iSample][0] += delayBuffer1[c/4][iSample][j];
+					bufferLR[iSample][1] += delayBuffer2[c/4][iSample][j];
 				}
 			}
-
 		}
+
+		// delay buffers to bring filter 1 and 2 in phase also with serial routing
+		std::memcpy(&delayBuffer1, &buffer1, sizeof(buffer1));
+		std::memcpy(&delayBuffer2, &buffer2, sizeof(buffer2));
+
 
 		// downsampling
 		float_4 outLR = decimator.process(oversamplingRate);
