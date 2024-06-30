@@ -188,6 +188,7 @@ struct Synth : Module {
 	// over/-undersampling
 	static const size_t maxOversamplingRate = 8;
 	size_t oversamplingRate = 8;
+	size_t sampleRate = 48000;
 
 	HalfBandDecimatorCascade<float_4> decimator;
 
@@ -230,7 +231,12 @@ struct Synth : Module {
 	const float filterBase = filterMaxFreq/filterMinFreq; // max freq/min freq
 	const float filterLogBase = std::log(filterBase);
 
+	musx::TOnePole<float_4> dcBlocker1[4];
+	musx::AliasReductionFilter<float_4> aliasFilter1[4];
 	musx::FilterBlock filter1[4];
+
+	musx::TOnePole<float_4> dcBlocker2[4];
+	musx::AliasReductionFilter<float_4> aliasFilter2[4];
 	musx::FilterBlock filter2[4];
 
 	Synth() {
@@ -273,6 +279,8 @@ struct Synth : Module {
 		configOutput(INDIVIDUAL_MOD_4_OUTPUT, "Indvidual modulation 4");
 		configOutput(OUT_L_OUTPUT, "Left/Mono");
 		configOutput(OUT_R_OUTPUT, "Right");
+
+		setOversamplingRate(oversamplingRate);
 
 		configureUi();
 
@@ -712,6 +720,31 @@ struct Synth : Module {
 		}
 	}
 
+	void onSampleRateChange(const SampleRateChangeEvent& e) override {
+		sampleRate = e.sampleRate;
+		for (int c = 0; c < 16; c += 4) {
+			oscillators[c/4].setSampleRate(sampleRate);
+		}
+		setOversamplingRate(oversamplingRate);
+	}
+
+	void setOversamplingRate(size_t arg)
+	{
+		oversamplingRate = arg;
+
+		for (int c = 0; c < 16; c += 4) {
+			oscillators[c/4].setOversamplingRate(oversamplingRate);
+
+			dcBlocker1[c/4].setCutoffFreq(20.f/sampleRate/oversamplingRate);
+			aliasFilter1[c/4].setCutoffFreq(18000.f/sampleRate/oversamplingRate);
+
+			dcBlocker2[c/4].setCutoffFreq(20.f/sampleRate/oversamplingRate);
+			aliasFilter2[c/4].setCutoffFreq(18000.f/sampleRate/oversamplingRate);
+
+			decimator.reset();
+		}
+	}
+
 	void onReset(const ResetEvent& e) override
 	{
 		activeSourceAssign = 0;
@@ -853,9 +886,6 @@ struct Synth : Module {
 				env1[c/4].setVelocityScaling(getParam(ENV1_VEL_PARAM).getValue());
 				env2[c/4].setVelocityScaling(getParam(ENV2_VEL_PARAM).getValue());
 
-				oscillators[c/4].setSampleRate(args.sampleRate);
-				oscillators[c/4].setOversamplingRate(oversamplingRate);
-
 				oscillators[c/4].setSync(getParam(OSC_SYNC_PARAM).getValue());
 
 				filter1[c/4].setMode(getParam(FILTER1_MODE_PARAM).getValue());
@@ -984,7 +1014,12 @@ struct Synth : Module {
 		{
 			oscillators[c/4].processBandlimited(buffer1[c/4], buffer2[c/4]);
 
+			dcBlocker1[c/4].processHighpassBlock(buffer1[c/4], oversamplingRate);
+			aliasFilter1[c/4].processLowpassBlock(buffer1[c/4], oversamplingRate);
 			filter1[c/4].processBlock(buffer1[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
+
+			dcBlocker2[c/4].processHighpassBlock(buffer2[c/4], oversamplingRate);
+			aliasFilter2[c/4].processLowpassBlock(buffer2[c/4], oversamplingRate);
 			filter2[c/4].processBlock(buffer2[c/4], args.sampleTime / oversamplingRate, oversamplingRate);
 
 			// amp
@@ -1040,6 +1075,8 @@ struct Synth : Module {
 		}
 		json_object_set_new(rootJ, "mixFilterBalances", mixFilterBalancesJ);
 
+		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
+
 		return rootJ;
 	}
 
@@ -1084,6 +1121,12 @@ struct Synth : Module {
 					mixFilterBalances[i] = json_real_value(entryJ);
 				}
 			}
+		}
+
+		json_t* oversamplingRateJ = json_object_get(rootJ, "oversamplingRate");
+		if (oversamplingRateJ)
+		{
+			setOversamplingRate(json_integer_value(oversamplingRateJ));
 		}
 
 		configureUi();
@@ -1221,14 +1264,14 @@ struct SynthWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-//		menu->addChild(createIndexSubmenuItem("Quality", {"draft", "ok", "good", "ultra"},
-//			[=]() {
-//				// TODO
-//			},
-//			[=](int mode) {
-//				// TODO
-//			}
-//		));
+		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x"},
+			[=]() {
+				return log2((int)module->oversamplingRate);
+			},
+			[=](int mode) {
+				module->setOversamplingRate((size_t)std::pow(2, mode));
+			}
+		));
 
 		// latch buttons
 	}

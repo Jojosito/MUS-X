@@ -52,6 +52,24 @@ struct TOnePole {
 		return tmp;
 	}
 
+	inline void processLowpassBlock(float_4* in, int oversamplingRate)
+	{
+		for (int i = 0; i < oversamplingRate; ++i)
+		{
+			process(in[i]);
+			in[i] = tmp;
+		}
+	}
+
+	inline void processHighpassBlock(float_4* in, int oversamplingRate)
+	{
+		for (int i = 0; i < oversamplingRate; ++i)
+		{
+			process(in[i]);
+			in[i] -= tmp;
+		}
+	}
+
 	T lowpass()
 	{
 		return tmp;
@@ -319,6 +337,14 @@ struct AliasReductionFilter
 	T processLowpass(T in)
 	{
 		return process(in);
+	}
+
+	void processLowpassBlock(T* in, int oversamplingRate)
+	{
+		for (int i = 0; i < oversamplingRate; ++i)
+		{
+			in[i] = processLowpass(in[i]);
+		}
 	}
 };
 
