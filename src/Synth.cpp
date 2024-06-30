@@ -186,13 +186,14 @@ struct Synth : Module {
 	ModuleWidget* widget = nullptr;
 
 	// over/-undersampling
-	static const size_t maxOversamplingRate = 8;
+	static const size_t maxOversamplingRate = 16;
 	size_t oversamplingRate = 8;
 	size_t sampleRate = 48000;
 
 	HalfBandDecimatorCascade<float_4> decimator;
 
 	dsp::ClockDivider uiDivider;
+	size_t modSampleRateReduction = 2;
 	dsp::ClockDivider modDivider;
 
 	// mod matrix
@@ -296,7 +297,7 @@ struct Synth : Module {
 		configureUi();
 
 		uiDivider.setDivision(64);
-		modDivider.setDivision(2);
+		modDivider.setDivision(modSampleRateReduction);
 	}
 
 	static const std::array<std::string, nSources>& getSourceLabels()
@@ -1025,6 +1026,7 @@ struct Synth : Module {
 						filterFrequency,
 						0.5f * modMatrixOutputs[FILTER1_RESONANCE_PARAM - ENV1_A_PARAM][c/4]);
 
+				// TODO cutoff mode
 				filterFrequency = simd::exp(filterLogBase * 0.1f * modMatrixOutputs[FILTER2_CUTOFF_PARAM - ENV1_A_PARAM][c/4]) * filterMinFreq;
 								filterFrequency  = simd::clamp(filterFrequency, filterMinFreq, simd::fmin(filterMaxFreq, args.sampleRate * currentOversamplingRate * 0.18f));
 				filter2[c/4].setCutoffFrequencyAndResonance(
@@ -1162,6 +1164,7 @@ struct Synth : Module {
 		json_object_set_new(rootJ, "mixFilterBalances", mixFilterBalancesJ);
 
 		json_object_set_new(rootJ, "oversamplingRate", json_integer(oversamplingRate));
+		json_object_set_new(rootJ, "modSampleRateReduction", json_integer(modSampleRateReduction));
 
 		return rootJ;
 	}
@@ -1213,6 +1216,13 @@ struct Synth : Module {
 		if (oversamplingRateJ)
 		{
 			setOversamplingRate(json_integer_value(oversamplingRateJ));
+		}
+
+		json_t* modSampleRateReductionJ = json_object_get(rootJ, "modSampleRateReduction");
+		if (modSampleRateReductionJ)
+		{
+			modSampleRateReduction = json_integer_value(modSampleRateReductionJ);
+			modDivider.setDivision(modSampleRateReduction);
 		}
 
 		configureUi();
@@ -1350,12 +1360,22 @@ struct SynthWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator);
 
-		menu->addChild(createIndexSubmenuItem("Oversampling rate", {"1x", "2x", "4x", "8x"},
+		menu->addChild(createIndexSubmenuItem("Audio oversampling rate", {"1x", "2x", "4x", "8x", "16x"},
 			[=]() {
 				return log2((int)module->oversamplingRate);
 			},
 			[=](int mode) {
 				module->setOversamplingRate((size_t)std::pow(2, mode));
+			}
+		));
+
+		menu->addChild(createIndexSubmenuItem("Modulation sample rate reduction", {"1x", "2x", "4x", "8x"},
+			[=]() {
+				return log2((int)module->modSampleRateReduction);
+			},
+			[=](int mode) {
+				module->modSampleRateReduction = std::pow(2, mode);
+				module->modDivider.setDivision(module->modSampleRateReduction);
 			}
 		));
 
